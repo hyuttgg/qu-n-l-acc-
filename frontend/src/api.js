@@ -1,9 +1,54 @@
 // Blox Fruits Account Manager — API Service
-const BASE_URL = "https://tr-tt-3.onrender.com";
+const BASE_URL = "http://127.0.0.1:8000"; // Assuming local dev or change to deployed URL
+
+let authToken = null;
+
+export const setAuthToken = (token) => {
+  authToken = token;
+};
+
+const getHeaders = () => {
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  return headers;
+};
+
+export async function login(username, password) {
+  const res = await fetch(`${BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Login failed");
+  return data;
+}
+
+export async function register(username, password) {
+  const res = await fetch(`${BASE_URL}/auth/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Registration failed");
+  return data;
+}
 
 export async function fetchStats() {
-  const res = await fetch(`${BASE_URL}/stats`);
-  if (!res.ok) throw new Error("Failed to fetch stats");
+  const res = await fetch(`${BASE_URL}/stats`, { headers: getHeaders() });
+  if (!res.ok) {
+    const err = await res.json().catch(()=>({}));
+    throw new Error(err.detail || "Failed to fetch stats");
+  }
   return res.json();
 }
 
@@ -15,20 +60,29 @@ export async function fetchAccounts(filters = {}) {
   if (filters.status) params.set("status", filters.status);
   params.set("limit", filters.limit || 100);
 
-  const res = await fetch(`${BASE_URL}/accounts?${params}`);
-  if (!res.ok) throw new Error("Failed to fetch accounts");
+  const res = await fetch(`${BASE_URL}/accounts?${params}`, { headers: getHeaders() });
+  if (!res.ok) {
+    const err = await res.json().catch(()=>({}));
+    throw new Error(err.detail || "Failed to fetch accounts");
+  }
   return res.json();
 }
 
 export async function fetchAccount(username) {
-  const res = await fetch(`${BASE_URL}/accounts/${username}`);
-  if (!res.ok) throw new Error("Account not found");
+  const res = await fetch(`${BASE_URL}/accounts/${username}`, { headers: getHeaders() });
+  if (!res.ok) {
+    const err = await res.json().catch(()=>({}));
+    throw new Error(err.detail || "Account not found");
+  }
   return res.json();
 }
 
 export async function fetchOnline() {
-  const res = await fetch(`${BASE_URL}/online`);
-  if (!res.ok) throw new Error("Failed to fetch online accounts");
+  const res = await fetch(`${BASE_URL}/online`, { headers: getHeaders() });
+  if (!res.ok) {
+    const err = await res.json().catch(()=>({}));
+    throw new Error(err.detail || "Failed to fetch online accounts");
+  }
   return res.json();
 }
 

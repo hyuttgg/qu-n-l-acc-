@@ -1,13 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { fetchStats, fetchAccounts, healthCheck } from "./api";
+import { AuthProvider, useAuth } from './context/AuthContext';
 import StatsGrid from "./components/StatsGrid";
 import AccountsTable from "./components/AccountsTable";
 import AccountDetail from "./components/AccountDetail";
 import TopCharts from "./components/TopCharts";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const POLL_INTERVAL = 5000; // 5 giây
 
-export default function App() {
+function Dashboard() {
+  const { logout, user } = useAuth();
   // Data state
   const [stats,    setStats]    = useState(null);
   const [accounts, setAccounts] = useState([]);
@@ -149,6 +155,16 @@ export default function App() {
             >
               🔄 Refresh
             </button>
+            <div style={{color: '#9ca3af', fontSize: '14px', marginLeft: '8px', borderLeft: '1px solid #374151', paddingLeft: '12px'}}>
+              Hi, {user?.username}
+            </div>
+            <button
+              className="btn btn-ghost"
+              onClick={logout}
+              style={{color: '#ef4444'}}
+            >
+              Logout
+            </button>
           </div>
         </header>
 
@@ -241,5 +257,27 @@ export default function App() {
         />
       )}
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route 
+            path="/" 
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }

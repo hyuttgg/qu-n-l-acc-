@@ -67,6 +67,29 @@ class AccountDocument(BaseModel):
 
 
 # ─────────────────────────────────────────────
+# Authentication Models
+# ─────────────────────────────────────────────
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class UserDocument(BaseModel):
+    username: str
+    hashed_password: str
+    role: str = "user"
+    created_at: datetime
+
+
+# ─────────────────────────────────────────────
 # Response helpers
 # ─────────────────────────────────────────────
 

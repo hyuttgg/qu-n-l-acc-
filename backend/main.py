@@ -15,14 +15,17 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 import config
-from models import AccountPayload, RelayResponse, AccountListResponse
+import auth
+from models import AccountPayload, RelayResponse, AccountListResponse, UserCreate, UserLogin, Token, UserDocument
 
 
 # ─────────────────────────────────────────────────────
@@ -44,6 +47,9 @@ async def lifespan(app: FastAPI):
     await db["accounts"].create_index("username", unique=True)
     await db["accounts"].create_index("user_id")
     await db["accounts"].create_index("last_seen")
+    
+    # Tạo index cho users
+    await db["users"].create_index("username", unique=True)
 
     print(f"[DB] Connected -> database: {config.MONGODB_DB}")
     yield
@@ -92,6 +98,67 @@ def check_rate_limit(username: str) -> bool:
 
     _rate_cache[username] = now
     return True
+
+
+# ─────────────────────────────────────────────────────
+# Auth Dependency & Endpoints
+# ─────────────────────────────────────────────────────
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    user = await db["users"].find_one({"username": username})
+    if user is None:
+        raise credentials_exception
+    return user
+
+@app.post("/auth/register")
+async def register(user: UserCreate):
+    # Kiểm tra xem user đã tồn tại chưa
+    existing_user = await db["users"].find_one({"username": user.username})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+        
+    hashed_password = auth.get_password_hash(user.password)
+    user_dict = {
+        "username": user.username,
+        "hashed_password": hashed_password,
+        "role": "user",
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    # Ở đây nếu muốn chỉ 1 admin, có thể đếm xem có user nào chưa, nếu có rồi thì chặn (tùy vào rule)
+    # Tạm thời cho đăng ký thoải mái.
+    await db["users"].insert_one(user_dict)
+    return {"message": "User registered successfully"}
+
+@app.post("/auth/login", response_model=Token)
+async def login(user: UserLogin):
+    db_user = await db["users"].find_one({"username": user.username})
+    if not db_user or not auth.verify_password(user.password, db_user["hashed_password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    access_token = auth.create_access_token(
+        data={"sub": user.username}
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 # ─────────────────────────────────────────────────────
@@ -203,6 +270,7 @@ async def get_accounts(
     status: str | None = None,
     limit: int = 100,
     skip: int = 0,
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Lấy danh sách tài khoản với filter tùy chọn.
@@ -260,7 +328,7 @@ async def get_accounts(
 # ─────────────────────────────────────────────────────
 
 @app.get("/accounts/{username}")
-async def get_account(username: str):
+async def get_account(username: str, current_user: dict = Depends(get_current_user)):
     doc = await db["accounts"].find_one({"username": username})
     if not doc:
         raise HTTPException(status_code=404, detail=f"Account '{username}' not found")
@@ -275,7 +343,7 @@ async def get_account(username: str):
 # ─────────────────────────────────────────────────────
 
 @app.get("/online")
-async def get_online():
+async def get_online(current_user: dict = Depends(get_current_user)):
     threshold = datetime.now(timezone.utc) - timedelta(
         seconds=config.OFFLINE_THRESHOLD_SECONDS
     )
@@ -296,7 +364,7 @@ async def get_online():
 # ─────────────────────────────────────────────────────
 
 @app.get("/stats")
-async def get_stats():
+async def get_stats(current_user: dict = Depends(get_current_user)):
     total = await db["accounts"].count_documents({})
 
     threshold = datetime.now(timezone.utc) - timedelta(
