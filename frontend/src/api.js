@@ -1,5 +1,5 @@
 // Blox Fruits Account Manager — API Service
-const BASE_URL = "http://127.0.0.1:8000"; // Assuming local dev or change to deployed URL
+const BASE_URL = import.meta.env.VITE_API_URL || "https://tr-tt-3.onrender.com";
 
 let authToken = null;
 
