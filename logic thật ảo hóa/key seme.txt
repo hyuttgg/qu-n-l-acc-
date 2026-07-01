@@ -1,0 +1,276 @@
+Được. Tôi sẽ bóc theo đúng flow của Luraph Obfuscator.
+
+## Layer 1 — Nhận diện VM Entry
+
+Entry chính:
+
+```lua
+U=function(I)
+```
+
+Đây là bootstrap.
+
+Flow:
+
+```text
+U()
+ ├─ S()        -> tạo runtime state
+ ├─ r()        -> init registers
+ ├─ y()        -> setup environment
+ ├─ UY()       -> load bitops
+ ├─ cY()       -> init helpers
+ ├─ tY()       -> attach readers
+ ├─ oY()       -> inject payload blob
+ ├─ pY()       -> build parser
+ ├─ nh()       -> decode constants
+ ├─ bh()       -> execute VM
+ └─ kh()       -> return final closure
+```
+
+Đây là skeleton tiêu chuẩn của Luraph VM.
+
+---
+
+# Layer 2 — Payload blob extraction
+
+Payload thật nằm ở:
+
+```lua
+N[36]([=[LPH:!!Lj.1"d/l9\E(l<7s...
+```
+
+Cấu trúc:
+
+```text
+LPH:
+Header
+Compressed block
+Encrypted bytecode
+Constants
+Instructions
+```
+
+`LPH:` = marker của Luraph.
+
+Tức là:
+
+```text
+Fake Lua
+↓
+LPH blob
+↓
+Decode
+↓
+Real bytecode
+↓
+VM chạy
+```
+
+---
+
+# Layer 3 — Reader functions
+
+Phát hiện:
+
+```lua
+readu8
+readu16
+readu32
+readf64
+readstring
+```
+
+mapping:
+
+| Function   | Ý nghĩa          |
+| ---------- | ---------------- |
+| readu8     | opcode           |
+| readu16    | register index   |
+| readu32    | jump offset      |
+| readf64    | constants number |
+| readstring | string pool      |
+
+Tức VM đang parse:
+
+```text
+[Opcode][A][B][C]
+[ConstTable]
+[StringTable]
+```
+
+---
+
+# Layer 4 — String decryptor
+
+Quan trọng:
+
+```lua
+_Y=function(I,N)
+```
+
+Đây là decoder varint.
+
+Flow:
+
+```lua
+y+=((l>127 and l-128 or l)*C)
+C*=128
+```
+
+=> giống protobuf varint.
+
+Dùng để đọc:
+
+* string length
+* instruction length
+* constants
+
+---
+
+# Layer 5 — Instruction decoder
+
+Quan trọng nhất:
+
+```lua
+g1=function(...)
+```
+
+Nó parse:
+
+```lua
+opcode
+A
+B
+C
+```
+
+logic:
+
+```lua
+B=((L-t)/8)
+y=d%8
+q=(d-y)/8
+```
+
+Tức instruction packing:
+
+```text
+[ opcode ][ mode ][ operands ]
+```
+
+---
+
+# Layer 6 — Executor
+
+VM executor:
+
+```lua
+e1=function(...)
+```
+
+Đây là nơi chạy opcode thật.
+
+Opcode map:
+
+| Opcode | Hành vi   |
+| ------ | --------- |
+| 0      | SUB       |
+| 3      | MOVE      |
+| 4      | GETGLOBAL |
+| 5      | ADD       |
+| 6      | SETTABLE  |
+
+Ví dụ:
+
+```lua
+if q==4 then
+```
+
+=> load global.
+
+```lua
+if q==3 then
+```
+
+=> move register.
+
+---
+
+# Payload thật đang bị encrypted
+
+Block:
+
+```lua
+LPH:!!Lj...
+```
+
+đã bị:
+
+1. custom base encoding
+2. compressed
+3. xor/rotate
+4. VM packed
+
+Muốn ra payload thật cần:
+
+```text
+Step 1: decode LPH blob
+Step 2: unpack constants
+Step 3: unpack instructions
+Step 4: rebuild proto
+Step 5: disassemble
+```
+
+---
+
+## Dấu hiệu quan trọng tôi thấy
+
+Trong bootstrap có:
+
+```lua
+coroutine.wrap
+coroutine.yield
+buffer
+string.unpack
+setfenv
+error
+pcall
+```
+
+=> anti-hook.
+
+Có:
+
+```lua
+bit32.bxor
+bit32.lrotate
+bit32.rrotate
+```
+
+=> cipher.
+
+Có:
+
+```lua
+readstring
+```
+
+=> payload có string table.
+
+Rất có thể bên trong sẽ có:
+
+* API URL
+* webhook
+* executor checks
+* HWID checks
+* key system
+* account logger
+
+---
+
+Kết luận hiện tại:
+
+Đã bóc được **VM skeleton**, nhưng payload thật vẫn nằm trong blob `LPH:`.
+
+Bước tiếp theo là **giải blob LPH thành bytecode thật**. Nếu bạn muốn đi tiếp, tôi sẽ làm phase 2:
+**extract constants + strings + URL/webhook/domain bên trong payload**. Đây là bước bắt đầu lộ logic thật.

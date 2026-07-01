@@ -1,0 +1,284 @@
+Dựa trên phần VM skeleton đã bóc, tôi có thể xác định **các vùng chứa constants, strings, URL, webhook, domain** như sau:
+
+---
+
+# 1. String pool location
+
+Payload blob được inject tại:
+
+```lua
+N[36]([=[LPH:!!Lj...
+```
+
+Sau đó parser đọc qua:
+
+```lua
+readstring
+readu8
+readu16
+readu32
+readf64
+```
+
+Flow:
+
+```text
+LPH blob
+ ↓
+Header parse
+ ↓
+Const table
+ ↓
+String table
+ ↓
+Instruction table
+```
+
+Vùng string pool thường được parse bởi:
+
+```lua
+_Y()   -> varint length
+readstring()
+```
+
+Dấu hiệu:
+
+```lua
+y+=((l>127 and l-128 or l)*C)
+C*=128
+```
+
+=> length-prefixed strings.
+
+---
+
+# 2. Constants extraction
+
+Trong VM:
+
+```lua
+nh() -> decode constants
+```
+
+Và:
+
+```lua
+readf64
+readu32
+```
+
+thường layout:
+
+```text
+CONST[0] = number
+CONST[1] = string index
+CONST[2] = function proto
+CONST[3] = boolean
+```
+
+Khả năng cao các hằng sẽ chứa:
+
+* URL API
+* webhook token
+* executor names
+* HWID salts
+
+---
+
+# 3. Network-related indicators
+
+Tôi chưa thấy trực tiếp:
+
+```lua
+HttpGet
+HttpPost
+request
+syn.request
+http_request
+WebSocket
+```
+
+Điều này cho thấy chúng đang nằm **bên trong encrypted payload**.
+
+Nhưng có các pattern đáng chú ý:
+
+```lua
+string.gsub
+string.match
+string.sub
+tostring
+error
+pcall
+```
+
+Pattern này rất hay dùng để:
+
+* build URL động
+* obfuscate domain
+* ghép webhook path
+
+Ví dụ:
+
+```lua
+"https://" .. domain .. "/api/" .. token
+```
+
+---
+
+# 4. Domain/Webhook hiding pattern
+
+Luraph thường giấu:
+
+```text
+discord.com/api/webhooks/...
+pastebin.com/raw/...
+githubusercontent.com/...
+```
+
+theo kiểu:
+
+```lua
+char(104,116,116,112,115)
+xor encoded bytes
+split fragments
+rotated strings
+```
+
+Trong file có:
+
+```lua
+string.char
+bit32.bxor
+bit32.lrotate
+bit32.rrotate
+```
+
+=> cực giống URL reconstruction.
+
+---
+
+# 5. Likely exfiltration flow
+
+Nếu payload là logger:
+
+```text
+Executor Start
+ ↓
+Get Player Data
+ ↓
+Get Inventory
+ ↓
+Get Beli/Level/Fruit
+ ↓
+Serialize JSON
+ ↓
+POST webhook/API
+```
+
+Nếu chạy trong Roblox trên môi trường ảo:
+
+```text
+Lua VM
+ ↓
+Executor request()
+ ↓
+Android virtual NIC
+ ↓
+UGPhone/VMOS network stack
+ ↓
+Remote API/Webhook
+```
+
+---
+
+# 6. What is already visible
+
+Từ bootstrap thấy:
+
+### Buffer parser
+
+```lua
+buffer
+string.unpack
+```
+
+=> binary unpack.
+
+---
+
+### Crypto ops
+
+```lua
+bit32.bxor
+bit32.lrotate
+bit32.rrotate
+```
+
+=> decrypt strings.
+
+---
+
+### Async ops
+
+```lua
+coroutine.wrap
+coroutine.yield
+```
+
+=> staged execution / anti-dump.
+
+---
+
+### Environment access
+
+```lua
+setfenv
+pcall
+error
+```
+
+=> hook globals like:
+
+```lua
+game
+workspace
+Players
+HttpService
+```
+
+---
+
+# Real answer
+
+Hiện tại:
+
+**Payload thật chưa giải mã**, nên chưa thể trích chính xác:
+
+* webhook URL
+* API domain
+* endpoint path
+* token
+* hidden constants
+
+Nhưng chắc chắn:
+
+```text
+LPH blob
+contains:
+✓ string table
+✓ const table
+✓ hidden globals
+✓ likely outbound endpoints
+```
+
+Bước tiếp theo để extract thật:
+
+```text
+1. Decode LPH alphabet
+2. Inflate/decompress
+3. Rebuild const table
+4. Dump string table
+5. Search http/https/discord/webhook/domain
+```
+
+Đó là bước cuối để lộ URL/webhook/domain thật.
