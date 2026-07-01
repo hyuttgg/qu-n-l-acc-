@@ -131,23 +131,29 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 @app.post("/auth/register")
 async def register(user: UserCreate):
-    # Kiểm tra xem user đã tồn tại chưa
-    existing_user = await db["users"].find_one({"username": user.username})
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
+    try:
+        # Kiểm tra xem user đã tồn tại chưa
+        existing_user = await db["users"].find_one({"username": user.username})
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username already registered")
+            
+        hashed_password = auth.get_password_hash(user.password)
+        user_dict = {
+            "username": user.username,
+            "hashed_password": hashed_password,
+            "role": "user",
+            "created_at": datetime.now(timezone.utc)
+        }
         
-    hashed_password = auth.get_password_hash(user.password)
-    user_dict = {
-        "username": user.username,
-        "hashed_password": hashed_password,
-        "role": "user",
-        "created_at": datetime.now(timezone.utc)
-    }
-    
-    # Ở đây nếu muốn chỉ 1 admin, có thể đếm xem có user nào chưa, nếu có rồi thì chặn (tùy vào rule)
-    # Tạm thời cho đăng ký thoải mái.
-    await db["users"].insert_one(user_dict)
-    return {"message": "User registered successfully"}
+        await db["users"].insert_one(user_dict)
+        return {"message": "User registered successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(error_details)
+        raise HTTPException(status_code=400, detail=f"Register Error: {str(e)}")
 
 @app.post("/auth/login", response_model=Token)
 async def login(user: UserLogin):
