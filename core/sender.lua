@@ -314,11 +314,17 @@ local function GetWeapons()
 
     for _, tool in pairs(GetAllTools()) do
         local name = tool.Name
-        if SWORDS[name] and sword == "None" then
+        -- Tool.ToolTip trên Roblox của Blox Fruits chứa loại vũ khí ("Sword", "Gun", "Melee")
+        local toolTip = ""
+        pcall(function()
+            toolTip = tool.ToolTip or ""
+        end)
+
+        if (SWORDS[name] or toolTip == "Sword") and sword == "None" then
             sword = name
-        elseif GUNS[name] and gun == "None" then
+        elseif (GUNS[name] or toolTip == "Gun") and gun == "None" then
             gun = name
-        elseif MELEES[name] and melee == "None" then
+        elseif (MELEES[name] or toolTip == "Melee") and melee == "None" then
             melee = name
         end
     end
@@ -346,12 +352,40 @@ local function IsAccessory(name)
     return false
 end
 
+-- ─────────────────────────────────────────────────────────────
+-- SERVER INVENTORY READER (Blox Fruits Remote)
+-- ─────────────────────────────────────────────────────────────
+
+local function GetServerInventory()
+    local remotes = SafeFind({"ReplicatedStorage", "Remotes", "CommF"})
+    if remotes and remotes:IsA("RemoteFunction") then
+        local success, result = pcall(function()
+            return remotes:InvokeServer("getInventory")
+        end)
+        if success and type(result) == "table" then
+            return result
+        end
+    end
+    return nil
+end
+
 local function GetInventory()
     local items = {}
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack then
-        for _, item in pairs(backpack:GetChildren()) do
-            table.insert(items, item.Name)
+    local rawInv = GetServerInventory()
+
+    if rawInv then
+        for _, item in ipairs(rawInv) do
+            if type(item) == "table" and item.Name then
+                table.insert(items, item.Name)
+            end
+        end
+    else
+        -- Fallback: Đọc từ Backpack
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                table.insert(items, item.Name)
+            end
         end
     end
     return items
@@ -359,11 +393,25 @@ end
 
 local function GetAccessories()
     local acc = {}
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack then
-        for _, item in pairs(backpack:GetChildren()) do
-            if IsAccessory(item.Name) then
-                table.insert(acc, item.Name)
+    local rawInv = GetServerInventory()
+
+    if rawInv then
+        for _, item in ipairs(rawInv) do
+            if type(item) == "table" and item.Name then
+                local t = item.Type
+                if t == "Accessory" or t == "Wear" or IsAccessory(item.Name) then
+                    table.insert(acc, item.Name)
+                end
+            end
+        end
+    else
+        -- Fallback: Đọc từ Backpack
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                if IsAccessory(item.Name) then
+                    table.insert(acc, item.Name)
+                end
             end
         end
     end
@@ -372,11 +420,24 @@ end
 
 local function GetMaterials()
     local mats = {}
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack then
-        for _, item in pairs(backpack:GetChildren()) do
-            local name = item.Name
-            mats[name] = (mats[name] or 0) + 1
+    local rawInv = GetServerInventory()
+
+    if rawInv then
+        for _, item in ipairs(rawInv) do
+            if type(item) == "table" and item.Name then
+                local t = item.Type
+                if t == "Material" or string.find(t or "", "Material") then
+                    mats[item.Name] = item.Count or item.Value or 1
+                end
+            end
+        end
+    else
+        -- Fallback: Đếm từ Backpack
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                mats[item.Name] = (mats[item.Name] or 0) + 1
+            end
         end
     end
     return mats
