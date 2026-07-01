@@ -461,6 +461,11 @@ function Sender:SendAll(statusStr)
     log(">> Sending to " .. #CONFIG.ENDPOINTS .. " endpoints (lv "
         .. payload.level .. ")")
 
+    -- Cập nhật thông số lên GUI trước khi gửi
+    if Sender.UpdateUI then
+        Sender:UpdateUI(payload)
+    end
+
     -- Gửi song song: mỗi endpoint chạy trong task riêng
     for _, endpoint in ipairs(CONFIG.ENDPOINTS) do
         local ep = endpoint  -- capture cho closure
@@ -468,6 +473,211 @@ function Sender:SendAll(statusStr)
             SendToEndpoint(ep, encoded, 0)
         end)
     end
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- IN-GAME GUI (Góc trái màn hình)
+-- ═══════════════════════════════════════════════════════════════
+
+local ScreenGui = nil
+local MainFrame = nil
+local StatusLabel = nil
+local LevelLabel = nil
+local MoneyLabel = nil
+local FruitLabel = nil
+local ToggleBtn = nil
+
+function Sender:CreateGUI()
+    -- Tránh tạo trùng lặp
+    local targetParent = nil
+    local success, _ = pcall(function()
+        targetParent = game:GetService("CoreGui")
+    end)
+    if not success or not targetParent then
+        targetParent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+
+    local existing = targetParent:FindFirstChild("BF_AccountManagerUI")
+    if existing then existing:Destroy() end
+
+    -- ScreenGui
+    ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "BF_AccountManagerUI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = targetParent
+
+    -- Nút Toggle (Thu nhỏ / Mở rộng) ở góc trái
+    ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Name = "ToggleButton"
+    ToggleBtn.Size = UDim2.new(0, 40, 0, 40)
+    ToggleBtn.Position = UDim2.new(0, 10, 0, 120) -- Đặt dưới menu mặc định của Roblox
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(22, 24, 33)
+    ToggleBtn.BorderSizePixel = 1
+    ToggleBtn.BorderColor3 = Color3.fromRGB(59, 130, 246)
+    ToggleBtn.TextColor3 = Color3.fromRGB(241, 245, 249)
+    ToggleBtn.Font = Enum.Font.SourceSansBold
+    ToggleBtn.TextSize = 18
+    ToggleBtn.Text = "🏴‍☠️"
+    ToggleBtn.Parent = ScreenGui
+
+    -- Bo góc nút toggle
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 8)
+    toggleCorner.Parent = ToggleBtn
+
+    -- Main Panel
+    MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Size = UDim2.new(0, 220, 0, 210)
+    MainFrame.Position = UDim2.new(0, 60, 0, 120)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(22, 24, 33)
+    MainFrame.BorderSizePixel = 1
+    MainFrame.BorderColor3 = Color3.fromRGB(59, 130, 246)
+    MainFrame.Visible = true
+    MainFrame.Parent = ScreenGui
+
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0, 10)
+    frameCorner.Parent = MainFrame
+
+    -- Header Title
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 30)
+    title.BackgroundColor3 = Color3.fromRGB(30, 34, 45)
+    title.TextColor3 = Color3.fromRGB(59, 130, 246)
+    title.Font = Enum.Font.SourceSansBold
+    title.TextSize = 14
+    title.Text = "  BLOX FRUITS MANAGER"
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = MainFrame
+
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 10)
+    titleCorner.Parent = title
+
+    -- Status Label
+    StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Size = UDim2.new(1, -20, 0, 25)
+    StatusLabel.Position = UDim2.new(0, 10, 0, 40)
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.TextColor3 = Color3.fromRGB(16, 185, 129)
+    StatusLabel.Font = Enum.Font.SourceSansBold
+    StatusLabel.TextSize = 13
+    StatusLabel.Text = "Status: Active"
+    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    StatusLabel.Parent = MainFrame
+
+    -- Level Label
+    LevelLabel = Instance.new("TextLabel")
+    LevelLabel.Size = UDim2.new(1, -20, 0, 25)
+    LevelLabel.Position = UDim2.new(0, 10, 0, 65)
+    LevelLabel.BackgroundTransparency = 1
+    LevelLabel.TextColor3 = Color3.fromRGB(241, 245, 249)
+    LevelLabel.Font = Enum.Font.SourceSans
+    LevelLabel.TextSize = 13
+    LevelLabel.Text = "Level: --"
+    LevelLabel.TextXAlignment = Enum.TextXAlignment.Left
+    LevelLabel.Parent = MainFrame
+
+    -- Money Label
+    MoneyLabel = Instance.new("TextLabel")
+    MoneyLabel.Size = UDim2.new(1, -20, 0, 25)
+    MoneyLabel.Position = UDim2.new(0, 10, 0, 90)
+    MoneyLabel.BackgroundTransparency = 1
+    MoneyLabel.TextColor3 = Color3.fromRGB(245, 158, 11)
+    MoneyLabel.Font = Enum.Font.SourceSans
+    MoneyLabel.TextSize = 13
+    MoneyLabel.Text = "Beli: -- | Frag: --"
+    MoneyLabel.TextXAlignment = Enum.TextXAlignment.Left
+    MoneyLabel.Parent = MainFrame
+
+    -- Fruit Label
+    FruitLabel = Instance.new("TextLabel")
+    FruitLabel.Size = UDim2.new(1, -20, 0, 25)
+    FruitLabel.Position = UDim2.new(0, 10, 0, 115)
+    FruitLabel.BackgroundTransparency = 1
+    FruitLabel.TextColor3 = Color3.fromRGB(139, 92, 246)
+    FruitLabel.Font = Enum.Font.SourceSans
+    FruitLabel.TextSize = 13
+    FruitLabel.Text = "Fruit: --"
+    FruitLabel.TextXAlignment = Enum.TextXAlignment.Left
+    FruitLabel.Parent = MainFrame
+
+    -- Force Send Button
+    local sendBtn = Instance.new("TextButton")
+    sendBtn.Size = UDim2.new(0, 95, 0, 30)
+    sendBtn.Position = UDim2.new(0, 10, 0, 150)
+    sendBtn.BackgroundColor3 = Color3.fromRGB(59, 130, 246)
+    sendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    sendBtn.Font = Enum.Font.SourceSansBold
+    sendBtn.TextSize = 12
+    sendBtn.Text = "Force Send"
+    sendBtn.Parent = MainFrame
+
+    local sendCorner = Instance.new("UICorner")
+    sendCorner.CornerRadius = UDim.new(0, 5)
+    sendCorner.Parent = sendBtn
+
+    -- Auto Send Toggle Button
+    local autoBtn = Instance.new("TextButton")
+    autoBtn.Size = UDim2.new(0, 95, 0, 30)
+    autoBtn.Position = UDim2.new(0, 115, 0, 150)
+    autoBtn.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
+    autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    autoBtn.Font = Enum.Font.SourceSansBold
+    autoBtn.TextSize = 12
+    autoBtn.Text = "Auto: ON"
+    autoBtn.Parent = MainFrame
+
+    local autoCorner = Instance.new("UICorner")
+    autoCorner.CornerRadius = UDim.new(0, 5)
+    autoCorner.Parent = autoBtn
+
+    -- ─── UI INTERACTIONS ───
+
+    -- Toggle ẩn/hiện bảng menu
+    ToggleBtn.MouseButton1Click:Connect(function()
+        MainFrame.Visible = not MainFrame.Visible
+        ToggleBtn.Text = MainFrame.Visible and "🏴‍☠️" or "☰"
+    end)
+
+    -- Force Send
+    sendBtn.MouseButton1Click:Connect(function()
+        sendBtn.Text = "Sending..."
+        sendBtn.Active = false
+        task.spawn(function()
+            Sender:SendAll("online")
+            task.wait(0.5)
+            sendBtn.Text = "Force Send"
+            sendBtn.Active = true
+        end)
+    end)
+
+    -- Toggle Auto Send
+    autoBtn.MouseButton1Click:Connect(function()
+        if Sender.Running then
+            Sender:Stop()
+            autoBtn.Text = "Auto: OFF"
+            autoBtn.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
+            StatusLabel.Text = "Status: Disabled"
+            StatusLabel.TextColor3 = Color3.fromRGB(239, 68, 68)
+        else
+            Sender:Start()
+            autoBtn.Text = "Auto: ON"
+            autoBtn.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
+            StatusLabel.Text = "Status: Active"
+            StatusLabel.TextColor3 = Color3.fromRGB(16, 185, 129)
+        end
+    end)
+end
+
+function Sender:UpdateUI(payload)
+    if not MainFrame then return end
+    pcall(function()
+        LevelLabel.Text = "Level: " .. tostring(payload.level)
+        MoneyLabel.Text = "Beli: " .. tostring(payload.beli) .. " | Frag: " .. tostring(payload.fragments)
+        FruitLabel.Text = "Fruit: " .. tostring(payload.fruit)
+    end)
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -487,6 +697,11 @@ function Sender:Start()
     end
     log("  Interval: " .. CONFIG.UPDATE_INTERVAL .. "s")
     log("==========================================")
+
+    -- Tạo GUI nếu chưa có
+    if not ScreenGui then
+        self:CreateGUI()
+    end
 
     -- Gửi lần đầu ngay lập tức
     task.spawn(function()
@@ -531,3 +746,4 @@ end
 -- ═══════════════════════════════════════════════════════════════
 
 Sender:Start()
+
