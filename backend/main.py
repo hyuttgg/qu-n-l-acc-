@@ -175,9 +175,14 @@ async def login(user: UserLogin):
 
 @app.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
+    api_key = current_user.get("api_key")
+    if not api_key:
+        import uuid
+        api_key = uuid.uuid4().hex
+        await db["users"].update_one({"_id": current_user["_id"]}, {"$set": {"api_key": api_key}})
     return {
         "username": current_user["username"],
-        "api_key": current_user.get("api_key", "")
+        "api_key": api_key
     }
 
 
