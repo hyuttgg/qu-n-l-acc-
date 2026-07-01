@@ -25,12 +25,13 @@ def obfuscate_lua():
         cleaned_lines.append(line)
     code = "\n".join(cleaned_lines)
 
-    # Thuật toán mã hóa: Dịch chuyển Byte (XOR với Key 137)
+    # Thuật toán mã hóa: Dịch chuyển Byte (Cộng Modulo 256)
     key = 137
     encrypted_bytes = []
-    for char in code:
-        # XOR char code với key và định dạng đúng 3 chữ số để tránh lỗi gộp ký tự trong Lua
-        val = ord(char) ^ key
+    code_bytes = code.encode("utf-8")
+    for byte in code_bytes:
+        # Cộng với key modulo 256 và định dạng đúng 3 chữ số để tránh lỗi gộp ký tự trong Lua
+        val = (byte + key) % 256
         encrypted_bytes.append(f"{val:03d}")
 
     # Chuyển đổi thành chuỗi dữ liệu trong Lua: \011\022\033...
@@ -51,7 +52,7 @@ local function _decrypt(cipher_str, k)
     local decrypted = {{}}
     for byte_str in string.gmatch(cipher_str, "%d+") do
         local b = tonumber(byte_str)
-        table.insert(decrypted, string.char(bit32.bxor(b, k)))
+        table.insert(decrypted, string.char((b - k) % 256))
     end
     return table.concat(decrypted)
 end
