@@ -24,42 +24,27 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from sqlalchemy.orm import Session
 
 import config
 import auth
-from models import AccountPayload, RelayResponse, AccountListResponse, UserCreate, UserLogin, Token, UserDocument
+from models import AccountPayload, RelayResponse, AccountListResponse, UserCreate, UserLogin, Token
+from database import get_db, init_db, User, Account
 
 
 # ─────────────────────────────────────────────────────
-# Khởi tạo MongoDB
+# Khởi tạo MySQL
 # ─────────────────────────────────────────────────────
-
-db: AsyncIOMotorDatabase | None = None
-_mongo_client: AsyncIOMotorClient | None = None
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global db, _mongo_client
-    print("[DB] Connecting to MongoDB Atlas...")
-    _mongo_client = AsyncIOMotorClient(config.MONGODB_URI)
-    db = _mongo_client[config.MONGODB_DB]
-
-    # Tạo index unique trên username
-    await db["accounts"].create_index("username", unique=True)
-    await db["accounts"].create_index("user_id")
-    await db["accounts"].create_index("last_seen")
-    
-    # Tạo index cho users
-    await db["users"].create_index("username", unique=True)
-
-    print(f"[DB] Connected -> database: {config.MONGODB_DB}")
+    print("[DB] Connecting to MySQL database and initializing tables...")
+    try:
+        init_db()
+        print("[DB] MySQL database initialized successfully.")
+    except Exception as e:
+        print(f"[DB] Error initializing MySQL database: {e}")
     yield
-
-    _mongo_client.close()
-    print("[DB] Connection closed")
 
 
 # ─────────────────────────────────────────────────────
@@ -69,14 +54,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Blox Fruits Account Manager API",
     version="1.0.0",
-    description="Relay server nhận data từ Lua Sender và lưu vào MongoDB",
+    description="Relay server nhận data từ Lua Sender và lưu vào MySQL",
     lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],   # Cho phép tất cả các nguồn truy cập
-    allow_credentials=False,  # JWT Token truyền qua Header nên không cần allow_credentials=True
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -110,7 +95,7 @@ def check_rate_limit(username: str) -> bool:
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -124,79 +109,100 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise credentials_exception
     
-    user = await db["users"].find_one({"username": username})
+    user = db.query(User).filter(User.username == username).first()
     if user is None:
         raise credentials_exception
     return user
 
+
 @app.post("/auth/register")
-async def register(user: UserCreate):
+def register(user: UserCreate, db: Session = Depends(get_db)):
     try:
         # Kiểm tra xem user đã tồn tại chưa
-        existing_user = await db["users"].find_one({"username": user.username})
+        existing_user = db.query(User).filter(User.username == user.username).first()
         if existing_user:
             raise HTTPException(status_code=400, detail="Username already registered")
             
         hashed_password = auth.get_password_hash(user.password)
         import uuid
         api_key = uuid.uuid4().hex
-        user_dict = {
-            "username": user.username,
-            "hashed_password": hashed_password,
-            "api_key": api_key,
-            "role": "user",
-            "created_at": datetime.now(timezone.utc)
-        }
         
-        await db["users"].insert_one(user_dict)
+        db_user = User(
+            username=user.username,
+            hashed_password=hashed_password,
+            api_key=api_key,
+            role="user"
+        )
+        db.add(db_user)
+        db.commit()
         return {"message": "User registered successfully"}
     except HTTPException:
         raise
     except Exception as e:
+        db.rollback()
         import traceback
         error_details = traceback.format_exc()
         print(error_details)
         raise HTTPException(status_code=400, detail=f"Register Error: {str(e)}")
 
+
 @app.post("/auth/login", response_model=Token)
-async def login(user: UserLogin):
-    db_user = await db["users"].find_one({"username": user.username})
-    if not db_user or not auth.verify_password(user.password, db_user["hashed_password"]):
+def login(user: UserLogin, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.username == user.username).first()
+    if not db_user or not auth.verify_password(user.password, db_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
         
-        access_token = auth.create_access_token(
+    access_token = auth.create_access_token(
         data={"sub": user.username}
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 @app.get("/auth/me")
-async def get_me(current_user: dict = Depends(get_current_user)):
-    api_key = current_user.get("api_key")
+def get_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    api_key = current_user.api_key
     if not api_key:
         import uuid
         api_key = uuid.uuid4().hex
-        await db["users"].update_one({"_id": current_user["_id"]}, {"$set": {"api_key": api_key}})
+        current_user.api_key = api_key
+        db.commit()
     return {
-        "username": current_user["username"],
+        "username": current_user.username,
         "api_key": api_key
     }
 
 
 # ─────────────────────────────────────────────────────
-# Helper: serialize MongoDB document → dict an toàn
+# Helper: serialize MySQL record → dict an toàn
 # ─────────────────────────────────────────────────────
 
-def serialize_doc(doc: dict) -> dict:
-    """Loại bỏ _id và format datetime sang ISO string."""
-    doc.pop("_id", None)
-    for k, v in doc.items():
-        if isinstance(v, datetime):
-            doc[k] = v.isoformat()
-    return doc
+def serialize_account(acc: Account) -> dict:
+    """Chuyển đổi SQLAlchemy Account sang dict an toàn cho JSON response."""
+    return {
+        "owner":        acc.owner,
+        "username":     acc.username,
+        "user_id":      acc.user_id,
+        "level":        acc.level,
+        "beli":         acc.beli,
+        "fragments":    acc.fragments,
+        "race":         acc.race,
+        "sea":          acc.sea,
+        "fruit":        acc.fruit,
+        "sword":        acc.sword,
+        "gun":          acc.gun,
+        "melee":        acc.melee,
+        "inventory":    acc.inventory,
+        "accessories":  acc.accessories,
+        "materials":    acc.materials,
+        "status":       acc.status,
+        "last_seen":    acc.last_seen.replace(tzinfo=timezone.utc).isoformat() if acc.last_seen else None,
+        "created_at":   acc.created_at.replace(tzinfo=timezone.utc).isoformat() if acc.created_at else None,
+        "updated_at":   acc.updated_at.replace(tzinfo=timezone.utc).isoformat() if acc.updated_at else None,
+    }
 
 
 def is_online(doc: dict) -> bool:
@@ -221,15 +227,15 @@ def is_online(doc: dict) -> bool:
 
 @app.post("/relay", response_model=RelayResponse)
 @app.post("/data", response_model=RelayResponse)
-async def relay(payload: AccountPayload, request: Request):
+def relay(payload: AccountPayload, db: Session = Depends(get_db)):
     # 1. Xác thực API Key
-    user = await db["users"].find_one({"api_key": payload.api_key})
+    user = db.query(User).filter(User.api_key == payload.api_key).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key"
         )
-    owner = user["username"]
+    owner = user.username
 
     # 2. Rate limit
     if not check_rate_limit(payload.username):
@@ -238,43 +244,57 @@ async def relay(payload: AccountPayload, request: Request):
             detail=f"Rate limit: tối đa 1 request / {config.RATE_LIMIT_SECONDS}s"
         )
 
-    # 3. Build document
-    now = datetime.now(timezone.utc)
+    # 3. Build & Upsert vào MySQL
+    now = datetime.utcnow()
 
-    update_doc = {
-        "$set": {
-            "owner":        owner,
-            "username":     payload.username,
-            "user_id":      payload.user_id,
-            "level":        payload.level,
-            "beli":         payload.beli,
-            "fragments":    payload.fragments,
-            "race":         payload.race,
-            "sea":          payload.sea,
-            "fruit":        payload.fruit,
-            "sword":        payload.sword,
-            "gun":          payload.gun,
-            "melee":        payload.melee,
-            "inventory":    payload.inventory,
-            "accessories":  payload.accessories,
-            "materials":    payload.materials,
-            "status":       payload.status,
-            "last_seen":    now,
-            "updated_at":   now,
-        },
-        "$setOnInsert": {
-            "created_at": now,
-        }
-    }
-
-    # 4. Upsert vào MongoDB
     try:
-        await db["accounts"].update_one(
-            {"username": payload.username},
-            update_doc,
-            upsert=True,
-        )
+        account = db.query(Account).filter(Account.username == payload.username).first()
+        if account:
+            # Update các trường thông tin tài khoản
+            account.owner = owner
+            account.user_id = payload.user_id
+            account.level = payload.level
+            account.beli = payload.beli
+            account.fragments = payload.fragments
+            account.race = payload.race
+            account.sea = payload.sea
+            account.fruit = payload.fruit
+            account.sword = payload.sword
+            account.gun = payload.gun
+            account.melee = payload.melee
+            account.inventory = payload.inventory
+            account.accessories = payload.accessories
+            account.materials = payload.materials
+            account.status = payload.status
+            account.last_seen = now
+            account.updated_at = now
+        else:
+            # Insert tài khoản mới
+            account = Account(
+                owner=owner,
+                username=payload.username,
+                user_id=payload.user_id,
+                level=payload.level,
+                beli=payload.beli,
+                fragments=payload.fragments,
+                race=payload.race,
+                sea=payload.sea,
+                fruit=payload.fruit,
+                sword=payload.sword,
+                gun=payload.gun,
+                melee=payload.melee,
+                inventory=payload.inventory,
+                accessories=payload.accessories,
+                materials=payload.materials,
+                status=payload.status,
+                last_seen=now,
+                created_at=now,
+                updated_at=now
+            )
+            db.add(account)
+        db.commit()
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"DB error: {str(e)}"
@@ -292,14 +312,15 @@ async def relay(payload: AccountPayload, request: Request):
 # ─────────────────────────────────────────────────────
 
 @app.get("/accounts")
-async def get_accounts(
+def get_accounts(
     sea: int | None = None,
     min_level: int | None = None,
     max_level: int | None = None,
     status: str | None = None,
     limit: int = 100,
     skip: int = 0,
-    current_user: dict = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     Lấy danh sách tài khoản với filter tùy chọn.
@@ -308,41 +329,40 @@ async def get_accounts(
     - status: "online" | "offline"
     - limit / skip: pagination
     """
-    query: dict = {"owner": current_user["username"]}
+    query = db.query(Account).filter(Account.owner == current_user.username)
 
     if sea is not None:
-        query["sea"] = sea
+        query = query.filter(Account.sea == sea)
 
-    if min_level is not None or max_level is not None:
-        level_filter: dict = {}
-        if min_level is not None:
-            level_filter["$gte"] = min_level
-        if max_level is not None:
-            level_filter["$lte"] = max_level
-        query["level"] = level_filter
+    if min_level is not None:
+        query = query.filter(Account.level >= min_level)
+        
+    if max_level is not None:
+        query = query.filter(Account.level <= max_level)
 
-    cursor = db["accounts"].find(query).sort("level", -1).skip(skip).limit(limit)
-    docs = await cursor.to_list(length=limit)
+    threshold = datetime.utcnow() - timedelta(seconds=config.OFFLINE_THRESHOLD_SECONDS)
+    
+    if status == "online":
+        query = query.filter(Account.last_seen >= threshold)
+    elif status == "offline":
+        query = query.filter((Account.last_seen < threshold) | (Account.last_seen.is_(None)))
 
-    # Serialize + đánh dấu online/offline realtime
+    total = query.count()
+    accounts = query.order_by(Account.level.desc()).offset(skip).limit(limit).all()
+
+    # Đếm số lượng online thực tế của user (không phân biệt filter status)
+    total_online_query = db.query(Account).filter(
+        Account.owner == current_user.username,
+        Account.last_seen >= threshold
+    )
+    online_count = total_online_query.count()
+
     results = []
-    online_count = 0
-    for doc in docs:
-        s = serialize_doc(doc)
+    for acc in accounts:
+        s = serialize_account(acc)
         online = is_online({"last_seen": s.get("last_seen")})
         s["is_online"] = online
-        if online:
-            online_count += 1
-
-        # Filter by status nếu có
-        if status == "online" and not online:
-            continue
-        if status == "offline" and online:
-            continue
-
         results.append(s)
-
-    total = await db["accounts"].count_documents(query)
 
     return {
         "total": total,
@@ -357,12 +377,12 @@ async def get_accounts(
 # ─────────────────────────────────────────────────────
 
 @app.get("/accounts/{username}")
-async def get_account(username: str, current_user: dict = Depends(get_current_user)):
-    doc = await db["accounts"].find_one({"username": username, "owner": current_user["username"]})
-    if not doc:
+def get_account(username: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    acc = db.query(Account).filter(Account.username == username, Account.owner == current_user.username).first()
+    if not acc:
         raise HTTPException(status_code=404, detail=f"Account '{username}' not found")
 
-    result = serialize_doc(doc)
+    result = serialize_account(acc)
     result["is_online"] = is_online({"last_seen": result.get("last_seen")})
     return result
 
@@ -372,16 +392,16 @@ async def get_account(username: str, current_user: dict = Depends(get_current_us
 # ─────────────────────────────────────────────────────
 
 @app.get("/online")
-async def get_online(current_user: dict = Depends(get_current_user)):
-    threshold = datetime.now(timezone.utc) - timedelta(
+def get_online(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    threshold = datetime.utcnow() - timedelta(
         seconds=config.OFFLINE_THRESHOLD_SECONDS
     )
-    cursor = db["accounts"].find(
-        {"owner": current_user["username"], "last_seen": {"$gte": threshold}}
-    ).sort("last_seen", -1)
+    accounts = db.query(Account).filter(
+        Account.owner == current_user.username,
+        Account.last_seen >= threshold
+    ).order_by(Account.last_seen.desc()).limit(500).all()
 
-    docs = await cursor.to_list(length=500)
-    results = [serialize_doc(doc) for doc in docs]
+    results = [serialize_account(acc) for acc in accounts]
     for r in results:
         r["is_online"] = True
 
@@ -393,52 +413,74 @@ async def get_online(current_user: dict = Depends(get_current_user)):
 # ─────────────────────────────────────────────────────
 
 @app.get("/stats")
-async def get_stats(current_user: dict = Depends(get_current_user)):
-    query = {"owner": current_user["username"]}
-    total = await db["accounts"].count_documents(query)
+def get_stats(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from sqlalchemy import func, cast, String
+    
+    owner_username = current_user.username
+    total = db.query(Account).filter(Account.owner == owner_username).count()
 
-    threshold = datetime.now(timezone.utc) - timedelta(
+    threshold = datetime.utcnow() - timedelta(
         seconds=config.OFFLINE_THRESHOLD_SECONDS
     )
-    online_count = await db["accounts"].count_documents(
-        {"owner": current_user["username"], "last_seen": {"$gte": threshold}}
-    )
+    online_count = db.query(Account).filter(
+        Account.owner == owner_username,
+        Account.last_seen >= threshold
+    ).count()
 
-    sea1 = await db["accounts"].count_documents({"owner": current_user["username"], "sea": 1})
-    sea2 = await db["accounts"].count_documents({"owner": current_user["username"], "sea": 2})
-    sea3 = await db["accounts"].count_documents({"owner": current_user["username"], "sea": 3})
+    sea1 = db.query(Account).filter(Account.owner == owner_username, Account.sea == 1).count()
+    sea2 = db.query(Account).filter(Account.owner == owner_username, Account.sea == 2).count()
+    sea3 = db.query(Account).filter(Account.owner == owner_username, Account.sea == 3).count()
 
     # Top fruit
-    pipeline = [
-        {"$match": query},
-        {"$group": {"_id": "$fruit", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-        {"$limit": 5},
-    ]
-    top_fruits_cursor = db["accounts"].aggregate(pipeline)
-    top_fruits = []
-    async for doc in top_fruits_cursor:
-        top_fruits.append({"fruit": doc["_id"], "count": doc["count"]})
+    top_fruits_query = db.query(
+        Account.fruit,
+        func.count(Account.fruit).label("count")
+    ).filter(
+        Account.owner == owner_username
+    ).group_by(
+        Account.fruit
+    ).order_by(
+        func.count(Account.fruit).desc()
+    ).limit(5).all()
+    
+    top_fruits = [{"fruit": item[0], "count": item[1]} for item in top_fruits_query]
 
     # Top race
-    race_pipeline = [
-        {"$match": query},
-        {"$group": {"_id": "$race", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-        {"$limit": 5},
-    ]
-    top_races = []
-    async for doc in db["accounts"].aggregate(race_pipeline):
-        top_races.append({"race": doc["_id"], "count": doc["count"]})
+    top_races_query = db.query(
+        Account.race,
+        func.count(Account.race).label("count")
+    ).filter(
+        Account.owner == owner_username
+    ).group_by(
+        Account.race
+    ).order_by(
+        func.count(Account.race).desc()
+    ).limit(5).all()
+    
+    top_races = [{"race": item[0], "count": item[1]} for item in top_races_query]
 
     # Avg level
-    avg_pipeline = [
-        {"$match": query},
-        {"$group": {"_id": None, "avg_level": {"$avg": "$level"}}}
-    ]
-    avg_doc = None
-    async for doc in db["accounts"].aggregate(avg_pipeline):
-        avg_doc = doc
+    avg_level = db.query(func.avg(Account.level)).filter(Account.owner == owner_username).scalar()
+    avg_level_val = round(float(avg_level), 1) if avg_level is not None else 0.0
+
+    # Farming Statistics (Calculated in Python to be database-independent)
+    accounts_all = db.query(Account).filter(Account.owner == owner_username).all()
+    
+    total_beli = sum(acc.beli for acc in accounts_all) if accounts_all else 0
+    total_fragments = sum(acc.fragments for acc in accounts_all) if accounts_all else 0
+    max_level_count = sum(1 for acc in accounts_all if acc.level >= 2550)
+
+    def has_item(acc, item_name):
+        if acc.melee == item_name or acc.sword == item_name or acc.gun == item_name:
+            return True
+        inv = acc.inventory
+        if isinstance(inv, list) and item_name in inv:
+            return True
+        return False
+
+    godhuman_count = sum(1 for acc in accounts_all if has_item(acc, "Godhuman"))
+    cdk_count = sum(1 for acc in accounts_all if has_item(acc, "Cursed Dual Katana"))
+    soul_guitar_count = sum(1 for acc in accounts_all if has_item(acc, "Soul Guitar"))
 
     return {
         "total_accounts": total,
@@ -447,8 +489,15 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
         "sea_breakdown": {"sea1": sea1, "sea2": sea2, "sea3": sea3},
         "top_fruits": top_fruits,
         "top_races": top_races,
-        "avg_level": round(avg_doc["avg_level"], 1) if avg_doc else 0,
+        "avg_level": avg_level_val,
+        "total_beli": int(total_beli),
+        "total_fragments": int(total_fragments),
+        "max_level_count": max_level_count,
+        "godhuman_count": godhuman_count,
+        "cdk_count": cdk_count,
+        "soul_guitar_count": soul_guitar_count,
     }
+
 
 
 # ─────────────────────────────────────────────────────
@@ -456,14 +505,14 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
 # ─────────────────────────────────────────────────────
 
 @app.get("/health")
-async def health():
+def health():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 from fastapi.responses import PlainTextResponse
 
 @app.get("/script", response_class=PlainTextResponse)
-async def get_script(key: str):
+def get_script(key: str):
     script_path = os.path.join(os.path.dirname(__file__), "..", "core", "sender_obfuscated.lua")
     if not os.path.exists(script_path):
         script_path = os.path.join(os.path.dirname(__file__), "..", "core", "sender.lua")
@@ -479,6 +528,7 @@ async def get_script(key: str):
 # ─────────────────────────────────────────────────────
 # Entry point
 # ─────────────────────────────────────────────────────
+
 
 if __name__ == "__main__":
     import uvicorn

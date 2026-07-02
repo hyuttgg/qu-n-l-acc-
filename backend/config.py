@@ -6,6 +6,13 @@ load_dotenv()
 MONGODB_URI: str = os.getenv("MONGODB_URI", "")
 MONGODB_DB: str = os.getenv("MONGODB_DB", "bloxfruits_manager")
 
+# MySQL Configuration
+MYSQL_HOST: str = os.getenv("MYSQL_HOST", "localhost")
+MYSQL_PORT: int = int(os.getenv("MYSQL_PORT", "3306"))
+MYSQL_USER: str = os.getenv("MYSQL_USER", "root")
+MYSQL_PASSWORD: str = os.getenv("MYSQL_PASSWORD", "")
+MYSQL_DATABASE: str = os.getenv("MYSQL_DATABASE", "bloxfruits_manager")
+
 # API Keys — comma-separated trong .env
 _raw_keys = os.getenv("API_KEYS", "BF_SECRET_2024")
 API_KEYS: set[str] = set(k.strip() for k in _raw_keys.split(",") if k.strip())
