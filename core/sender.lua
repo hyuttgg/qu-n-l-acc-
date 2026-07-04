@@ -1,810 +1,692 @@
---[[
-    ╔══════════════════════════════════════════════════════════════╗
-    ║          Blox Fruits Account Manager — Lua Sender           ║
-    ║          Compatible: Delta, Hydrogen, Fluxus, KRNL,         ║
-    ║                      Arceus X, UGPhone, VMOS, VSPhone       ║
-    ╚══════════════════════════════════════════════════════════════╝
+-- ==========================================================
+-- OceanForge Manager — Roblox Lua Client (GUI Edition)
+-- Themed deep-sea navy, gold glows, and premium stats panel
+-- ==========================================================
 
-    Chức năng:
-      ✓ Đọc Level, Beli, Fragments, Race realtime
-      ✓ Đọc Sea (tự tính từ level)
-      ✓ Đọc Fruit, Sword, Gun, Melee hiện đang hold
-      ✓ Đọc toàn bộ Inventory (Backpack)
-      ✓ Đọc Accessories (Helm, Cape, Scarf)
-      ✓ Đọc Materials (đếm số lượng)
-      ✓ Gửi JSON về FastAPI relay
-      ✓ API Key authentication
-      ✓ Anti-spam (5 giây / lần)
-      ✓ Auto retry tối đa 3 lần nếu lỗi
-      ✓ Heartbeat online / offline
-      ✓ Tự detect executor (syn.request / http_request / request)
-]]
+-- Configuration
+_G.ApiKey = "" -- Optionally paste your API key here (or enter it in the ingame GUI)
+_G.ServerUrl = "http://localhost:5000" -- Change to your hosted backend URL if deployed
+_G.HeartbeatInterval = 15 -- Heartbeat in seconds
 
--- ═══════════════════════════════════════════════════════════════
--- CONFIG — Thay đổi tại đây
--- ═══════════════════════════════════════════════════════════════
+-- Services
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
 
-local CONFIG = {
-    API_KEY         = _G.BF_API_KEY or "___REPLACE_ME___",   -- Nhận key từ server hoặc fallback
-    UPDATE_INTERVAL = 5,                   -- Giây giữa mỗi lần gửi
-    RETRY_LIMIT     = 3,                   -- Số lần retry mỗi endpoint nếu lỗi
-    RETRY_DELAY     = 2,                   -- Giây chờ trước khi retry
-    TIMEOUT         = 10,                  -- Timeout mỗi request
-    DEBUG           = true,                -- In log ra console
-
-    -- ─────────────────────────────────────────────────────────
-    -- ENDPOINTS — Gửi song song đến tất cả server trong list
-    -- ─────────────────────────────────────────────────────────
-    ENDPOINTS = {
-        {
-            name = "Render Backend (Japan/HK)",
-            url  = "https://tr-tt-5.onrender.com/data",
-        },
-    },
-}
-
--- ═══════════════════════════════════════════════════════════════
--- SERVICES
--- ═══════════════════════════════════════════════════════════════
-
-local HttpService  = game:GetService("HttpService")
-local Players      = game:GetService("Players")
-local RunService   = game:GetService("RunService")
-local LocalPlayer  = Players.LocalPlayer
-
--- ═══════════════════════════════════════════════════════════════
--- UTILS
--- ═══════════════════════════════════════════════════════════════
-
-local function log(msg)
-    if CONFIG.DEBUG then
-        print("[BF-SENDER] " .. tostring(msg))
-    end
-end
-
-local function warn_log(msg)
-    warn("[BF-SENDER] " .. tostring(msg))
-end
-
--- Safe traverse path trong game hierarchy
--- Ví dụ: SafeFind({"Players", "TestUser", "Data", "Level"})
-local function SafeFind(path)
-    local current = game
-    for _, v in ipairs(path) do
-        local child = current:FindFirstChild(v)
-        if child then
-            current = child
-        else
-            return nil
-        end
-    end
-    return current
-end
-
--- Safe get .Value từ node
-local function SafeValue(path, default)
-    local node = SafeFind(path)
-    if node and node.Value ~= nil then
-        return node.Value
-    end
-    return default
-end
-
--- ═══════════════════════════════════════════════════════════════
--- HTTP SENDER — tự detect executor
--- ═══════════════════════════════════════════════════════════════
-
-local function HttpPost(url, body)
-    -- Thử syn.request (Synapse / Hydrogen / Delta)
-    if syn and syn.request then
-        local res = syn.request({
-            Url     = url,
-            Method  = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json",
-            },
-            Body = body,
-        })
-        return res.Success or (res.StatusCode and res.StatusCode < 400), res.Body or ""
-    end
-
-    -- Thử http_request (Fluxus / Arceus X)
-    if http_request then
-        local res = http_request({
-            Url     = url,
-            Method  = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json",
-            },
-            Body = body,
-        })
-        return res.Success or (res.StatusCode and res.StatusCode < 400), res.Body or ""
-    end
-
-    -- Thử request (KRNL)
-    if request then
-        local res = request({
-            Url     = url,
-            Method  = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json",
-            },
-            Body = body,
-        })
-        return res.Success or (res.StatusCode and res.StatusCode < 400), res.Body or ""
-    end
-
-    -- Fallback: HttpService (chỉ hoạt động nếu HttpService được bật trong game)
-    local ok, result = pcall(function()
-        return HttpService:PostAsync(url, body, Enum.HttpContentType.ApplicationJson)
-    end)
-    return ok, result or ""
-end
-
--- ═══════════════════════════════════════════════════════════════
--- PLAYER DATA READERS
--- ═══════════════════════════════════════════════════════════════
-
-local function GetLevel()
-    return SafeValue({"Players", LocalPlayer.Name, "Data", "Level"}, 0)
-end
-
-local function GetBeli()
-    return SafeValue({"Players", LocalPlayer.Name, "Data", "Beli"}, 0)
-end
-
-local function GetFragments()
-    return SafeValue({"Players", LocalPlayer.Name, "Data", "Fragments"}, 0)
-end
-
-local function GetRace()
-    return SafeValue({"Players", LocalPlayer.Name, "Data", "Race"}, "Unknown")
-end
-
--- Sea = tính từ level
-local function GetSea()
-    local lv = GetLevel()
-    if lv < 700 then
+-- Determine Current Sea based on Roblox Place ID
+local function getSea()
+    local placeId = game.PlaceId
+    if placeId == 2753915549 then
         return 1
-    elseif lv < 1500 then
+    elseif placeId == 4442272183 then
         return 2
-    else
+    elseif placeId == 7449423635 then
         return 3
+    else
+        return 1 -- Default fallback
     end
 end
 
--- ═══════════════════════════════════════════════════════════════
--- EQUIPMENT READERS
--- ═══════════════════════════════════════════════════════════════
-
--- Danh sách weapon theo category
-local SWORDS = {
-    ["Cursed Dual Katana"] = true,
-    ["Shark Anchor"]       = true,
-    ["Yama"]               = true,
-    ["Tushita"]            = true,
-    ["Dual Headed Blade"]  = true,
-    ["Dark Blade"]         = true,
-    ["Dragon Trident"]     = true,
-    ["Saber"]              = true,
-    ["Saddi"]              = true,
-    ["Shisui"]             = true,
-    ["Wando"]              = true,
-    ["Pole (1st Form)"]    = true,
-    ["Pole (2nd Form)"]    = true,
-    ["True Triple Katana"] = true,
-    ["Triple Katana"]      = true,
-    ["Midnight Blade"]     = true,
-    ["Gravity Cane"]       = true,
-    ["Buddy Sword"]        = true,
-    ["Bisento"]            = true,
-    ["Bisento V2"]         = true,
-    ["Canvander"]          = true,
-    ["Dark Dagger"]        = true,
-    ["Rengoku"]            = true,
-    ["Sharkman Karate"]    = true,
-    ["Hallow Scythe"]      = true,
-    ["Iceberg Rapier"]     = true,
-    ["Longsword"]          = true,
-    ["Soul Cane"]          = true,
-    ["Trident"]            = true,
-}
-
-local GUNS = {
-    ["Soul Guitar"]    = true,
-    ["Kabucha"]        = true,
-    ["Serpent Bow"]    = true,
-    ["Flintlock"]      = true,
-    ["Musket"]         = true,
-    ["Refined Slingshot"] = true,
-    ["Slingshot"]      = true,
-    ["Double Gun"]     = true,
-    ["Cannon"]         = true,
-    ["Bazooka"]        = true,
-    ["Acidum Rifle"]   = true,
-    ["Ice Spear"]      = true,
-    ["Bizarre Rifle"]  = true,
-}
-
-local MELEES = {
-    ["Godhuman"]       = true,
-    ["Sanguine Art"]   = true,
-    ["Superhuman"]     = true,
-    ["Death Step"]     = true,
-    ["Electric Claw"]  = true,
-    ["Dark Step"]      = true,
-    ["Combat"]         = true,
-    ["Water Kung Fu"]  = true,
-    ["Dragon Breath"]  = true,
-    ["Sharkman Karate"] = true,
-    ["Fishman Karate"] = true,
-    ["Black Leg"]      = true,
-}
-
-local FRUITS = {
-    -- Mythical
-    ["Leopard Fruit"] = true, ["Dragon Fruit"] = true,
-    -- Legendary
-    ["Dough Fruit"] = true, ["Soul Fruit"] = true,
-    ["Venom Fruit"] = true, ["Control Fruit"] = true,
-    ["Spirit Fruit"] = true, ["Mammoth Fruit"] = true,
-    ["T-Rex Fruit"] = true, ["Kitsune Fruit"] = true,
-    -- Rare
-    ["Quake Fruit"] = true, ["Blizzard Fruit"] = true,
-    ["Gravity Fruit"] = true, ["Portal Fruit"] = true,
-    ["Phoenix Fruit"] = true, ["Rumble Fruit"] = true,
-    ["Pain Fruit"] = true, ["Magma Fruit"] = true,
-    -- Common (thêm nếu cần)
-    ["Flame Fruit"] = true, ["Ice Fruit"] = true,
-    ["Smoke Fruit"] = true, ["Shadow Fruit"] = true,
-    ["Light Fruit"] = true, ["Dark Fruit"] = true,
-}
-
--- Đọc tool đang hold trên tay character
-local function GetHeldTool()
+-- Determine Current Island based on character position
+local function getIslandName()
     local char = LocalPlayer.Character
-    if not char then return nil end
-    return char:FindFirstChildOfClass("Tool")
-end
-
--- Đọc tất cả tool trong Backpack + tay
-local function GetAllTools()
-    local tools = {}
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack then
-        for _, item in pairs(backpack:GetChildren()) do
-            if item:IsA("Tool") then
-                table.insert(tools, item)
-            end
-        end
+    if not char or not char:FindFirstChild("HumanoidRootPart") then
+        return "Unknown"
     end
-    local heldTool = GetHeldTool()
-    if heldTool then
-        table.insert(tools, heldTool)
-    end
-    return tools
-end
-
-local function GetCurrentFruit()
-    -- Ưu tiên tool đang cầm
-    local held = GetHeldTool()
-    if held then
-        local name = held.Name
-        if FRUITS[name] then return name end
-        if string.find(name, "Fruit") then return name end
-    end
-
-    -- Tìm trong backpack
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack then
-        for _, item in pairs(backpack:GetChildren()) do
-            if FRUITS[item.Name] or string.find(item.Name, "Fruit") then
-                return item.Name
-            end
-        end
-    end
-
-    return "None"
-end
-
-local function GetWeapons()
-    local sword = "None"
-    local gun   = "None"
-    local melee = "None"
-
-    for _, tool in pairs(GetAllTools()) do
-        local name = tool.Name
-        -- Tool.ToolTip trên Roblox của Blox Fruits chứa loại vũ khí ("Sword", "Gun", "Melee")
-        local toolTip = ""
-        pcall(function()
-            toolTip = tool.ToolTip or ""
-        end)
-
-        if (SWORDS[name] or toolTip == "Sword") and sword == "None" then
-            sword = name
-        elseif (GUNS[name] or toolTip == "Gun") and gun == "None" then
-            gun = name
-        elseif (MELEES[name] or toolTip == "Melee") and melee == "None" then
-            melee = name
-        end
-    end
-
-    return sword, gun, melee
-end
-
--- ═══════════════════════════════════════════════════════════════
--- INVENTORY READERS
--- ═══════════════════════════════════════════════════════════════
-
-local ACCESSORY_KEYWORDS = {
-    "Helm", "Cape", "Scarf", "Hat", "Coat",
-    "Helmet", "Cloak", "Mask", "Bandana",
-    "Crown", "Glasses", "Horns", "Wings",
-    "Coat", "Jacket", "Armor",
-}
-
-local function IsAccessory(name)
-    for _, kw in ipairs(ACCESSORY_KEYWORDS) do
-        if string.find(name, kw, 1, true) then
-            return true
-        end
-    end
-    return false
-end
-
--- ─────────────────────────────────────────────────────────────
--- SERVER INVENTORY READER (Blox Fruits Remote)
--- ─────────────────────────────────────────────────────────────
-
-local function GetServerInventory()
-    local remotes = SafeFind({"ReplicatedStorage", "Remotes", "CommF"})
-    if remotes and remotes:IsA("RemoteFunction") then
-        local success, result = pcall(function()
-            return remotes:InvokeServer("getInventory")
-        end)
-        if success and type(result) == "table" then
-            return result
-        end
-    end
-    return nil
-end
-
-local function GetInventory()
-    local items = {}
-    local rawInv = GetServerInventory()
-
-    if rawInv then
-        for _, item in ipairs(rawInv) do
-            if type(item) == "table" and item.Name then
-                table.insert(items, item.Name)
-            end
-        end
-    else
-        -- Fallback: Đọc từ Backpack
-        local backpack = LocalPlayer:FindFirstChild("Backpack")
-        if backpack then
-            for _, item in pairs(backpack:GetChildren()) do
-                table.insert(items, item.Name)
-            end
-        end
-    end
-    return items
-end
-
-local function GetAccessories()
-    local acc = {}
-    local rawInv = GetServerInventory()
-
-    if rawInv then
-        for _, item in ipairs(rawInv) do
-            if type(item) == "table" and item.Name then
-                local t = item.Type
-                if t == "Accessory" or t == "Wear" or IsAccessory(item.Name) then
-                    table.insert(acc, item.Name)
-                end
-            end
-        end
-    else
-        -- Fallback: Đọc từ Backpack
-        local backpack = LocalPlayer:FindFirstChild("Backpack")
-        if backpack then
-            for _, item in pairs(backpack:GetChildren()) do
-                if IsAccessory(item.Name) then
-                    table.insert(acc, item.Name)
+    
+    local pos = char.HumanoidRootPart.Position
+    local worldOrigin = workspace:FindFirstChild("Map") or workspace
+    local closestDistance = math.huge
+    local closestIslandName = "Unknown Island"
+    
+    for _, island in ipairs(worldOrigin:GetChildren()) do
+        if island:IsA("Model") or island:IsA("Folder") then
+            local center = island:FindFirstChildOfClass("Part")
+            if center then
+                local dist = (pos - center.Position).Magnitude
+                if dist < closestDistance then
+                    closestDistance = dist
+                    closestIslandName = island.Name
                 end
             end
         end
     end
-    return acc
+    
+    return closestIslandName
 end
 
-local function GetMaterials()
-    local mats = {}
-    local rawInv = GetServerInventory()
-
-    if rawInv then
-        for _, item in ipairs(rawInv) do
-            if type(item) == "table" and item.Name then
-                local t = item.Type
-                if t == "Material" or string.find(t or "", "Material") then
-                    mats[item.Name] = item.Count or item.Value or 1
-                end
-            end
-        end
-    else
-        -- Fallback: Đếm từ Backpack
-        local backpack = LocalPlayer:FindFirstChild("Backpack")
-        if backpack then
-            for _, item in pairs(backpack:GetChildren()) do
-                mats[item.Name] = (mats[item.Name] or 0) + 1
-            end
-        end
-    end
-    return mats
-end
-
--- ═══════════════════════════════════════════════════════════════
--- PAYLOAD BUILDER
--- ═══════════════════════════════════════════════════════════════
-
-local function BuildPayload(statusStr)
-    local sword, gun, melee = GetWeapons()
-
-    return {
-        api_key      = CONFIG.API_KEY,
-        username     = LocalPlayer.Name,
-        user_id      = LocalPlayer.UserId,
-        level        = GetLevel(),
-        beli         = GetBeli(),
-        fragments    = GetFragments(),
-        race         = GetRace(),
-        sea          = GetSea(),
-        fruit        = GetCurrentFruit(),
-        sword        = sword,
-        gun          = gun,
-        melee        = melee,
-        inventory    = GetInventory(),
-        accessories  = GetAccessories(),
-        materials    = GetMaterials(),
-        status       = statusStr or "online",
-        timestamp    = os.time(),
+-- Scan Character Inventory, Backpack, and Equipment details
+local function scanInventory()
+    local inventory = {
+        fruits = {},
+        swords = {},
+        guns = {},
+        styles = {},
+        materials = {},
+        accessories = {}
     }
-end
-
--- ═══════════════════════════════════════════════════════════════
--- SENDER CORE
--- ═══════════════════════════════════════════════════════════════
-
-local Sender = {
-    Running = false,
-}
-
--- ─────────────────────────────────────────────────────────────
--- Gửi đến 1 endpoint cụ thể, có retry riêng
--- ─────────────────────────────────────────────────────────────
-local function SendToEndpoint(endpoint, encoded, retryCount)
-    retryCount = retryCount or 0
-
-    local ok, response = pcall(function()
-        local s, r = HttpPost(endpoint.url, encoded)
-        return s
-    end)
-
-    if ok and response then
-        log("[" .. endpoint.name .. "] OK")
-    else
-        if retryCount < CONFIG.RETRY_LIMIT then
-            warn_log("[" .. endpoint.name .. "] Failed — retry " .. (retryCount + 1)
-                     .. "/" .. CONFIG.RETRY_LIMIT)
-            task.wait(CONFIG.RETRY_DELAY)
-            SendToEndpoint(endpoint, encoded, retryCount + 1)
-        else
-            warn_log("[" .. endpoint.name .. "] Max retry reached, skip")
+    
+    local function parseItem(item)
+        if item:IsA("Tool") then
+            local toolType = item:GetAttribute("Type") or ""
+            local name = item.Name
+            
+            if name:find("Fruit") then
+                table.insert(inventory.fruits, name)
+            elseif toolType == "Sword" or name:find("Katana") or name:find("Blade") or name:find("Scythe") or name:find("Trident") or name:find("Saber") or name:find("Anchor") then
+                table.insert(inventory.swords, name)
+            elseif toolType == "Gun" or name:find("Guitar") or name:find("Rifle") or name:find("Revolver") or name:find("Slingshot") or name:find("Bow") then
+                table.insert(inventory.guns, name)
+            end
         end
     end
+
+    -- Check Backpack
+    for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
+        parseItem(item)
+    end
+    
+    -- Check currently equipped item in Character
+    if LocalPlayer.Character then
+        for _, item in ipairs(LocalPlayer.Character:GetChildren()) do
+            parseItem(item)
+        end
+    end
+
+    -- Scan Stored Materials
+    local dataFolder = LocalPlayer:FindFirstChild("Data")
+    if dataFolder then
+        local inventoryFolder = dataFolder:FindFirstChild("Inventory") or dataFolder:FindFirstChild("Materials")
+        if inventoryFolder then
+            for _, mat in ipairs(inventoryFolder:GetChildren()) do
+                if mat:IsA("NumberValue") or mat:IsA("IntValue") then
+                    if mat.Value > 0 then
+                        table.insert(inventory.materials, {
+                            name = mat.Name,
+                            quantity = mat.Value
+                        })
+                    end
+                end
+            end
+        end
+    end
+
+    return inventory
 end
 
--- ─────────────────────────────────────────────────────────────
--- Encode payload và gửi song song đến TẤT CẢ endpoints
--- ─────────────────────────────────────────────────────────────
-function Sender:SendAll(statusStr)
-    local payload = BuildPayload(statusStr)
+-- Scan Equipped items
+local function getEquippedDetails(inv)
+    local details = {
+        fruit = "None",
+        fruitMastery = 0,
+        sword = "None",
+        gun = "None",
+        fightingStyle = "Combat"
+    }
 
-    local ok, encoded = pcall(function()
-        return HttpService:JSONEncode(payload)
-    end)
+    if LocalPlayer.Character then
+        for _, item in ipairs(LocalPlayer.Character:GetChildren()) do
+            if item:IsA("Tool") then
+                local name = item.Name
+                if name:find("Fruit") then
+                    details.fruit = name
+                elseif name:find("Katana") or name:find("Blade") or name:find("Scythe") or name:find("Trident") or name:find("Saber") or name:find("Anchor") then
+                    details.sword = name
+                elseif name:find("Guitar") or name:find("Rifle") or name:find("Revolver") or name:find("Slingshot") or name:find("Bow") then
+                    details.gun = name
+                elseif name:find("Style") or name == "Godhuman" or name == "Superhuman" or name == "Dragon Talon" or name == "Sharkman Karate" or name == "Death Step" then
+                    details.fightingStyle = name
+                end
+            end
+        end
+    end
 
-    if not ok then
-        warn_log("JSONEncode failed: " .. tostring(encoded))
+    if details.sword == "None" and #inv.swords > 0 then
+        details.sword = inv.swords[1]
+    end
+    if details.gun == "None" and #inv.guns > 0 then
+        details.gun = inv.guns[1]
+    end
+
+    local stats = LocalPlayer:FindFirstChild("Stats") or LocalPlayer:FindFirstChild("Data")
+    if stats then
+        local demonFruit = stats:FindFirstChild("DemonFruit") or stats:FindFirstChild("Fruit")
+        if demonFruit and demonFruit:FindFirstChild("Mastery") then
+            details.fruitMastery = demonFruit.Mastery.Value
+        end
+        
+        local fruitVal = stats:FindFirstChild("FruitName") or stats:FindFirstChild("Fruit")
+        if fruitVal and details.fruit == "None" then
+            details.fruit = fruitVal.Value
+        end
+    end
+
+    return details
+end
+
+-- Get character Race
+local function getRace()
+    local data = LocalPlayer:FindFirstChild("Data")
+    if data and data:FindFirstChild("Race") then
+        return data.Race.Value
+    end
+    return "Human"
+end
+
+-- GUI Setup variables
+local isMinimized = false
+local heartbeatLoopActive = false
+local pulseTween = nil
+
+-- OceanForge Premium GUI Construction
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "OceanForgeGui"
+ScreenGui.ResetOnSpawn = false
+
+-- Use CoreGui if available to resist resets and hiding
+local successCore, coreGui = pcall(function() return game:GetService("CoreGui") end)
+if successCore and coreGui then
+    ScreenGui.Parent = coreGui
+else
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Main Window Frame (Themed glassmorphism navy)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 360, 0, 260)
+MainFrame.Position = UDim2.new(0.5, -180, 0.4, -130)
+MainFrame.BackgroundColor3 = Color3.fromRGB(11, 19, 41) -- Dark Navy
+MainFrame.BackgroundTransparency = 0.15
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+-- Neon Gold Border
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Thickness = 1.5
+MainStroke.Color = Color3.fromRGB(212, 175, 55) -- Gold
+MainStroke.Parent = MainFrame
+
+-- Topbar
+local Topbar = Instance.new("Frame")
+Topbar.Name = "Topbar"
+Topbar.Size = UDim2.new(1, 0, 0, 45)
+Topbar.BackgroundTransparency = 1
+Topbar.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(0.7, 0, 1, 0)
+Title.Position = UDim2.new(0.05, 0, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "⚓ OCEANFORGE CLIENT"
+Title.TextColor3 = Color3.fromRGB(212, 175, 55) -- Gold
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 15
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Topbar
+
+local TopDivider = Instance.new("Frame")
+TopDivider.Size = UDim2.new(0.9, 0, 0, 1)
+TopDivider.Position = UDim2.new(0.05, 0, 1, 0)
+TopDivider.BackgroundColor3 = Color3.fromRGB(58, 80, 107) -- Slate Blue
+TopDivider.BorderSizePixel = 0
+TopDivider.Parent = Topbar
+
+-- Minimize Button
+local MinBtn = Instance.new("TextButton")
+MinBtn.Name = "MinBtn"
+MinBtn.Size = UDim2.new(0, 30, 0, 30)
+MinBtn.Position = UDim2.new(0.9, -15, 0.5, -15)
+MinBtn.BackgroundTransparency = 1
+MinBtn.Text = "−"
+MinBtn.TextColor3 = Color3.fromRGB(212, 175, 55)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 18
+MinBtn.Parent = Topbar
+
+-- Minimized Anchor Button (Floating anchor on corner)
+local AnchorBtn = Instance.new("TextButton")
+AnchorBtn.Name = "AnchorBtn"
+AnchorBtn.Size = UDim2.new(0, 50, 0, 50)
+AnchorBtn.Position = UDim2.new(0.95, -50, 0.85, -50)
+AnchorBtn.BackgroundColor3 = Color3.fromRGB(11, 19, 41)
+AnchorBtn.TextColor3 = Color3.fromRGB(212, 175, 55)
+AnchorBtn.Text = "⚓"
+AnchorBtn.Font = Enum.Font.GothamBold
+AnchorBtn.TextSize = 24
+AnchorBtn.Visible = false
+AnchorBtn.Parent = ScreenGui
+
+local AnchorCorner = Instance.new("UICorner")
+AnchorCorner.CornerRadius = UDim.new(0, 25)
+AnchorCorner.Parent = AnchorBtn
+
+local AnchorStroke = Instance.new("UIStroke")
+AnchorStroke.Thickness = 1.5
+AnchorStroke.Color = Color3.fromRGB(212, 175, 55)
+AnchorStroke.Parent = AnchorBtn
+
+-- 1. Key Ingest Screen (Visible when Key not authenticated)
+local IngestScreen = Instance.new("Frame")
+IngestScreen.Name = "IngestScreen"
+IngestScreen.Size = UDim2.new(1, 0, 0.8, 0)
+IngestScreen.Position = UDim2.new(0, 0, 0.2, 0)
+IngestScreen.BackgroundTransparency = 1
+IngestScreen.Parent = MainFrame
+
+local IngestDesc = Instance.new("TextLabel")
+IngestDesc.Size = UDim2.new(0.9, 0, 0.25, 0)
+IngestDesc.Position = UDim2.new(0.05, 0, 0.08, 0)
+IngestDesc.BackgroundTransparency = 1
+IngestDesc.Text = "Enter your OceanForge API key to connect this bot instance to your web dashboard."
+IngestDesc.TextColor3 = Color3.fromRGB(203, 213, 225) -- Light Slate
+IngestDesc.Font = Enum.Font.GothamSemibold
+IngestDesc.TextSize = 12
+IngestDesc.TextWrapped = true
+IngestDesc.Parent = IngestScreen
+
+local KeyBox = Instance.new("TextBox")
+KeyBox.Name = "KeyBox"
+KeyBox.Size = UDim2.new(0.9, 0, 0.22, 0)
+KeyBox.Position = UDim2.new(0.05, 0, 0.38, 0)
+KeyBox.BackgroundColor3 = Color3.fromRGB(2, 6, 23) -- Deep Abyss
+KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyBox.PlaceholderText = "Paste api key here..."
+KeyBox.PlaceholderColor3 = Color3.fromRGB(91, 192, 190) -- Cyan
+KeyBox.ClearTextOnFocus = false
+KeyBox.Font = Enum.Font.Code
+KeyBox.TextSize = 11
+KeyBox.Text = _G.ApiKey
+KeyBox.Parent = IngestScreen
+
+local KeyCorner = Instance.new("UICorner")
+KeyCorner.CornerRadius = UDim.new(0, 8)
+KeyCorner.Parent = KeyBox
+
+local KeyStroke = Instance.new("UIStroke")
+KeyStroke.Thickness = 1
+KeyStroke.Color = Color3.fromRGB(58, 80, 107)
+KeyStroke.Parent = KeyBox
+
+local ConnectBtn = Instance.new("TextButton")
+ConnectBtn.Name = "ConnectBtn"
+ConnectBtn.Size = UDim2.new(0.9, 0, 0.22, 0)
+ConnectBtn.Position = UDim2.new(0.05, 0, 0.68, 0)
+ConnectBtn.BackgroundColor3 = Color3.fromRGB(212, 175, 55) -- Gold
+ConnectBtn.TextColor3 = Color3.fromRGB(2, 6, 23)
+ConnectBtn.Text = "CONNECT FLEET"
+ConnectBtn.Font = Enum.Font.GothamBold
+ConnectBtn.TextSize = 12
+ConnectBtn.Parent = IngestScreen
+
+local ConnectCorner = Instance.new("UICorner")
+ConnectCorner.CornerRadius = UDim.new(0, 8)
+ConnectCorner.Parent = ConnectBtn
+
+-- 2. Connected Monitor Screen (Visible when Key authenticated)
+local MonitorScreen = Instance.new("Frame")
+MonitorScreen.Name = "MonitorScreen"
+MonitorScreen.Size = UDim2.new(1, 0, 0.8, 0)
+MonitorScreen.Position = UDim2.new(0, 0, 0.2, 0)
+MonitorScreen.BackgroundTransparency = 1
+MonitorScreen.Visible = false
+MonitorScreen.Parent = MainFrame
+
+-- Led pulsating dot indicators
+local LedIndicator = Instance.new("Frame")
+LedIndicator.Name = "LedIndicator"
+LedIndicator.Size = UDim2.new(0, 8, 0, 8)
+LedIndicator.Position = UDim2.new(0.05, 0, 0.08, 0)
+LedIndicator.BackgroundColor3 = Color3.fromRGB(16, 185, 129) -- Emerald green
+LedIndicator.BorderSizePixel = 0
+LedIndicator.Parent = MonitorScreen
+
+local LedCorner = Instance.new("UICorner")
+LedCorner.CornerRadius = UDim.new(0, 4)
+LedCorner.Parent = LedIndicator
+
+local LedLabel = Instance.new("TextLabel")
+LedLabel.Size = UDim2.new(0.8, 0, 0, 15)
+LedLabel.Position = UDim2.new(0.09, 0, 0.05, 0)
+LedLabel.BackgroundTransparency = 1
+LedLabel.Text = "STATUS: SYNCING REALTIME"
+LedLabel.TextColor3 = Color3.fromRGB(16, 185, 129) -- Emerald
+LedLabel.Font = Enum.Font.GothamBold
+LedLabel.TextSize = 11
+LedLabel.TextXAlignment = Enum.TextXAlignment.Left
+LedLabel.Parent = MonitorScreen
+
+-- Account details breakdown (Gold glow styles)
+local StatsFrame = Instance.new("Frame")
+StatsFrame.Size = UDim2.new(0.9, 0, 0.52, 0)
+StatsFrame.Position = UDim2.new(0.05, 0, 0.22, 0)
+StatsFrame.BackgroundTransparency = 1
+StatsFrame.Parent = MonitorScreen
+
+local UsernameLabel = Instance.new("TextLabel")
+UsernameLabel.Size = UDim2.new(1, 0, 0.25, 0)
+UsernameLabel.BackgroundTransparency = 1
+UsernameLabel.Text = "Account: " .. LocalPlayer.Name
+UsernameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+UsernameLabel.Font = Enum.Font.GothamSemibold
+UsernameLabel.TextSize = 12
+UsernameLabel.TextXAlignment = Enum.TextXAlignment.Left
+UsernameLabel.Parent = StatsFrame
+
+local LevelLabel = Instance.new("TextLabel")
+LevelLabel.Size = UDim2.new(1, 0, 0.25, 0)
+LevelLabel.Position = UDim2.new(0, 0, 0.25, 0)
+LevelLabel.BackgroundTransparency = 1
+LevelLabel.Text = "Level: -- / 2550"
+LevelLabel.TextColor3 = Color3.fromRGB(91, 192, 190) -- Cyan
+LevelLabel.Font = Enum.Font.GothamSemibold
+LevelLabel.TextSize = 12
+LevelLabel.TextXAlignment = Enum.TextXAlignment.Left
+LevelLabel.Parent = StatsFrame
+
+local BeliLabel = Instance.new("TextLabel")
+BeliLabel.Size = UDim2.new(1, 0, 0.25, 0)
+BeliLabel.Position = UDim2.new(0, 0, 0.5, 0)
+BeliLabel.BackgroundTransparency = 1
+BeliLabel.Text = "Beli: $0"
+BeliLabel.TextColor3 = Color3.fromRGB(16, 185, 129) -- Green
+BeliLabel.Font = Enum.Font.GothamSemibold
+BeliLabel.TextSize = 12
+BeliLabel.TextXAlignment = Enum.TextXAlignment.Left
+BeliLabel.Parent = StatsFrame
+
+local IslandLabel = Instance.new("TextLabel")
+IslandLabel.Size = UDim2.new(1, 0, 0.25, 0)
+IslandLabel.Position = UDim2.new(0, 0, 0.75, 0)
+IslandLabel.BackgroundTransparency = 1
+IslandLabel.Text = "Island: Scanning..."
+IslandLabel.TextColor3 = Color3.fromRGB(203, 213, 225)
+IslandLabel.Font = Enum.Font.GothamSemibold
+IslandLabel.TextSize = 12
+IslandLabel.TextXAlignment = Enum.TextXAlignment.Left
+IslandLabel.Parent = StatsFrame
+
+local DisconnectBtn = Instance.new("TextButton")
+DisconnectBtn.Name = "DisconnectBtn"
+DisconnectBtn.Size = UDim2.new(0.9, 0, 0.18, 0)
+DisconnectBtn.Position = UDim2.new(0.05, 0, 0.78, 0)
+DisconnectBtn.BackgroundColor3 = Color3.fromRGB(2, 6, 23)
+DisconnectBtn.TextColor3 = Color3.fromRGB(239, 68, 68) -- Red
+DisconnectBtn.Text = "DISCONNECT ENGINE"
+DisconnectBtn.Font = Enum.Font.GothamBold
+DisconnectBtn.TextSize = 10
+DisconnectBtn.Parent = MonitorScreen
+
+local DisconnectCorner = Instance.new("UICorner")
+DisconnectCorner.CornerRadius = UDim.new(0, 8)
+DisconnectCorner.Parent = DisconnectBtn
+
+local DisconnectStroke = Instance.new("UIStroke")
+DisconnectStroke.Thickness = 1
+DisconnectStroke.Color = Color3.fromRGB(239, 68, 68)
+DisconnectStroke.Parent = DisconnectBtn
+
+-- Helper to format Beli/Fragments numbers with commas
+local function formatComma(amount)
+    local formatted = tostring(amount)
+    while true do  
+        formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
+        if (k==0) then
+            break
+        end
+    end
+    return formatted
+end
+
+-- Main Ingestion Sync Function
+local function sendStats()
+    local dataFolder = LocalPlayer:FindFirstChild("Data")
+    if not dataFolder then
+        warn("OceanForge: Player Data folder not found. Retrying in next heartbeat.")
         return
     end
 
-    log(">> Sending to " .. #CONFIG.ENDPOINTS .. " endpoints (lv "
-        .. payload.level .. ")")
-
-    -- Cập nhật thông số lên GUI trước khi gửi
-    if Sender.UpdateUI then
-        Sender:UpdateUI(payload)
+    local level = dataFolder:FindFirstChild("Level") and dataFolder.Level.Value or 1
+    local beli = dataFolder:FindFirstChild("Beli") and dataFolder.Beli.Value or 0
+    local fragments = dataFolder:FindFirstChild("Fragments") and dataFolder.Fragments.Value or 0
+    
+    local inventory = scanInventory()
+    local equipped = getEquippedDetails(inventory)
+    
+    -- Update UI stats labels
+    LevelLabel.Text = "Level: " .. formatComma(level) .. " / 2550"
+    BeliLabel.Text = "Beli: $" .. formatComma(beli) .. "  |  Fragments: " .. formatComma(fragments)
+    IslandLabel.Text = "Island: " .. getIslandName() .. " (Sea " .. getSea() .. ")"
+    
+    -- Determine farming status
+    local status = "idle"
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
+    if humanoid and humanoid.MoveDirection.Magnitude > 0 then
+        status = "grinding"
+    end
+    
+    local targetFolder = workspace:FindFirstChild("Enemies")
+    if targetFolder then
+        for _, enemy in ipairs(targetFolder:GetChildren()) do
+            if enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - enemy.HumanoidRootPart.Position).Magnitude
+                if dist < 150 then
+                    if enemy:GetAttribute("IsBoss") or enemy.Name:find("Boss") or enemy.Humanoid.MaxHealth > 500000 then
+                        status = "bossing"
+                    else
+                        status = "grinding"
+                    end
+                    break
+                end
+            end
+        end
     end
 
-    -- Gửi song song: mỗi endpoint chạy trong task riêng
-    for _, endpoint in ipairs(CONFIG.ENDPOINTS) do
-        local ep = endpoint  -- capture cho closure
-        task.spawn(function()
-            SendToEndpoint(ep, encoded, 0)
-        end)
-    end
-end
+    -- Construct payload
+    local payload = {
+        username = LocalPlayer.Name,
+        level = level,
+        beli = beli,
+        fragments = fragments,
+        race = getRace(),
+        sea = getSea(),
+        fruit_equipped = equipped.fruit,
+        fruit_mastery = equipped.fruitMastery,
+        sword = equipped.sword,
+        gun = equipped.gun,
+        fighting_style = equipped.fightingStyle,
+        status = status,
+        location = getIslandName(),
+        playtime = math.floor(workspace.DistributedGameTime),
+        inventory = inventory
+    }
 
--- ═══════════════════════════════════════════════════════════════
--- IN-GAME GUI (Góc trái màn hình)
--- ═══════════════════════════════════════════════════════════════
-
-local ScreenGui = nil
-local MainFrame = nil
-local StatusLabel = nil
-local LevelLabel = nil
-local MoneyLabel = nil
-local FruitLabel = nil
-local ToggleBtn = nil
-
-function Sender:CreateGUI()
-    -- Tránh tạo trùng lặp
-    local targetParent = nil
-    local success, _ = pcall(function()
-        targetParent = game:GetService("CoreGui")
+    local success, jsonPayload = pcall(function()
+        return HttpService:JSONEncode(payload)
     end)
-    if not success or not targetParent then
-        targetParent = LocalPlayer:WaitForChild("PlayerGui")
+
+    if not success then
+        warn("OceanForge: Failed to serialize data payload.")
+        return
     end
 
-    local existing = targetParent:FindFirstChild("BF_AccountManagerUI")
-    if existing then existing:Destroy() end
+    local requestLib = (syn and syn.request) or (http and http.request) or request or http_request
+    if not requestLib then
+        warn("OceanForge: HTTP request executor function not found! Make sure your executor supports HTTP requests.")
+        return
+    end
 
-    -- ScreenGui
-    ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "BF_AccountManagerUI"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = targetParent
+    task.spawn(function()
+        -- Pulse heartbeat led color on start
+        LedIndicator.BackgroundColor3 = Color3.fromRGB(212, 175, 55) -- gold during request
+        
+        local response = requestLib({
+            Url = _G.ServerUrl .. "/api/lua/update",
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json",
+                ["x-api-key"] = _G.ApiKey
+            },
+            Body = jsonPayload
+        })
 
-    -- Nút Toggle (Thu nhỏ / Mở rộng) ở góc trái
-    ToggleBtn = Instance.new("TextButton")
-    ToggleBtn.Name = "ToggleButton"
-    ToggleBtn.Size = UDim2.new(0, 40, 0, 40)
-    ToggleBtn.Position = UDim2.new(0, 10, 0, 120) -- Đặt dưới menu mặc định của Roblox
-    ToggleBtn.BackgroundColor3 = Color3.fromRGB(22, 24, 33)
-    ToggleBtn.BorderSizePixel = 1
-    ToggleBtn.BorderColor3 = Color3.fromRGB(59, 130, 246)
-    ToggleBtn.TextColor3 = Color3.fromRGB(241, 245, 249)
-    ToggleBtn.Font = Enum.Font.SourceSansBold
-    ToggleBtn.TextSize = 18
-    ToggleBtn.Text = "🏴‍☠️"
-    ToggleBtn.Parent = ScreenGui
-
-    -- Bo góc nút toggle
-    local toggleCorner = Instance.new("UICorner")
-    toggleCorner.CornerRadius = UDim.new(0, 8)
-    toggleCorner.Parent = ToggleBtn
-
-    -- Main Panel
-    MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 220, 0, 210)
-    MainFrame.Position = UDim2.new(0, 60, 0, 120)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(22, 24, 33)
-    MainFrame.BorderSizePixel = 1
-    MainFrame.BorderColor3 = Color3.fromRGB(59, 130, 246)
-    MainFrame.Visible = true
-    MainFrame.Parent = ScreenGui
-
-    local frameCorner = Instance.new("UICorner")
-    frameCorner.CornerRadius = UDim.new(0, 10)
-    frameCorner.Parent = MainFrame
-
-    -- Header Title
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 30)
-    title.BackgroundColor3 = Color3.fromRGB(30, 34, 45)
-    title.TextColor3 = Color3.fromRGB(59, 130, 246)
-    title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 14
-    title.Text = "  BLOX FRUITS MANAGER"
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = MainFrame
-
-    local titleCorner = Instance.new("UICorner")
-    titleCorner.CornerRadius = UDim.new(0, 10)
-    titleCorner.Parent = title
-
-    -- Status Label
-    StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Size = UDim2.new(1, -20, 0, 25)
-    StatusLabel.Position = UDim2.new(0, 10, 0, 40)
-    StatusLabel.BackgroundTransparency = 1
-    StatusLabel.TextColor3 = Color3.fromRGB(16, 185, 129)
-    StatusLabel.Font = Enum.Font.SourceSansBold
-    StatusLabel.TextSize = 13
-    StatusLabel.Text = "Status: Active"
-    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-    StatusLabel.Parent = MainFrame
-
-    -- Level Label
-    LevelLabel = Instance.new("TextLabel")
-    LevelLabel.Size = UDim2.new(1, -20, 0, 25)
-    LevelLabel.Position = UDim2.new(0, 10, 0, 65)
-    LevelLabel.BackgroundTransparency = 1
-    LevelLabel.TextColor3 = Color3.fromRGB(241, 245, 249)
-    LevelLabel.Font = Enum.Font.SourceSans
-    LevelLabel.TextSize = 13
-    LevelLabel.Text = "Level: --"
-    LevelLabel.TextXAlignment = Enum.TextXAlignment.Left
-    LevelLabel.Parent = MainFrame
-
-    -- Money Label
-    MoneyLabel = Instance.new("TextLabel")
-    MoneyLabel.Size = UDim2.new(1, -20, 0, 25)
-    MoneyLabel.Position = UDim2.new(0, 10, 0, 90)
-    MoneyLabel.BackgroundTransparency = 1
-    MoneyLabel.TextColor3 = Color3.fromRGB(245, 158, 11)
-    MoneyLabel.Font = Enum.Font.SourceSans
-    MoneyLabel.TextSize = 13
-    MoneyLabel.Text = "Beli: -- | Frag: --"
-    MoneyLabel.TextXAlignment = Enum.TextXAlignment.Left
-    MoneyLabel.Parent = MainFrame
-
-    -- Fruit Label
-    FruitLabel = Instance.new("TextLabel")
-    FruitLabel.Size = UDim2.new(1, -20, 0, 25)
-    FruitLabel.Position = UDim2.new(0, 10, 0, 115)
-    FruitLabel.BackgroundTransparency = 1
-    FruitLabel.TextColor3 = Color3.fromRGB(139, 92, 246)
-    FruitLabel.Font = Enum.Font.SourceSans
-    FruitLabel.TextSize = 13
-    FruitLabel.Text = "Fruit: --"
-    FruitLabel.TextXAlignment = Enum.TextXAlignment.Left
-    FruitLabel.Parent = MainFrame
-
-    -- Force Send Button
-    local sendBtn = Instance.new("TextButton")
-    sendBtn.Size = UDim2.new(0, 95, 0, 30)
-    sendBtn.Position = UDim2.new(0, 10, 0, 150)
-    sendBtn.BackgroundColor3 = Color3.fromRGB(59, 130, 246)
-    sendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    sendBtn.Font = Enum.Font.SourceSansBold
-    sendBtn.TextSize = 12
-    sendBtn.Text = "Force Send"
-    sendBtn.Parent = MainFrame
-
-    local sendCorner = Instance.new("UICorner")
-    sendCorner.CornerRadius = UDim.new(0, 5)
-    sendCorner.Parent = sendBtn
-
-    -- Auto Send Toggle Button
-    local autoBtn = Instance.new("TextButton")
-    autoBtn.Size = UDim2.new(0, 95, 0, 30)
-    autoBtn.Position = UDim2.new(0, 115, 0, 150)
-    autoBtn.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
-    autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    autoBtn.Font = Enum.Font.SourceSansBold
-    autoBtn.TextSize = 12
-    autoBtn.Text = "Auto: ON"
-    autoBtn.Parent = MainFrame
-
-    local autoCorner = Instance.new("UICorner")
-    autoCorner.CornerRadius = UDim.new(0, 5)
-    autoCorner.Parent = autoBtn
-
-    -- ─── UI INTERACTIONS ───
-
-    -- Toggle ẩn/hiện bảng menu
-    ToggleBtn.MouseButton1Click:Connect(function()
-        MainFrame.Visible = not MainFrame.Visible
-        ToggleBtn.Text = MainFrame.Visible and "🏴‍☠️" or "☰"
-    end)
-
-    -- Force Send
-    sendBtn.MouseButton1Click:Connect(function()
-        sendBtn.Text = "Sending..."
-        sendBtn.Active = false
-        task.spawn(function()
-            Sender:SendAll("online")
-            task.wait(0.5)
-            sendBtn.Text = "Force Send"
-            sendBtn.Active = true
-        end)
-    end)
-
-    -- Toggle Auto Send
-    autoBtn.MouseButton1Click:Connect(function()
-        if Sender.Running then
-            Sender:Stop()
-            autoBtn.Text = "Auto: OFF"
-            autoBtn.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
-            StatusLabel.Text = "Status: Disabled"
-            StatusLabel.TextColor3 = Color3.fromRGB(239, 68, 68)
+        if response and response.StatusCode == 200 then
+            LedIndicator.BackgroundColor3 = Color3.fromRGB(16, 185, 129) -- emerald success
+            print("OceanForge: Synchronized stats successfully.")
         else
-            Sender:Start()
-            autoBtn.Text = "Auto: ON"
-            autoBtn.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
-            StatusLabel.Text = "Status: Active"
-            StatusLabel.TextColor3 = Color3.fromRGB(16, 185, 129)
+            LedIndicator.BackgroundColor3 = Color3.fromRGB(239, 68, 68) -- red failure
+            warn("OceanForge: Synchronization failed. Status code: " .. tostring(response and response.StatusCode or "unknown"))
         end
     end)
 end
 
-function Sender:UpdateUI(payload)
-    if not MainFrame then return end
-    pcall(function()
-        LevelLabel.Text = "Level: " .. tostring(payload.level)
-        MoneyLabel.Text = "Beli: " .. tostring(payload.beli) .. " | Frag: " .. tostring(payload.fragments)
-        FruitLabel.Text = "Fruit: " .. tostring(payload.fruit)
-    end)
-end
-
--- ═══════════════════════════════════════════════════════════════
--- HEARTBEAT LOOP
--- ═══════════════════════════════════════════════════════════════
-
-function Sender:Start()
-    if self.Running then return end
-    self.Running = true
-
-    log("==========================================")
-    log("  Blox Fruits Account Sender START")
-    log("  User: " .. LocalPlayer.Name)
-    log("  Endpoints: " .. #CONFIG.ENDPOINTS)
-    for i, ep in ipairs(CONFIG.ENDPOINTS) do
-        log("    [" .. i .. "] " .. ep.name .. " - " .. ep.url)
-    end
-    log("  Interval: " .. CONFIG.UPDATE_INTERVAL .. "s")
-    log("==========================================")
-
-    -- Tạo GUI nếu chưa có
-    if not ScreenGui then
-        self:CreateGUI()
-    end
-
-    -- Gửi lần đầu ngay lập tức
+-- Setup Heartbeat schedule loop
+local function startHeartbeatScheduler()
+    if heartbeatLoopActive then return end
+    heartbeatLoopActive = true
+    
+    -- Led indicator heartbeat scale animation
     task.spawn(function()
-        task.wait(1) -- Chờ game load
-        self:SendAll("online")
-    end)
-
-    -- Heartbeat loop — gửi đến tất cả endpoints mỗi interval
-    task.spawn(function()
-        while self.Running do
-            task.wait(CONFIG.UPDATE_INTERVAL)
-            self:SendAll("online")
+        while heartbeatLoopActive do
+            local info = TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, 0, true)
+            local ledTween = TweenService:Create(LedIndicator, info, {Size = UDim2.new(0, 12, 0, 12), Position = UDim2.new(0.045, 0, 0.07, 0)})
+            ledTween:Play()
+            task.wait(2.5)
         end
     end)
 
-    -- Gửi offline signal đến TẤT CẢ endpoints khi player leave
-    LocalPlayer.AncestryChanged:Connect(function(_, parent)
-        if not parent then
-            self.Running = false
-            pcall(function()
-                local payload = BuildPayload("offline")
-                local encoded = HttpService:JSONEncode(payload)
-                for _, ep in ipairs(CONFIG.ENDPOINTS) do
-                    local endpoint = ep
-                    task.spawn(function()
-                        HttpPost(endpoint.url, encoded)
-                        log("[" .. endpoint.name .. "] Offline signal sent")
-                    end)
+    task.spawn(function()
+        while heartbeatLoopActive do
+            pcall(sendStats)
+            task.wait(_G.HeartbeatInterval)
+        end
+    end)
+end
+
+local function stopHeartbeatScheduler()
+    heartbeatLoopActive = false
+    LedIndicator.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
+end
+
+-- Toggle Connection handler
+local function connectEngine(key)
+    if not key or key == "" then
+        warn("OceanForge: API Key field is empty.")
+        return
+    end
+    
+    _G.ApiKey = key
+    IngestScreen.Visible = false
+    MonitorScreen.Visible = true
+    startHeartbeatScheduler()
+end
+
+local function disconnectEngine()
+    _G.ApiKey = ""
+    stopHeartbeatScheduler()
+    MonitorScreen.Visible = false
+    IngestScreen.Visible = true
+end
+
+-- Button click listeners
+ConnectBtn.MouseButton1Click:Connect(function()
+    connectEngine(KeyBox.Text)
+end)
+
+DisconnectBtn.MouseButton1Click:Connect(function()
+    disconnectEngine()
+end)
+
+-- Minimize / Restore animations
+local function toggleMinimize()
+    isMinimized = not isMinimized
+    if isMinimized then
+        MainFrame.Visible = false
+        AnchorBtn.Visible = true
+    else
+        AnchorBtn.Visible = false
+        MainFrame.Visible = true
+    end
+end
+
+MinBtn.MouseButton1Click:Connect(toggleMinimize)
+AnchorBtn.MouseButton1Click:Connect(toggleMinimize)
+
+-- Connect Hover Button Tweens
+local function addHoverTween(button, hoverBgColor, originalBgColor)
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = hoverBgColor}):Play()
+    end)
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = originalBgColor}):Play()
+    end)
+end
+
+addHoverTween(ConnectBtn, Color3.fromRGB(243, 229, 171), Color3.fromRGB(212, 175, 55))
+addHoverTween(DisconnectBtn, Color3.fromRGB(239, 68, 68), Color3.fromRGB(2, 6, 23))
+
+-- Custom smooth dragging controller
+local function makeDraggable(frame)
+    local dragToggle = nil
+    local dragSpeed = 0.08
+    local dragInput = nil
+    local dragStart = nil
+    local startPosition = nil
+
+    local function updateInput(input)
+        local delta = input.Position - dragStart
+        local position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+        TweenService:Create(frame, TweenInfo.new(dragSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = position}):Play()
+    end
+
+    frame.InputBegan:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+            dragToggle = true
+            dragStart = input.Position
+            startPosition = frame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragToggle = false
                 end
             end)
         end
     end)
+
+    frame.InputChanged:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            dragInput = input
+        end
+    end)
+
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragToggle then
+            updateInput(input)
+        end
+    end)
 end
 
-function Sender:Stop()
-    self.Running = false
-    log("Sender stopped")
+-- Make both windows draggable
+makeDraggable(MainFrame)
+makeDraggable(AnchorBtn)
+
+-- Check if global key is already provided at start
+if _G.ApiKey and _G.ApiKey ~= "" and _G.ApiKey ~= "YOUR_API_KEY_HERE" then
+    connectEngine(_G.ApiKey)
+else
+    IngestScreen.Visible = true
 end
-
--- ═══════════════════════════════════════════════════════════════
--- START
--- ═══════════════════════════════════════════════════════════════
-
-Sender:Start()
-
