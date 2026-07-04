@@ -16,7 +16,7 @@ module.exports = cors({
       return callback(null, true);
     } else {
       console.warn(`[CORS] Blocked origin: "${origin}"`);
-      return callback(new Error('Blocked by CORS policy'));
+      return callback(null, false);
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
