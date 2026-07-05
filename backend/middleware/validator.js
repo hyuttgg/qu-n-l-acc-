@@ -91,4 +91,46 @@ const luaUpdateSchema = z.object({
   { message: 'Either username or roblox_username is required' }
 );
 
-module.exports = { validate, registerSchema, loginSchema, luaUpdateSchema };
+const leviathanUpdateSchema = z.object({
+  username: z.string().min(1).max(50).optional(),
+  roblox_username: z.string().min(1).max(50).optional(),
+  serverId: z.string().max(100).optional(),
+  status: z.enum(['Not Started', 'Searching', 'Activated', 'Fighting', 'Heart Obtained', 'Finished']).optional(),
+  spyMessage: z.string().max(300).optional(),
+  dangerLevel: z.number().int().min(1).max(6).optional(),
+  frozenDetected: z.boolean().optional(),
+  frozenTime: z.string().optional(),
+  frozenSea: z.number().int().optional(),
+  frozenCoordinates: z.string().max(100).optional(),
+  heartStatus: z.enum(['Not Obtained', 'Obtained', 'Transporting', 'Arrived', 'Lost']).optional(),
+  destination: z.string().max(100).optional(),
+  remainingDistance: z.number().optional(),
+  currentStage: z.string().max(50).optional(),
+  partySize: z.number().int().nonnegative().optional(),
+  party: z.array(
+    z.object({
+      username: z.string(),
+      alive: z.boolean().default(true),
+      dead: z.boolean().default(false),
+    })
+  ).optional(),
+  rewards: z.object({
+    scale: z.number().int().nonnegative().optional(),
+    fins: z.number().int().nonnegative().optional(),
+    heart: z.number().int().nonnegative().optional(),
+    fragments: z.number().int().nonnegative().optional(),
+    exp: z.number().int().nonnegative().optional(),
+    otherDrop: z.array(z.string()).optional(),
+  }).optional(),
+  battleStats: z.object({
+    damagePhase: z.number().optional(),
+    membersAlive: z.number().int().nonnegative().optional(),
+    membersDead: z.number().int().nonnegative().optional(),
+    disconnectCount: z.number().int().nonnegative().optional(),
+  }).optional(),
+}).refine(
+  data => data.username || data.roblox_username,
+  { message: 'Either username or roblox_username is required' }
+);
+
+module.exports = { validate, registerSchema, loginSchema, luaUpdateSchema, leviathanUpdateSchema };

@@ -62,6 +62,7 @@ app.use('/api/inventory', require('./routes/inventory'));
 app.use('/api/sessions', require('./routes/sessions'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/lua', require('./routes/lua'));
+app.use('/api/leviathan', require('./routes/leviathan'));
 
 // ══════════════════════════════════════
 // FALLBACK ERROR HANDLERS

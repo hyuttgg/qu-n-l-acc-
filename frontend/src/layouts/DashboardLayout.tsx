@@ -19,7 +19,10 @@ import {
   Copy,
   Check,
   Key,
-  Activity
+  Activity,
+  Anchor,
+  Waves,
+  Flame
 } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
@@ -37,18 +40,42 @@ export const DashboardLayout: React.FC = () => {
     }
   };
 
-  const menuItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: Compass },
-    { name: 'Accounts', path: '/dashboard/accounts', icon: Layers },
-    { name: 'Live Fleet', path: '/dashboard/live', icon: Activity },
-    { name: 'Inventory', path: '/dashboard/inventory', icon: ShoppingBag },
-    { name: 'Fruits', path: '/dashboard/fruits', icon: Sparkles },
-    { name: 'Weapons', path: '/dashboard/weapons', icon: Swords },
-    { name: 'Fighting Styles', path: '/dashboard/styles', icon: Zap },
-    { name: 'Accessories', path: '/dashboard/accessories', icon: Crown },
-    { name: 'Analytics', path: '/dashboard/analytics', icon: BarChart2 },
-    { name: 'Sessions', path: '/dashboard/sessions', icon: Clock },
-    { name: 'Settings', path: '/dashboard/settings', icon: Settings },
+  const menuGroups = [
+    {
+      title: 'Core Fleet',
+      items: [
+        { name: 'Dashboard', path: '/dashboard', icon: Compass },
+        { name: 'Accounts', path: '/dashboard/accounts', icon: Layers },
+        { name: 'Live Fleet', path: '/dashboard/live', icon: Activity },
+      ]
+    },
+    {
+      title: 'Inventory',
+      items: [
+        { name: 'Inventory', path: '/dashboard/inventory', icon: ShoppingBag },
+        { name: 'Fruits', path: '/dashboard/fruits', icon: Sparkles },
+        { name: 'Weapons', path: '/dashboard/weapons', icon: Swords },
+        { name: 'Fighting Styles', path: '/dashboard/styles', icon: Zap },
+        { name: 'Accessories', path: '/dashboard/accessories', icon: Crown },
+      ]
+    },
+    {
+      title: 'Sea Events',
+      items: [
+        { name: 'Leviathan Manager', path: '/dashboard/leviathan', icon: Anchor },
+        { name: 'Sea Beast (Soon)', path: '#', icon: Waves, disabled: true },
+        { name: 'Mirage (Soon)', path: '#', icon: Compass, disabled: true },
+        { name: 'Kitsune Shrine (Soon)', path: '#', icon: Flame, disabled: true },
+      ]
+    },
+    {
+      title: 'System',
+      items: [
+        { name: 'Analytics', path: '/dashboard/analytics', icon: BarChart2 },
+        { name: 'Sessions', path: '/dashboard/sessions', icon: Clock },
+        { name: 'Settings', path: '/dashboard/settings', icon: Settings },
+      ]
+    }
   ];
 
   const handleLogout = () => {
@@ -76,26 +103,44 @@ export const DashboardLayout: React.FC = () => {
         </div>
 
         {/* Sidebar Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-          {menuItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.name}
-                to={item.path}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
-                  isActive
-                    ? 'bg-gradient-to-r from-gold/20 to-gold/5 text-gold border-l-2 border-gold shadow-gold-border'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-                }`}
-              >
-                <Icon className={`w-5 h-5 ${isActive ? 'text-gold' : 'text-slate-400'}`} />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-4 py-6 space-y-6 overflow-y-auto">
+          {menuGroups.map((group) => (
+            <div key={group.title} className="space-y-1.5">
+              <span className="px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">
+                {group.title}
+              </span>
+              {group.items.map((item) => {
+                const isActive = location.pathname === item.path;
+                const Icon = item.icon;
+                if (item.disabled) {
+                  return (
+                    <div
+                      key={item.name}
+                      className="flex items-center gap-3 px-4 py-2 text-slate-600 cursor-not-allowed text-xs font-semibold"
+                    >
+                      <Icon className="w-4.5 h-4.5 text-slate-750" />
+                      <span>{item.name}</span>
+                    </div>
+                  );
+                }
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.path}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-2 rounded-xl font-semibold text-xs transition-all duration-200 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-gold/20 to-gold/5 text-gold border-l-2 border-gold shadow-gold-border'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                    }`}
+                  >
+                    <Icon className={`w-4.5 h-4.5 ${isActive ? 'text-gold' : 'text-slate-400'}`} />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Sidebar User Footer */}
