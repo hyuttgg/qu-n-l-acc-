@@ -37,36 +37,127 @@ end
 -- 2. CREW VITALS OBSERVER
 -- ---------------------------------------------------------------------
 local Crew = {}
-function Crew.getCrewDetails()
-    local crew = {}
-    local localChar = Players.LocalPlayer.Character
-    local localPos = localChar and localChar:FindFirstChild("HumanoidRootPart") and localChar.HumanoidRootPart.Position
 
-    for _, player in ipairs(Players:GetChildren()) do
-        if player:IsA("Player") then
-            local char = player.Character
-            local alive = false
-            if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                alive = true
-            end
-
-            local inRange = false
-            if localPos and char and char:FindFirstChild("HumanoidRootPart") then
-                local dist = (char.HumanoidRootPart.Position - localPos).Magnitude
-                if dist < 400 then
-                    inRange = true
+local function findActiveBoat()
+    local char = Players.LocalPlayer.Character
+    if not char then return nil end
+    
+    -- Check if local player is sitting in a seat
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid and humanoid.SeatPart then
+        local model = humanoid.SeatPart:FindFirstAncestorOfClass("Model")
+        while model and model.Parent ~= workspace and model.Parent.Name ~= "Boats" do
+            model = model.Parent:FindFirstAncestorOfClass("Model")
+        end
+        return model
+    end
+    
+    -- Scan nearby boats in workspace
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if root then
+        local pos = root.Position
+        local boatsFolder = workspace:FindFirstChild("Boats") or workspace:FindFirstChild("Ships")
+        local searchContainer = boatsFolder or workspace
+        
+        local closestBoat = nil
+        local closestDist = 150 -- studs
+        
+        for _, child in ipairs(searchContainer:GetChildren()) do
+            if child:IsA("Model") and (child.Name:find("Boat") or child.Name:find("Ship") or child:FindFirstChildOfClass("VehicleSeat")) then
+                local prim = child.PrimaryPart or child:FindFirstChildOfClass("Part") or child:FindFirstChildOfClass("MeshPart")
+                if prim then
+                    local dist = (prim.Position - pos).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestBoat = child
+                    end
                 end
             end
+        end
+        return closestBoat
+    end
+    return nil
+end
 
-            if inRange or player == Players.LocalPlayer then
-                table.insert(crew, {
-                    username = player.Name,
-                    alive = alive,
-                    dead = not alive
-                })
+function Crew.getCrewDetails()
+    local crew = {}
+    local found = {}
+    
+    local activeBoat = findActiveBoat()
+    if activeBoat then
+        -- 1. Scan occupied seats on the boat
+        for _, obj in ipairs(activeBoat:GetDescendants()) do
+            if obj:IsA("Seat") or obj:IsA("VehicleSeat") then
+                local occupant = obj.Occupant
+                if occupant then
+                    local char = occupant.Parent
+                    local player = Players:GetPlayerFromCharacter(char)
+                    if player and not found[player.Name] then
+                        found[player.Name] = true
+                        table.insert(crew, {
+                            username = player.Name,
+                            alive = occupant.Health > 0,
+                            dead = occupant.Health <= 0
+                        })
+                    end
+                end
+            end
+        end
+        
+        -- 2. Scan players standing close to the boat's center part
+        local primPart = activeBoat.PrimaryPart or activeBoat:FindFirstChildOfClass("Part") or activeBoat:FindFirstChildOfClass("MeshPart")
+        if primPart then
+            local boatPos = primPart.Position
+            for _, player in ipairs(Players:GetChildren()) do
+                if player:IsA("Player") and not found[player.Name] then
+                    local char = player.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+                        local dist = (char.HumanoidRootPart.Position - boatPos).Magnitude
+                        if dist < 85 then -- radius of deck area
+                            found[player.Name] = true
+                            table.insert(crew, {
+                                username = player.Name,
+                                alive = char.Humanoid.Health > 0,
+                                dead = char.Humanoid.Health <= 0
+                            })
+                        end
+                    end
+                end
             end
         end
     end
+    
+    -- Fallback: If no boat found, report nearby players around local player
+    if #crew == 0 then
+        local localChar = Players.LocalPlayer.Character
+        local localPos = localChar and localChar:FindFirstChild("HumanoidRootPart") and localChar.HumanoidRootPart.Position
+        for _, player in ipairs(Players:GetChildren()) do
+            if player:IsA("Player") then
+                local char = player.Character
+                local alive = false
+                if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                    alive = true
+                end
+
+                local inRange = false
+                if localPos and char and char:FindFirstChild("HumanoidRootPart") then
+                    local dist = (char.HumanoidRootPart.Position - localPos).Magnitude
+                    if dist < 300 then
+                        inRange = true
+                    end
+                end
+
+                if inRange or player == Players.LocalPlayer then
+                    table.insert(crew, {
+                        username = player.Name,
+                        alive = alive,
+                        dead = not alive
+                    })
+                end
+            end
+        end
+    end
+    
     return crew
 end
 
