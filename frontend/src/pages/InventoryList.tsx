@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { useApp } from '../store';
 import { ShoppingBag, Search, Sparkles, Swords, Zap, Crown, Box } from 'lucide-react';
 
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export const InventoryList: React.FC = () => {
   const { fetchAccounts } = useApp();
   const location = useLocation();
@@ -33,7 +35,7 @@ export const InventoryList: React.FC = () => {
       
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/accounts', {
+        const res = await fetch(`${BACKEND_URL}/api/accounts`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const accountsData = await res.json();
@@ -41,7 +43,7 @@ export const InventoryList: React.FC = () => {
         if (accountsData.success) {
           const invList = await Promise.all(
             accountsData.data.map(async (acc: any) => {
-              const resInv = await fetch(`http://localhost:5000/api/inventory/${acc._id}`, {
+              const resInv = await fetch(`${BACKEND_URL}/api/inventory/${acc._id}`, {
                 headers: { Authorization: `Bearer ${token}` }
               });
               const invData = await resInv.json();
@@ -128,7 +130,7 @@ export const InventoryList: React.FC = () => {
     else if (category === 'materials') folder = 'nguy%C3%AAn%20li%E1%BB%87u%20v%C3%B5%20godhuamn';
 
     if (!folder) return '';
-    return `http://localhost:5000/api/images/${folder}/${normalizedName}.webp`;
+    return `${BACKEND_URL}/api/images/${folder}/${normalizedName}.webp`;
   };
 
   const tabs = [

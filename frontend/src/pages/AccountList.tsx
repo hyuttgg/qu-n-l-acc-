@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useApp } from '../store';
 import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity } from 'lucide-react';
 
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export const AccountList: React.FC = () => {
   const { accounts, fetchAccounts, selectedAccountDetails, fetchAccountDetails, deleteAccount } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,7 +60,7 @@ export const AccountList: React.FC = () => {
     else if (category === 'materials') folder = 'nguy%C3%AAn%20li%E1%BB%87u%20v%C3%B5%20godhuamn';
 
     if (!folder) return '';
-    return `http://localhost:5000/api/images/${folder}/${normalizedName}.webp`;
+    return `${BACKEND_URL}/api/images/${folder}/${normalizedName}.webp`;
   };
 
   return (
