@@ -12,7 +12,7 @@ module.exports = cors({
     // Allow requests with no origin (Lua HttpService, mobile apps, curl)
     if (!origin) return callback(null, true);
 
-    if (config.cors.allowedOrigins.includes(origin)) {
+    if (config.cors.allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
       return callback(null, true);
     } else {
       console.warn(`[CORS] Blocked origin: "${origin}"`);
