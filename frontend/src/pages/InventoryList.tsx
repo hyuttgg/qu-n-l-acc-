@@ -5,6 +5,59 @@ import { ShoppingBag, Search, Sparkles, Swords, Zap, Crown, Box } from 'lucide-r
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+// Image resolver helper for item assets served statically from the frontend public folder
+const resolveItemImage = (category: string, name: string) => {
+  if (!name || name === 'None') return '';
+  const normalizedName = name.trim().replace(/\s+/g, '_');
+  let folder = '';
+  
+  if (category === 'swords') folder = 'kiếm';
+  else if (category === 'guns') folder = 'súng';
+  else if (category === 'styles') folder = 'võ';
+  else if (category === 'accessories') folder = 'phụ kiên';
+  else if (category === 'materials') folder = 'nguyên liệu võ godhuamn';
+  else if (category === 'fruits') folder = 'trái';
+
+  if (!folder) return '';
+  return `/ảnh/${folder}/${normalizedName}.webp`;
+};
+
+interface ItemImageProps {
+  category: string;
+  name: string;
+  fallbackEmoji: string;
+  imgClass?: string;
+  emojiClass?: string;
+}
+
+const ItemImage: React.FC<ItemImageProps> = ({
+  category,
+  name,
+  fallbackEmoji,
+  imgClass = "w-16 h-16 object-contain",
+  emojiClass = "text-2xl"
+}) => {
+  const [error, setError] = useState(false);
+  const src = resolveItemImage(category, name);
+
+  useEffect(() => {
+    setError(false);
+  }, [category, name]);
+
+  if (!src || error) {
+    return <span className={emojiClass}>{fallbackEmoji}</span>;
+  }
+
+  return (
+    <img
+      src={src}
+      alt={name}
+      className={imgClass}
+      onError={() => setError(true)}
+    />
+  );
+};
+
 export const InventoryList: React.FC = () => {
   const { fetchAccounts } = useApp();
   const location = useLocation();
@@ -118,21 +171,6 @@ export const InventoryList: React.FC = () => {
     );
   };
 
-  const resolveItemImage = (category: string, name: string) => {
-    if (!name || name === 'None') return '';
-    const normalizedName = name.trim().replace(/\s+/g, '_');
-    let folder = '';
-    
-    if (category === 'swords') folder = 'ki%E1%BA%BFm';
-    else if (category === 'guns') folder = 's%C3%BAng';
-    else if (category === 'styles') folder = 'v%C3%B5';
-    else if (category === 'accessories') folder = 'ph%E1%BB%A5%20ki%C3%AAn';
-    else if (category === 'materials') folder = 'nguy%C3%AAn%20li%E1%BB%87u%20v%C3%B5%20godhuamn';
-
-    if (!folder) return '';
-    return `${BACKEND_URL}/api/images/${folder}/${normalizedName}.webp`;
-  };
-
   const tabs = [
     { id: 'fruits', label: 'Fruits', icon: Sparkles },
     { id: 'swords', label: 'Swords', icon: Swords },
@@ -206,18 +244,13 @@ export const InventoryList: React.FC = () => {
             >
               {/* Image box */}
               <div className="w-20 h-20 bg-ocean-abyss/80 rounded-xl border border-slate-900 flex items-center justify-center overflow-hidden mb-3 relative group-hover:scale-105 transition-transform duration-200">
-                {resolveItemImage(activeTab, item.name) ? (
-                  <img
-                    src={resolveItemImage(activeTab, item.name)}
-                    alt={item.name}
-                    className="w-16 h-16 object-contain"
-                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <span className="text-3xl">
-                    {activeTab === 'fruits' ? '🍓' : activeTab === 'swords' ? '⚔️' : activeTab === 'guns' ? '🔫' : activeTab === 'styles' ? '👊' : activeTab === 'accessories' ? '👑' : '📦'}
-                  </span>
-                )}
+                <ItemImage
+                  category={activeTab}
+                  name={item.name}
+                  fallbackEmoji={activeTab === 'fruits' ? '🍓' : activeTab === 'swords' ? '⚔️' : activeTab === 'guns' ? '🔫' : activeTab === 'styles' ? '👊' : activeTab === 'accessories' ? '👑' : '📦'}
+                  emojiClass="text-3xl"
+                  imgClass="w-16 h-16 object-contain"
+                />
               </div>
 
               {/* Item Name */}

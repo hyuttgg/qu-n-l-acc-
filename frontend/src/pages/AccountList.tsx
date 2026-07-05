@@ -2,7 +2,58 @@ import React, { useEffect, useState } from 'react';
 import { useApp } from '../store';
 import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity } from 'lucide-react';
 
-const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Image resolver helper for item assets served statically from the frontend public folder
+const resolveItemImage = (category: string, name: string) => {
+  if (!name || name === 'None') return '';
+  const normalizedName = name.trim().replace(/\s+/g, '_');
+  let folder = '';
+  
+  if (category === 'swords' || category === 'weapons') folder = 'kiếm';
+  else if (category === 'guns') folder = 'súng';
+  else if (category === 'styles') folder = 'võ';
+  else if (category === 'accessories') folder = 'phụ kiên';
+  else if (category === 'materials') folder = 'nguyên liệu võ godhuamn';
+  else if (category === 'fruits') folder = 'trái';
+
+  if (!folder) return '';
+  return `/ảnh/${folder}/${normalizedName}.webp`;
+};
+
+interface ItemImageProps {
+  category: string;
+  name: string;
+  fallbackEmoji: string;
+  imgClass?: string;
+  emojiClass?: string;
+}
+
+const ItemImage: React.FC<ItemImageProps> = ({
+  category,
+  name,
+  fallbackEmoji,
+  imgClass = "w-16 h-16 object-contain",
+  emojiClass = "text-2xl"
+}) => {
+  const [error, setError] = useState(false);
+  const src = resolveItemImage(category, name);
+
+  useEffect(() => {
+    setError(false);
+  }, [category, name]);
+
+  if (!src || error) {
+    return <span className={emojiClass}>{fallbackEmoji}</span>;
+  }
+
+  return (
+    <img
+      src={src}
+      alt={name}
+      className={imgClass}
+      onError={() => setError(true)}
+    />
+  );
+};
 
 export const AccountList: React.FC = () => {
   const { accounts, fetchAccounts, selectedAccountDetails, fetchAccountDetails, deleteAccount } = useApp();
@@ -47,21 +98,7 @@ export const AccountList: React.FC = () => {
     return `${hours}h ${minutes}m`;
   };
 
-  // Image resolver helper for item assets served statically from the backend
-  const resolveItemImage = (category: string, name: string) => {
-    if (!name || name === 'None') return '';
-    const normalizedName = name.trim().replace(/\s+/g, '_');
-    let folder = '';
-    
-    if (category === 'swords' || category === 'weapons') folder = 'ki%E1%BA%BFm';
-    else if (category === 'guns') folder = 's%C3%BAng';
-    else if (category === 'styles') folder = 'v%C3%B5';
-    else if (category === 'accessories') folder = 'ph%E1%BB%A5%20ki%C3%AAn';
-    else if (category === 'materials') folder = 'nguy%C3%AAn%20li%E1%BB%87u%20v%C3%B5%20godhuamn';
 
-    if (!folder) return '';
-    return `${BACKEND_URL}/api/images/${folder}/${normalizedName}.webp`;
-  };
 
   return (
     <div className="space-y-6">
@@ -244,8 +281,14 @@ export const AccountList: React.FC = () => {
                     {/* Equipped Fruit */}
                     <div className="bg-ocean-deep p-4 rounded-xl border border-slate-800 flex flex-col justify-between items-center text-center">
                       <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider mb-2">Equipped Fruit</span>
-                      <div className="w-20 h-20 bg-ocean-abyss rounded-lg border border-slate-800 flex items-center justify-center font-bold text-2xl text-gold relative">
-                        🍇
+                      <div className="w-20 h-20 bg-ocean-abyss rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden font-bold text-2xl text-gold relative">
+                        <ItemImage
+                          category="fruits"
+                          name={selectedAccountDetails.account.equipped.fruit}
+                          fallbackEmoji="🍇"
+                          emojiClass="text-2xl"
+                          imgClass="w-16 h-16 object-contain"
+                        />
                       </div>
                       <span className="text-sm font-bold text-white mt-3 block truncate max-w-full">
                         {selectedAccountDetails.account.equipped.fruit}
@@ -257,16 +300,13 @@ export const AccountList: React.FC = () => {
                     <div className="bg-ocean-deep p-4 rounded-xl border border-slate-800 flex flex-col justify-between items-center text-center">
                       <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider mb-2">Equipped Sword</span>
                       <div className="w-20 h-20 bg-ocean-abyss rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden">
-                        {resolveItemImage('swords', selectedAccountDetails.account.equipped.sword) ? (
-                          <img
-                            src={resolveItemImage('swords', selectedAccountDetails.account.equipped.sword)}
-                            alt={selectedAccountDetails.account.equipped.sword}
-                            className="w-16 h-16 object-contain"
-                            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                          />
-                        ) : (
-                          <span className="text-2xl text-slate-600">⚔️</span>
-                        )}
+                        <ItemImage
+                          category="swords"
+                          name={selectedAccountDetails.account.equipped.sword}
+                          fallbackEmoji="⚔️"
+                          emojiClass="text-2xl text-slate-600"
+                          imgClass="w-16 h-16 object-contain"
+                        />
                       </div>
                       <span className="text-sm font-bold text-white mt-3 block truncate max-w-full">
                         {selectedAccountDetails.account.equipped.sword}
@@ -277,16 +317,13 @@ export const AccountList: React.FC = () => {
                     <div className="bg-ocean-deep p-4 rounded-xl border border-slate-800 flex flex-col justify-between items-center text-center">
                       <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider mb-2">Equipped Gun</span>
                       <div className="w-20 h-20 bg-ocean-abyss rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden">
-                        {resolveItemImage('guns', selectedAccountDetails.account.equipped.gun) ? (
-                          <img
-                            src={resolveItemImage('guns', selectedAccountDetails.account.equipped.gun)}
-                            alt={selectedAccountDetails.account.equipped.gun}
-                            className="w-16 h-16 object-contain"
-                            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                          />
-                        ) : (
-                          <span className="text-2xl text-slate-600">🔫</span>
-                        )}
+                        <ItemImage
+                          category="guns"
+                          name={selectedAccountDetails.account.equipped.gun}
+                          fallbackEmoji="🔫"
+                          emojiClass="text-2xl text-slate-600"
+                          imgClass="w-16 h-16 object-contain"
+                        />
                       </div>
                       <span className="text-sm font-bold text-white mt-3 block truncate max-w-full">
                         {selectedAccountDetails.account.equipped.gun}
@@ -297,16 +334,13 @@ export const AccountList: React.FC = () => {
                     <div className="bg-ocean-deep p-4 rounded-xl border border-slate-800 flex flex-col justify-between items-center text-center">
                       <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider mb-2">Fighting Style</span>
                       <div className="w-20 h-20 bg-ocean-abyss rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden">
-                        {resolveItemImage('styles', selectedAccountDetails.account.equipped.fightingStyle) ? (
-                          <img
-                            src={resolveItemImage('styles', selectedAccountDetails.account.equipped.fightingStyle)}
-                            alt={selectedAccountDetails.account.equipped.fightingStyle}
-                            className="w-16 h-16 object-contain"
-                            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                          />
-                        ) : (
-                          <span className="text-2xl text-slate-600">👊</span>
-                        )}
+                        <ItemImage
+                          category="styles"
+                          name={selectedAccountDetails.account.equipped.fightingStyle}
+                          fallbackEmoji="👊"
+                          emojiClass="text-2xl text-slate-600"
+                          imgClass="w-16 h-16 object-contain"
+                        />
                       </div>
                       <span className="text-sm font-bold text-white mt-3 block truncate max-w-full">
                         {selectedAccountDetails.account.equipped.fightingStyle}
@@ -366,16 +400,13 @@ export const AccountList: React.FC = () => {
                         {selectedAccountDetails.inventory.materials.map((mat, idx) => (
                           <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center relative overflow-hidden">
                             <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
-                              {resolveItemImage('materials', mat.name) ? (
-                                <img
-                                  src={resolveItemImage('materials', mat.name)}
-                                  alt={mat.name}
-                                  className="w-8 h-8 object-contain"
-                                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                                />
-                              ) : (
-                                <span className="text-base text-slate-500">📦</span>
-                              )}
+                              <ItemImage
+                                category="materials"
+                                name={mat.name}
+                                fallbackEmoji="📦"
+                                emojiClass="text-base text-slate-500"
+                                imgClass="w-8 h-8 object-contain"
+                              />
                             </div>
                             <span className="text-[10px] font-bold text-slate-300 mt-2 block truncate max-w-full">{mat.name}</span>
                             <span className="absolute top-1 right-1 text-[10px] font-extrabold bg-gold/10 border border-gold/30 text-gold px-1.5 py-0.5 rounded">
@@ -398,16 +429,13 @@ export const AccountList: React.FC = () => {
                         {selectedAccountDetails.inventory.accessories.map((acc, idx) => (
                           <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center">
                             <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
-                              {resolveItemImage('accessories', acc) ? (
-                                <img
-                                  src={resolveItemImage('accessories', acc)}
-                                  alt={acc}
-                                  className="w-8 h-8 object-contain"
-                                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                                />
-                              ) : (
-                                <span className="text-base text-slate-500">👑</span>
-                              )}
+                              <ItemImage
+                                category="accessories"
+                                name={acc}
+                                fallbackEmoji="👑"
+                                emojiClass="text-base text-slate-500"
+                                imgClass="w-8 h-8 object-contain"
+                              />
                             </div>
                             <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{acc}</span>
                           </div>
