@@ -313,6 +313,24 @@ export const AccountList: React.FC = () => {
                       </span>
                     </div>
                   </div>
+
+                  {/* Farming Map Section (For Sea 3) */}
+                  {(selectedAccountDetails.account.sea === 3 || 
+                    (selectedAccountDetails.account.location && selectedAccountDetails.account.location.toLowerCase().includes('sea 3'))) && (
+                    <div className="bg-ocean-deep/60 p-4 rounded-xl border border-slate-800 mt-6">
+                      <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider block mb-3">Sea 3 Farming Map</span>
+                      <div className="relative rounded-lg overflow-hidden border border-slate-700/50">
+                        <img 
+                          src="/map_sea_3.jpg" 
+                          alt="Sea 3 Map" 
+                          className="w-full h-auto max-h-[320px] object-cover"
+                        />
+                        <div className="absolute bottom-2 left-2 bg-slate-950/80 px-2.5 py-1 rounded border border-slate-800 text-[10px] text-white font-bold">
+                          Current Location: {selectedAccountDetails.account.location}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
