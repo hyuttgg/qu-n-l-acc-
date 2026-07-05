@@ -5,7 +5,7 @@
 
 -- Configuration
 _G.ApiKey = "" -- Optionally paste your API key here (or enter it in the ingame GUI)
-_G.ServerUrl = "http://localhost:5000" -- Change to your hosted backend URL if deployed
+_G.ServerUrl = "https://quan-ly-acc-viet-nam.onrender.com" -- Change to your hosted backend URL if deployed
 _G.HeartbeatInterval = 15 -- Heartbeat in seconds
 
 -- Services
