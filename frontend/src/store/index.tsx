@@ -61,7 +61,7 @@ export interface LeviathanSession {
   accountId: any;
   robloxUsername: string;
   serverId: string;
-  status: 'Not Started' | 'Searching' | 'Activated' | 'Fighting' | 'Heart Obtained' | 'Finished';
+  status: 'Not Started' | 'Preparing' | 'Searching' | 'Activated' | 'Fighting' | 'Heart Obtained' | 'Finished';
   startedAt: string;
   endedAt?: string;
   duration: number;

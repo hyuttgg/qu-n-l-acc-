@@ -22,7 +22,7 @@ const LeviathanSessionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Not Started', 'Searching', 'Activated', 'Fighting', 'Heart Obtained', 'Finished'],
+    enum: ['Not Started', 'Preparing', 'Searching', 'Activated', 'Fighting', 'Heart Obtained', 'Finished'],
     default: 'Not Started',
   },
   startedAt: {

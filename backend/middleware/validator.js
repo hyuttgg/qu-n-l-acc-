@@ -95,7 +95,7 @@ const leviathanUpdateSchema = z.object({
   username: z.string().min(1).max(50).optional(),
   roblox_username: z.string().min(1).max(50).optional(),
   serverId: z.string().max(100).optional(),
-  status: z.enum(['Not Started', 'Searching', 'Activated', 'Fighting', 'Heart Obtained', 'Finished']).optional(),
+  status: z.enum(['Not Started', 'Preparing', 'Searching', 'Activated', 'Fighting', 'Heart Obtained', 'Finished']).optional(),
   spyMessage: z.string().max(300).optional(),
   dangerLevel: z.number().int().min(1).max(6).optional(),
   frozenDetected: z.boolean().optional(),
