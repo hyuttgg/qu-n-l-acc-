@@ -24,6 +24,7 @@ interface Account {
     sword: string;
     gun: string;
     fightingStyle: string;
+    accessory?: string;
   };
   status: 'offline' | 'idle' | 'grinding' | 'bossing' | 'sea_event' | 'trading';
   location: string;
