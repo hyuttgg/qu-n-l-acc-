@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useApp } from '../store';
-import { Compass, Gem, Coins, Clock, Sparkles } from 'lucide-react';
+import { Compass, Gem, Coins, Clock, Sparkles, Copy, Check } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -16,6 +16,7 @@ import {
 
 export const DashboardOverview: React.FC = () => {
   const { analytics, fetchAnalytics, accounts, fetchAccounts } = useApp();
+  const [scriptCopied, setScriptCopied] = React.useState(false);
 
   useEffect(() => {
     fetchAnalytics();
@@ -244,20 +245,43 @@ export const DashboardOverview: React.FC = () => {
         <div className="glass-panel p-6 border border-gold/10">
           <h3 className="text-lg font-bold text-white mb-3 text-gold glow-text-gold">Quick Start Guide</h3>
           <p className="text-slate-400 text-xs leading-relaxed mb-4">
-            Connect your Roblox executor to your OceanForge dashboard. Execute our Lua script to synchronize your stats statically.
+            Connect your Roblox executor to your CrimsonForge dashboard. Execute our Lua script to synchronize your stats in real-time.
           </p>
-          <div className="space-y-3 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
-            <div className="flex gap-2">
-              <span className="w-5 h-5 rounded-full bg-gold/15 border border-gold/30 text-gold flex items-center justify-center font-bold flex-shrink-0">1</span>
-              <p className="text-slate-300">Copy your API Key from the top-bar header.</p>
+          <div className="space-y-4">
+            {/* Copy box */}
+            <div className="space-y-2">
+              <label className="block text-slate-400 text-[10px] uppercase font-extrabold tracking-wider">Roblox Loader Script</label>
+              <div className="flex items-center gap-3 bg-slate-950 p-3 rounded-lg border border-slate-800">
+                <span className="font-mono text-white text-[10px] select-all break-all flex-1">
+                  loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender.lua"))()
+                </span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText('loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender.lua"))()');
+                    setScriptCopied(true);
+                    setTimeout(() => setScriptCopied(false), 2000);
+                  }}
+                  className="p-2 rounded bg-slate-900 border border-slate-800 text-slate-450 hover:text-white transition"
+                  title="Copy Script"
+                >
+                  {scriptCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <span className="w-5 h-5 rounded-full bg-gold/15 border border-gold/30 text-gold flex items-center justify-center font-bold flex-shrink-0">2</span>
-              <p className="text-slate-300">Paste it into the `_G.ApiKey` variable of the `sender.lua` script.</p>
-            </div>
-            <div className="flex gap-2">
-              <span className="w-5 h-5 rounded-full bg-gold/15 border border-gold/30 text-gold flex items-center justify-center font-bold flex-shrink-0">3</span>
-              <p className="text-slate-300">Execute the script inside your Roblox game instances.</p>
+
+            <div className="space-y-3 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
+              <div className="flex gap-2">
+                <span className="w-5 h-5 rounded-full bg-gold/15 border border-gold/30 text-gold flex items-center justify-center font-bold flex-shrink-0">1</span>
+                <p className="text-slate-300">Copy your API Key from the top-bar header.</p>
+              </div>
+              <div className="flex gap-2">
+                <span className="w-5 h-5 rounded-full bg-gold/15 border border-gold/30 text-gold flex items-center justify-center font-bold flex-shrink-0">2</span>
+                <p className="text-slate-300">Execute the **Roblox Loader Script** copied above in your executor.</p>
+              </div>
+              <div className="flex gap-2">
+                <span className="w-5 h-5 rounded-full bg-gold/15 border border-gold/30 text-gold flex items-center justify-center font-bold flex-shrink-0">3</span>
+                <p className="text-slate-300">Paste your API Key in the in-game CrimsonForge GUI to connect.</p>
+              </div>
             </div>
           </div>
         </div>

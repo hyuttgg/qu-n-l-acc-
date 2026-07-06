@@ -7,12 +7,20 @@ export const SettingsPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
+  const [scriptCopied, setScriptCopied] = useState(false);
+
   const handleCopyKey = () => {
     if (user?.apiKey) {
       navigator.clipboard.writeText(user.apiKey);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const handleCopyScript = () => {
+    navigator.clipboard.writeText('loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender.lua"))()');
+    setScriptCopied(true);
+    setTimeout(() => setScriptCopied(false), 2000);
   };
 
   const handleRegenerate = async () => {
@@ -50,26 +58,48 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* API key display box */}
-        <div className="flex items-center gap-3 bg-slate-950 p-4 rounded-xl border border-slate-900">
-          <span className="font-mono text-white text-xs select-all break-all flex-1">
-            {user?.apiKey}
-          </span>
-          <div className="flex gap-2 flex-shrink-0">
-            <button
-              onClick={handleCopyKey}
-              className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
-              title="Copy Key"
-            >
-              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-            </button>
-            <button
-              onClick={handleRegenerate}
-              disabled={regenerating}
-              className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-red-400 hover:text-white hover:bg-red-500/10 hover:border-red-500/20 transition"
-              title="Regenerate Key"
-            >
-              <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-            </button>
+        <div className="space-y-2">
+          <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">Your API Key</label>
+          <div className="flex items-center gap-3 bg-slate-950 p-4 rounded-xl border border-slate-900">
+            <span className="font-mono text-white text-xs select-all break-all flex-1">
+              {user?.apiKey}
+            </span>
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={handleCopyKey}
+                className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
+                title="Copy Key"
+              >
+                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-red-400 hover:text-white hover:bg-red-500/10 hover:border-red-500/20 transition"
+                title="Regenerate Key"
+              >
+                <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Roblox Loader Script */}
+        <div className="space-y-2">
+          <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">Roblox Loader Script</label>
+          <div className="flex items-center gap-3 bg-slate-950 p-4 rounded-xl border border-slate-900">
+            <span className="font-mono text-white text-xs select-all break-all flex-1">
+              loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender.lua"))()
+            </span>
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={handleCopyScript}
+                className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
+                title="Copy Script"
+              >
+                {scriptCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -77,10 +107,9 @@ export const SettingsPage: React.FC = () => {
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-850 text-xs space-y-2">
           <h4 className="font-bold text-slate-300">How to deploy:</h4>
           <ol className="list-decimal pl-4 space-y-1.5 text-slate-400">
-            <li>Open the Roblox Lua file located in <code className="text-gold font-mono">core/sender.lua</code>.</li>
-            <li>Locate the <code className="text-gold font-mono">_G.ApiKey</code> global variable at the top of the file.</li>
-            <li>Replace its value with your copied API key from above.</li>
-            <li>Run the script in Roblox executors such as Delta, Fluxus, or VMOS environments.</li>
+            <li>Copy the **Roblox Loader Script** above.</li>
+            <li>Execute the loader script in your Roblox executor (such as Delta, Fluxus, or VMOS).</li>
+            <li>On the in-game GUI, paste your **API Key** when prompted to connect and start syncing.</li>
           </ol>
         </div>
       </div>
