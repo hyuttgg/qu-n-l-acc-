@@ -8,15 +8,31 @@ const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 // Image resolver helper for item assets served statically from the frontend public folder
 const resolveItemImage = (category: string, name: string) => {
   if (!name || name === 'None') return '';
-  const normalizedName = name.trim().replace(/\s+/g, '_');
+  let normalizedName = name.trim().replace(/\s+/g, '_');
   let folder = '';
   
   if (category === 'swords') folder = 'kiếm';
   else if (category === 'guns') folder = 'súng';
   else if (category === 'styles') folder = 'võ';
   else if (category === 'accessories') folder = 'phụ kiên';
-  else if (category === 'materials') folder = 'nguyên liệu võ godhuamn';
-  else if (category === 'fruits') folder = 'trái';
+  else if (category === 'materials') {
+    folder = 'nguyên liệu võ godhuamn';
+    const noUnderscoreMaterials = [
+      'Angel_Wings', 'Demonic_Wisp', 'Dragon_Scale', 'Fish_Tail', 
+      'Mini_Tusk', 'Radioactive_Material', 'Vampire_Fang', 'Yeti_Fur'
+    ];
+    if (noUnderscoreMaterials.includes(normalizedName)) {
+      normalizedName = normalizedName.replace(/_/g, '');
+    }
+  }
+  else if (category === 'fruits') {
+    folder = 'trái acc quỷ';
+    // Clean Blox Fruits suffix/prefix: e.g. "Dough-Dough" -> "Dough", "Physical Dough" -> "Dough"
+    let cleanName = name.trim().split('-')[0];
+    cleanName = cleanName.replace(/Physical\s+/i, '').replace(/\s*Fruit/i, '').trim();
+    // Re-assemble to match "Name_Fruit" style
+    normalizedName = `${cleanName.replace(/\s+/g, '_')}_Fruit`;
+  }
 
   if (!folder) return '';
   return `/ảnh/${folder}/${normalizedName}.webp`;

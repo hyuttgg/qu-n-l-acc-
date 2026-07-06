@@ -5,15 +5,31 @@ import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity } 
 // Image resolver helper for item assets served statically from the frontend public folder
 const resolveItemImage = (category: string, name: string) => {
   if (!name || name === 'None') return '';
-  const normalizedName = name.trim().replace(/\s+/g, '_');
+  let normalizedName = name.trim().replace(/\s+/g, '_');
   let folder = '';
   
   if (category === 'swords' || category === 'weapons') folder = 'kiếm';
   else if (category === 'guns') folder = 'súng';
   else if (category === 'styles') folder = 'võ';
   else if (category === 'accessories') folder = 'phụ kiên';
-  else if (category === 'materials') folder = 'nguyên liệu võ godhuamn';
-  else if (category === 'fruits') folder = 'trái';
+  else if (category === 'materials') {
+    folder = 'nguyên liệu võ godhuamn';
+    const noUnderscoreMaterials = [
+      'Angel_Wings', 'Demonic_Wisp', 'Dragon_Scale', 'Fish_Tail', 
+      'Mini_Tusk', 'Radioactive_Material', 'Vampire_Fang', 'Yeti_Fur'
+    ];
+    if (noUnderscoreMaterials.includes(normalizedName)) {
+      normalizedName = normalizedName.replace(/_/g, '');
+    }
+  }
+  else if (category === 'fruits') {
+    folder = 'trái acc quỷ';
+    // Clean Blox Fruits suffix/prefix: e.g. "Dough-Dough" -> "Dough", "Physical Dough" -> "Dough"
+    let cleanName = name.trim().split('-')[0];
+    cleanName = cleanName.replace(/Physical\s+/i, '').replace(/\s*Fruit/i, '').trim();
+    // Re-assemble to match "Name_Fruit" style
+    normalizedName = `${cleanName.replace(/\s+/g, '_')}_Fruit`;
+  }
 
   if (!folder) return '';
   return `/ảnh/${folder}/${normalizedName}.webp`;
@@ -277,7 +293,7 @@ export const AccountList: React.FC = () => {
                   </div>
 
                   {/* Equipped Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     {/* Equipped Fruit */}
                     <div className="bg-ocean-deep p-4 rounded-xl border border-slate-800 flex flex-col justify-between items-center text-center">
                       <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider mb-2">Equipped Fruit</span>
@@ -346,6 +362,23 @@ export const AccountList: React.FC = () => {
                         {selectedAccountDetails.account.equipped.fightingStyle}
                       </span>
                     </div>
+
+                    {/* Equipped Accessory */}
+                    <div className="bg-ocean-deep p-4 rounded-xl border border-slate-800 flex flex-col justify-between items-center text-center">
+                      <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider mb-2">Equipped Accessory</span>
+                      <div className="w-20 h-20 bg-ocean-abyss rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden">
+                        <ItemImage
+                          category="accessories"
+                          name={selectedAccountDetails.account.equipped.accessory || 'None'}
+                          fallbackEmoji="👑"
+                          emojiClass="text-2xl text-slate-600"
+                          imgClass="w-16 h-16 object-contain"
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-white mt-3 block truncate max-w-full">
+                        {selectedAccountDetails.account.equipped.accessory || 'None'}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Farming Map Section (For Sea 3) */}
@@ -380,8 +413,16 @@ export const AccountList: React.FC = () => {
                       </h4>
                       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
                         {selectedAccountDetails.inventory.fruits.map((fruit, idx) => (
-                          <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center">
-                            <span className="text-xl">🍓</span>
+                          <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                            <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
+                              <ItemImage
+                                category="fruits"
+                                name={fruit}
+                                fallbackEmoji="🍓"
+                                emojiClass="text-base text-slate-500"
+                                imgClass="w-8 h-8 object-contain"
+                              />
+                            </div>
                             <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{fruit}</span>
                           </div>
                         ))}

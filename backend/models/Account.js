@@ -37,6 +37,7 @@ const AccountSchema = new mongoose.Schema({
     sword: { type: String, default: 'None' },
     gun: { type: String, default: 'None' },
     fightingStyle: { type: String, default: 'Combat' },
+    accessory: { type: String, default: 'None' },
   },
   status: {
     type: String,

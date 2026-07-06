@@ -66,6 +66,7 @@ const runTest = async () => {
     sword: 'Yama',
     gun: 'Acidum Rifle',
     fighting_style: 'Superhuman',
+    accessory_equipped: 'Dark Coat',
     status: 'grinding',
     location: 'Green Zone',
     playtime: 4800,

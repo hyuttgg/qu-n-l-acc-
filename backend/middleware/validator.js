@@ -78,6 +78,7 @@ const luaUpdateSchema = z.object({
   sword: z.string().optional(),
   gun: z.string().optional(),
   fighting_style: z.string().optional(),
+  accessory_equipped: z.string().optional(),
   weapons: z.array(z.string()).optional(),
   guns: z.array(z.string()).optional(),
   styles: z.array(z.string()).optional(),

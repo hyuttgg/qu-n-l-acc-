@@ -83,6 +83,7 @@ router.post(
           sword: payload.sword || (payload.weapons && payload.weapons[0]) || account.equipped.sword,
           gun: payload.gun || (payload.guns && payload.guns[0]) || account.equipped.gun,
           fightingStyle: payload.fighting_style || (payload.styles && payload.styles[0]) || account.equipped.fightingStyle,
+          accessory: payload.accessory_equipped || account.equipped.accessory || 'None',
         };
 
         // Handle Session In Memory
@@ -184,6 +185,7 @@ router.post(
         sword: payload.sword || (payload.weapons && payload.weapons[0]) || account.equipped.sword,
         gun: payload.gun || (payload.guns && payload.guns[0]) || account.equipped.gun,
         fightingStyle: payload.fighting_style || (payload.styles && payload.styles[0]) || account.equipped.fightingStyle,
+        accessory: payload.accessory_equipped || account.equipped.accessory || 'None',
       };
 
       await account.save();
