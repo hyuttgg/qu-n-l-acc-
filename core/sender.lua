@@ -211,6 +211,50 @@ local function scanInventory()
     return inventory
 end
 
+-- Helper to identify if a tool is a fighting style (melee)
+local function isFightingStyle(item)
+    if item:IsA("Tool") then
+        local name = item.Name
+        local toolType = item:GetAttribute("Type") or ""
+        if toolType == "Melee" 
+           or name == "Combat" 
+           or name == "Dark Step" 
+           or name == "Death Step" 
+           or name == "Electro" 
+           or name == "Electric Claw" 
+           or name == "Water Kung Fu" 
+           or name == "Sharkman Karate" 
+           or name == "Dragon Breath" 
+           or name == "Dragon Talon" 
+           or name == "Superhuman" 
+           or name == "Godhuman" 
+           or name == "Sanguine Art" 
+           or name:find("Style") then
+            return true
+        end
+    end
+    return false
+end
+
+-- Get current equipped fighting style (checks character and backpack, no network remotes)
+local function getEquippedFightingStyle()
+    if LocalPlayer.Character then
+        for _, item in ipairs(LocalPlayer.Character:GetChildren()) do
+            if isFightingStyle(item) then
+                return item.Name
+            end
+        end
+    end
+    if LocalPlayer.Backpack then
+        for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
+            if isFightingStyle(item) then
+                return item.Name
+            end
+        end
+    end
+    return "Combat"
+end
+
 -- Scan Equipped items
 local function getEquippedDetails(inv)
     local details = {
@@ -257,30 +301,6 @@ local function getEquippedDetails(inv)
                 details.gun = name
             end
         end
-    end
-
-    local function isFightingStyle(item)
-        if item:IsA("Tool") then
-            local name = item.Name
-            local toolType = item:GetAttribute("Type") or ""
-            if toolType == "Melee" 
-               or name == "Combat" 
-               or name == "Dark Step" 
-               or name == "Death Step" 
-               or name == "Electro" 
-               or name == "Electric Claw" 
-               or name == "Water Kung Fu" 
-               or name == "Sharkman Karate" 
-               or name == "Dragon Breath" 
-               or name == "Dragon Talon" 
-               or name == "Superhuman" 
-               or name == "Godhuman" 
-               or name == "Sanguine Art" 
-               or name:find("Style") then
-                return true
-            end
-        end
-        return false
     end
 
     -- First detect what is actively equipped on the Character
@@ -754,6 +774,20 @@ local function startHeartbeatScheduler()
             local ledTween = TweenService:Create(LedIndicator, info, {Size = UDim2.new(0, 12, 0, 12), Position = UDim2.new(0.045, 0, 0.07, 0)})
             ledTween:Play()
             task.wait(2.5)
+        end
+    end)
+
+    -- Observe fighting style changes and send immediate updates
+    task.spawn(function()
+        local lastFightingStyle = getEquippedFightingStyle()
+        while heartbeatLoopActive do
+            local currentStyle = getEquippedFightingStyle()
+            if currentStyle ~= lastFightingStyle then
+                lastFightingStyle = currentStyle
+                print("OceanForge: Fighting style changed to " .. tostring(currentStyle) .. ". Sending immediate update...")
+                pcall(sendStats)
+            end
+            task.wait(1)
         end
     end)
 
