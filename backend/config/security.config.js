@@ -34,17 +34,17 @@ module.exports = {
   rateLimits: {
     general: {
       windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 100,
+      max: 500, // Increased from 100 to prevent false-positives under normal usage
       message: 'Too many requests from this IP, please try again after 15 minutes',
     },
     auth: {
       windowMs: 15 * 60 * 1000,
-      max: 10, // Limit login/register attempts
+      max: 30, // Increased from 10 to allow reasonable login/register attempts
       message: 'Too many authentication attempts, please try again after 15 minutes',
     },
     lua: {
       windowMs: 1 * 60 * 1000, // 1 minute
-      max: 30, // Roblox Lua client update rate
+      max: 60, // Increased from 30 to prevent fast loops from blocking client updates
       message: 'Rate limit exceeded for Lua sender. Slow down your update loop.',
     }
   },

@@ -22,6 +22,7 @@ const { securityLogger } = require('./middleware/logging');
 connectDB();
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Render, Vercel, Heroku, etc.)
 const server = http.createServer(app);
 
 // ══════════════════════════════════════
