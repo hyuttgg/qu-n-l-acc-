@@ -659,8 +659,11 @@ local function formatComma(amount)
     return formatted
 end
 
+local lastSendTime = 0
+
 -- Main Ingestion Sync Function
 local function sendStats()
+    lastSendTime = tick()
     local dataFolder = LocalPlayer:FindFirstChild("Data")
     if not dataFolder then
         warn("OceanForge: Player Data folder not found. Retrying in next heartbeat.")
@@ -777,15 +780,30 @@ local function startHeartbeatScheduler()
         end
     end)
 
-    -- Observe fighting style changes and send immediate updates
+    -- Observe fighting style changes and send immediate updates (throttled to 15s to prevent server load)
     task.spawn(function()
         local lastFightingStyle = getEquippedFightingStyle()
         while heartbeatLoopActive do
             local currentStyle = getEquippedFightingStyle()
             if currentStyle ~= lastFightingStyle then
-                lastFightingStyle = currentStyle
-                print("OceanForge: Fighting style changed to " .. tostring(currentStyle) .. ". Sending immediate update...")
-                pcall(sendStats)
+                local timeSinceLastSend = tick() - lastSendTime
+                if timeSinceLastSend >= 15 then
+                    lastFightingStyle = currentStyle
+                    print("OceanForge: Fighting style changed to " .. tostring(currentStyle) .. ". Sending immediate update...")
+                    pcall(sendStats)
+                else
+                    -- Within 15s window, queue the update to fire exactly at the end of the cooldown
+                    local waitTime = 15 - timeSinceLastSend
+                    task.wait(waitTime)
+                    
+                    -- Check if it's still changed after the wait before sending
+                    local newStyle = getEquippedFightingStyle()
+                    if newStyle ~= lastFightingStyle then
+                        lastFightingStyle = newStyle
+                        print("OceanForge: Fighting style changed (throttled). Sending update...")
+                        pcall(sendStats)
+                    end
+                end
             end
             task.wait(1)
         end
