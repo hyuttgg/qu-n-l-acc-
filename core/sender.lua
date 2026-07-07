@@ -770,6 +770,46 @@ local function stopHeartbeatScheduler()
     LedIndicator.BackgroundColor3 = Color3.fromRGB(127, 29, 29) -- Dim Red stopped
 end
 
+-- Helper to load saved API key from file
+local function loadSavedKey()
+    if isfile and readfile and isfile("crimsonforge_key.json") then
+        local success, rawData = pcall(readfile, "crimsonforge_key.json")
+        if success and rawData then
+            local decodeSuccess, data = pcall(function()
+                return HttpService:JSONDecode(rawData)
+            end)
+            if decodeSuccess and type(data) == "table" and data.key and data.save_day and data.save_year then
+                local now = os.date("*t")
+                if now.year ~= data.save_year or now.yday ~= data.save_day then
+                    -- Different/later day, delete file and do not load
+                    if delfile then
+                        pcall(delfile, "crimsonforge_key.json")
+                    end
+                    print("CrimsonForge: Saved API key has expired (tomorrow reached) and was deleted.")
+                else
+                    return data.key
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Helper to save API key to file
+local function saveKey(key)
+    if writefile and HttpService then
+        local now = os.date("*t")
+        local data = {
+            key = key,
+            save_day = now.yday,
+            save_year = now.year
+        }
+        pcall(function()
+            writefile("crimsonforge_key.json", HttpService:JSONEncode(data))
+        end)
+    end
+end
+
 -- Toggle Connection handler
 local function connectEngine(key)
     if not key or key == "" then
@@ -778,6 +818,7 @@ local function connectEngine(key)
     end
     
     _G.ApiKey = key
+    saveKey(key) -- Save key locally
     IngestScreen.Visible = false
     MonitorScreen.Visible = true
     startHeartbeatScheduler()
@@ -786,6 +827,9 @@ end
 local function disconnectEngine()
     _G.ApiKey = ""
     stopHeartbeatScheduler()
+    if isfile and delfile and isfile("crimsonforge_key.json") then
+        pcall(delfile, "crimsonforge_key.json")
+    end
     MonitorScreen.Visible = false
     IngestScreen.Visible = true
 end
@@ -877,9 +921,12 @@ end
 makeDraggable(MainFrame)
 makeDraggable(AnchorBtn)
 
--- Check if global key is already provided at start
+-- Check if global key is already provided at start or saved locally
+local savedKey = loadSavedKey()
 if _G.ApiKey and _G.ApiKey ~= "" and _G.ApiKey ~= "YOUR_API_KEY_HERE" then
     connectEngine(_G.ApiKey)
+elseif savedKey and savedKey ~= "" then
+    connectEngine(savedKey)
 else
     IngestScreen.Visible = true
 end
