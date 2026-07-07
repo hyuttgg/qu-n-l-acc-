@@ -78,10 +78,16 @@ export const RealtimeTracker: React.FC = () => {
               </div>
             </div>
 
-            {/* Micro-detail grid for equipped fruit */}
-            <div className="mt-5 p-3 rounded-lg bg-slate-950/60 border border-slate-900 flex justify-between items-center text-xs">
-              <span className="text-slate-500 font-semibold">Equipped Fruit:</span>
-              <span className="font-bold text-gold">{acc.equipped.fruit}</span>
+            {/* Micro-detail grid for equipped items */}
+            <div className="mt-5 p-3 rounded-lg bg-slate-950/60 border border-slate-900 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">Equipped Fruit:</span>
+                <span className="font-bold text-gold">{acc.equipped.fruit}</span>
+              </div>
+              <div className="flex justify-between items-center border-t border-slate-900/50 pt-2">
+                <span className="text-slate-500 font-semibold">Fighting Style:</span>
+                <span className="font-bold text-sky-400">{acc.equipped.fightingStyle}</span>
+              </div>
             </div>
           </div>
         ))}
