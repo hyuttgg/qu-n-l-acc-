@@ -27,15 +27,18 @@ local function getSea()
     end
 
     -- Fallback 1: Scan Workspace/Map to identify the Sea based on known unique islands
-    local map = workspace:FindFirstChild("Map") or workspace
+    local map = workspace:FindFirstChild("Map")
     if map then
         for _, child in ipairs(map:GetChildren()) do
             local name = child.Name:lower()
-            if name:find("turtle") or name:find("hydra") or name:find("castle") or name:find("port town") or name:find("great tree") then
+            -- Sea 3 specific islands
+            if name:find("floating turtle") or name:find("hydra island") or name:find("castle on the sea") or name:find("haunted castle") or name:find("port town") or name:find("great tree") then
                 return 3
-            elseif name:find("rose") or name:find("green zone") or name:find("graveyard") or name:find("snow mountain") or name:find("hot and cold") then
+            -- Sea 2 specific islands
+            elseif name:find("kingdom of rose") or name:find("green zone") or name:find("graveyard") or name:find("snow mountain") or name:find("hot and cold") or name:find("ice castle") or name:find("cursed ship") or name:find("forgotten island") then
                 return 2
-            elseif name:find("jungle") or name:find("pirate") or name:find("desert") or name:find("frozen") or name:find("sky") or name:find("prison") then
+            -- Sea 1 specific islands
+            elseif name:find("jungle") or name:find("pirate village") or name:find("desert") or name:find("frozen village") or name:find("marine fortress") or name:find("middle town") or name:find("skypiea") or name:find("prison") or name:find("magma village") or name:find("underwater city") or name:find("fountain city") then
                 return 1
             end
         end

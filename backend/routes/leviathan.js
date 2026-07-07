@@ -141,6 +141,7 @@ router.post(
       if (payload.status && payload.status !== 'Finished') {
         account.status = 'sea_event';
         account.location = 'Third Sea (Danger Level ' + (payload.dangerLevel || 1) + ')';
+        account.sea = 3; // Leviathan is exclusively in Third Sea
         await account.save();
       } else if (payload.status === 'Finished') {
         account.status = 'idle';

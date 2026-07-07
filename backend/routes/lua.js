@@ -70,7 +70,7 @@ router.post(
         account.level = payload.level || account.level;
         account.beli = payload.beli !== undefined ? payload.beli : account.beli;
         account.fragments = payload.fragments !== undefined ? payload.fragments : account.fragments;
-        account.sea = payload.sea || account.sea;
+        account.sea = payload.sea !== undefined ? payload.sea : account.sea;
         account.race = payload.race || account.race;
         account.status = payload.status || 'grinding';
         account.location = payload.location || account.location;
@@ -171,7 +171,7 @@ router.post(
       account.level = payload.level || account.level;
       account.beli = payload.beli !== undefined ? payload.beli : account.beli;
       account.fragments = payload.fragments !== undefined ? payload.fragments : account.fragments;
-      account.sea = payload.sea || account.sea;
+      account.sea = payload.sea !== undefined ? payload.sea : account.sea;
       account.race = payload.race || account.race;
       account.status = payload.status || 'grinding';
       account.location = payload.location || account.location;
