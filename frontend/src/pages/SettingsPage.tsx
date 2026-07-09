@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { useApp } from '../store';
 import { Settings, Key, RefreshCw, Copy, Check, ShieldCheck, Mail, User } from 'lucide-react';
+import { api } from '../utils/api';
 
 export const SettingsPage: React.FC = () => {
   const { user, regenerateApiKey } = useApp();
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-
   const [scriptCopied, setScriptCopied] = useState(false);
+  const [isCopyingScript, setIsCopyingScript] = useState(false);
+
+  const displayLoaderScript = `loadstring(game:HttpGet("${window.location.origin}/api/lua/load?token=..."))()`;
 
   const handleCopyKey = () => {
     if (user?.apiKey) {
@@ -17,10 +20,29 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleCopyScript = () => {
-    navigator.clipboard.writeText('loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender.lua"))()');
-    setScriptCopied(true);
-    setTimeout(() => setScriptCopied(false), 2000);
+  const handleCopyScript = async () => {
+    if (isCopyingScript) return;
+    setIsCopyingScript(true);
+    try {
+      const res = await api.post('/auth/loader-token', {});
+      if (res.success && res.token) {
+        const copyText = `loadstring(game:HttpGet("${window.location.origin}/api/lua/load?token=${res.token}"))()`;
+        await navigator.clipboard.writeText(copyText);
+        setScriptCopied(true);
+        setTimeout(() => setScriptCopied(false), 2000);
+      } else {
+        alert('Failed to generate loader token.');
+      }
+    } catch (err) {
+      console.error('Error generating token:', err);
+      const fallbackUrl = `${window.location.origin}/api/lua/load?key=${user?.apiKey || 'YOUR_API_KEY'}`;
+      const fallbackScript = `loadstring(game:HttpGet("${fallbackUrl}"))()`;
+      await navigator.clipboard.writeText(fallbackScript);
+      setScriptCopied(true);
+      setTimeout(() => setScriptCopied(false), 2000);
+    } finally {
+      setIsCopyingScript(false);
+    }
   };
 
   const handleRegenerate = async () => {
@@ -89,13 +111,14 @@ export const SettingsPage: React.FC = () => {
           <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">Roblox Loader Script</label>
           <div className="flex items-center gap-3 bg-slate-950 p-4 rounded-xl border border-slate-900">
             <span className="font-mono text-white text-xs select-all break-all flex-1">
-              loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender.lua"))()
+              {displayLoaderScript}
             </span>
             <div className="flex gap-2 flex-shrink-0">
               <button
                 onClick={handleCopyScript}
-                className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
-                title="Copy Script"
+                disabled={isCopyingScript}
+                className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition disabled:opacity-50"
+                title="Copy Script (Generates dynamic token)"
               >
                 {scriptCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </button>

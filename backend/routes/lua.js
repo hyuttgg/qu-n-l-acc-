@@ -4,6 +4,10 @@ const Inventory = require('../models/Inventory');
 const Session = require('../models/Session');
 const Log = require('../models/Log');
 const mockStore = require('../utils/mockStore');
+const User = require('../models/User');
+const fs = require('fs');
+const path = require('path');
+const jwt = require('jsonwebtoken');
 
 // ───── Security Middleware ─────
 const { requireApiKey } = require('../middleware/auth');
@@ -27,6 +31,106 @@ const normalizeMaterials = (materialsList) => {
   });
   return Object.keys(map).map((name) => ({ name, quantity: map[name] }));
 };
+
+// ══════════════════════════════════════════════════════════════
+// @desc    Serve Roblox Lua client script dynamically with configurations injected
+// @route   GET /api/lua/load
+// @access  Public (Verifies API Key parameter)
+// ══════════════════════════════════════════════════════════════
+router.get('/load', async (req, res) => {
+  const apiKey = req.query.key;
+  const token = req.query.token;
+
+  if (!apiKey && !token) {
+    res.setHeader('Content-Type', 'text/plain');
+    return res.send('-- Error: API Key or Token is required. Format: loadstring(game:HttpGet(".../api/lua/load?token=YOUR_TOKEN"))()');
+  }
+
+  try {
+    let user = null;
+    let finalApiKey = apiKey;
+
+    if (token) {
+      // Verify short-term token
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_key');
+        if (decoded.purpose !== 'loader_token') {
+          res.setHeader('Content-Type', 'text/plain');
+          return res.send('-- Error: Invalid token purpose.');
+        }
+
+        const userId = decoded.userId || decoded.id;
+        if (!global.dbConnected) {
+          user = mockStore.findUserById(userId);
+        } else {
+          user = await User.findById(userId);
+        }
+
+        if (!user) {
+          res.setHeader('Content-Type', 'text/plain');
+          return res.send('-- Error: User not found for token.');
+        }
+
+        // Generate 24-hour Roblox session JWT token
+        finalApiKey = jwt.sign(
+          { userId: user._id ? user._id.toString() : user.id.toString(), purpose: 'roblox_session' },
+          process.env.JWT_SECRET || 'super_secret_key',
+          { expiresIn: '1d' }
+        );
+      } catch (jwtErr) {
+        res.setHeader('Content-Type', 'text/plain');
+        if (jwtErr.name === 'TokenExpiredError') {
+          return res.send('-- Error: Bootstrap token has expired. Please copy a new script from the dashboard.');
+        }
+        return res.send('-- Error: Invalid or expired token.');
+      }
+    } else {
+      // Validate API Key using database or mockStore fallback
+      if (!global.dbConnected) {
+        user = mockStore.findUserByApiKey(apiKey);
+      } else {
+        user = await User.findOne({ apiKey });
+      }
+
+      if (!user) {
+        res.setHeader('Content-Type', 'text/plain');
+        return res.send('-- Error: Invalid API Key. Please retrieve your correct API Key from the Web Panel.');
+      }
+    }
+
+    // Read the Lua client sender script from the core folder
+    const scriptPath = path.join(__dirname, '../../core/sender.lua');
+    if (!fs.existsSync(scriptPath)) {
+      res.setHeader('Content-Type', 'text/plain');
+      return res.send('-- Error: Lua client script file not found on server.');
+    }
+
+    let scriptContent = fs.readFileSync(scriptPath, 'utf8');
+
+    // Dynamic configuration injection
+    // Replace default API Key placeholder with user's verified key (permanent API key or Roblox session token)
+    scriptContent = scriptContent.replace(
+      '_G.ApiKey = ""',
+      `_G.ApiKey = "${finalApiKey}"`
+    );
+
+    // Replace Server URL placeholder with the requesting host/domain URL
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const serverUrl = `${protocol}://${host}`;
+    scriptContent = scriptContent.replace(
+      '_G.ServerUrl = "https://quan-ly-acc-viet-nam.onrender.com"',
+      `_G.ServerUrl = "${serverUrl}"`
+    );
+
+    res.setHeader('Content-Type', 'text/plain');
+    return res.send(scriptContent);
+  } catch (error) {
+    console.error('Failed to load Lua client script:', error);
+    res.setHeader('Content-Type', 'text/plain');
+    return res.send('-- Error: Internal server error occurred while serving script.');
+  }
+});
 
 // ══════════════════════════════════════════════════════════════
 // @desc    Receive update from Lua script in Roblox

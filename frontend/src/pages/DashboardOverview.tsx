@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useApp } from '../store';
 import { Compass, Gem, Coins, Clock, Sparkles, Copy, Check } from 'lucide-react';
+import { api } from '../utils/api';
 import {
   AreaChart,
   Area,
@@ -15,8 +16,11 @@ import {
 } from 'recharts';
 
 export const DashboardOverview: React.FC = () => {
-  const { analytics, fetchAnalytics, accounts, fetchAccounts } = useApp();
+  const { analytics, fetchAnalytics, accounts, fetchAccounts, user } = useApp();
   const [scriptCopied, setScriptCopied] = React.useState(false);
+  const [isCopying, setIsCopying] = React.useState(false);
+
+  const displayLoaderScript = `loadstring(game:HttpGet("${window.location.origin}/api/lua/load?token=..."))()`;
 
   useEffect(() => {
     fetchAnalytics();
@@ -253,16 +257,36 @@ export const DashboardOverview: React.FC = () => {
               <label className="block text-slate-400 text-[10px] uppercase font-extrabold tracking-wider">Roblox Loader Script</label>
               <div className="flex items-center gap-3 bg-slate-950 p-3 rounded-lg border border-slate-800">
                 <span className="font-mono text-white text-[10px] select-all break-all flex-1">
-                  loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender.lua"))()
+                  {displayLoaderScript}
                 </span>
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText('loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender.lua"))()');
-                    setScriptCopied(true);
-                    setTimeout(() => setScriptCopied(false), 2000);
+                  onClick={async () => {
+                    if (isCopying) return;
+                    setIsCopying(true);
+                    try {
+                      const res = await api.post('/auth/loader-token', {});
+                      if (res.success && res.token) {
+                        const copyText = `loadstring(game:HttpGet("${window.location.origin}/api/lua/load?token=${res.token}"))()`;
+                        await navigator.clipboard.writeText(copyText);
+                        setScriptCopied(true);
+                        setTimeout(() => setScriptCopied(false), 2000);
+                      } else {
+                        alert('Failed to generate loader token.');
+                      }
+                    } catch (err) {
+                      console.error('Error generating token:', err);
+                      const fallbackUrl = `${window.location.origin}/api/lua/load?key=${user?.apiKey || 'YOUR_API_KEY'}`;
+                      const fallbackScript = `loadstring(game:HttpGet("${fallbackUrl}"))()`;
+                      await navigator.clipboard.writeText(fallbackScript);
+                      setScriptCopied(true);
+                      setTimeout(() => setScriptCopied(false), 2000);
+                    } finally {
+                      setIsCopying(false);
+                    }
                   }}
-                  className="p-2 rounded bg-slate-900 border border-slate-800 text-slate-450 hover:text-white transition"
-                  title="Copy Script"
+                  disabled={isCopying}
+                  className="p-2 rounded bg-slate-900 border border-slate-800 text-slate-450 hover:text-white transition disabled:opacity-50"
+                  title="Copy Script (Generates dynamic token)"
                 >
                   {scriptCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>

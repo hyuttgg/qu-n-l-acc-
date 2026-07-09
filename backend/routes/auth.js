@@ -191,4 +191,21 @@ router.post('/regenerate-key', protect, async (req, res) => {
   }
 });
 
+// @desc    Generate a short-lived token for script loading (expires in 5 minutes)
+// @route   POST /api/auth/loader-token
+// @access  Private
+router.post('/loader-token', protect, async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const token = jwt.sign(
+      { userId: userId.toString(), purpose: 'loader_token' },
+      process.env.JWT_SECRET || 'super_secret_key',
+      { expiresIn: '5m' }
+    );
+    res.status(200).json({ success: true, token });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

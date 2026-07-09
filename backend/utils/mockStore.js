@@ -20,9 +20,10 @@ module.exports = {
   findUserById: (id) => store.users.find(u => u.id === id.toString()),
   findUserByApiKey: (apiKey) => store.users.find(u => u.apiKey === apiKey),
   createUser: (username, email, password) => {
+    const userId = Math.random().toString(36).substr(2, 9);
     const newUser = {
-      id: Math.random().toString(36).substr(2, 9),
-      _id: Math.random().toString(36).substr(2, 9), // compat
+      id: userId,
+      _id: userId, // compat
       username,
       email,
       password, // simple check

@@ -48,6 +48,29 @@ exports.requireApiKey = async (req, res, next) => {
   }
 
   try {
+    // Check if the provided key is a JWT session token
+    if (apiKey.startsWith('ey')) {
+      try {
+        const decoded = jwt.verify(apiKey, process.env.JWT_SECRET || 'super_secret_key');
+        if (decoded.purpose === 'roblox_session') {
+          let user;
+          const userId = decoded.userId || decoded.id;
+          if (!global.dbConnected) {
+            user = mockStore.findUserById(userId);
+          } else {
+            user = await User.findById(userId);
+          }
+
+          if (user) {
+            req.apiUser = user;
+            return next();
+          }
+        }
+      } catch (jwtErr) {
+        return res.status(401).json({ success: false, message: 'Roblox session token expired or invalid' });
+      }
+    }
+
     // In-memory fallback
     if (!global.dbConnected) {
       const user = mockStore.findUserByApiKey(apiKey);
@@ -68,3 +91,4 @@ exports.requireApiKey = async (req, res, next) => {
     return res.status(500).json({ success: false, message: 'API key authorization failed' });
   }
 };
+
