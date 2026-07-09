@@ -23,6 +23,13 @@ export const DashboardOverview: React.FC = () => {
   const BACKEND_URL = import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com';
   const displayLoaderScript = `loadstring(game:HttpGet("${BACKEND_URL}/api/lua/load?token=..."))()`;
 
+  const obfuscateToLuaEscapes = (str: string) => {
+    return str.split('').map(char => {
+      const code = char.charCodeAt(0);
+      return '\\' + String(code).padStart(3, '0');
+    }).join('');
+  };
+
   useEffect(() => {
     fetchAnalytics();
     fetchAccounts();
@@ -267,7 +274,9 @@ export const DashboardOverview: React.FC = () => {
                     try {
                       const res = await api.post('/auth/loader-token', {});
                       if (res.success && res.token) {
-                        const copyText = `loadstring(game:HttpGet("${BACKEND_URL}/api/lua/load?token=${res.token}"))()`;
+                        const rawUrl = `${BACKEND_URL}/api/lua/load?token=${res.token}`;
+                        const encryptedUrl = obfuscateToLuaEscapes(rawUrl);
+                        const copyText = `loadstring(game:HttpGet("${encryptedUrl}"))()`;
                         await navigator.clipboard.writeText(copyText);
                         setScriptCopied(true);
                         setTimeout(() => setScriptCopied(false), 2000);
@@ -277,7 +286,8 @@ export const DashboardOverview: React.FC = () => {
                     } catch (err) {
                       console.error('Error generating token:', err);
                       const fallbackUrl = `${BACKEND_URL}/api/lua/load?key=${user?.apiKey || 'YOUR_API_KEY'}`;
-                      const fallbackScript = `loadstring(game:HttpGet("${fallbackUrl}"))()`;
+                      const encryptedFallback = obfuscateToLuaEscapes(fallbackUrl);
+                      const fallbackScript = `loadstring(game:HttpGet("${encryptedFallback}"))()`;
                       await navigator.clipboard.writeText(fallbackScript);
                       setScriptCopied(true);
                       setTimeout(() => setScriptCopied(false), 2000);
