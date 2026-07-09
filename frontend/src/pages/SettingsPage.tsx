@@ -10,7 +10,8 @@ export const SettingsPage: React.FC = () => {
   const [scriptCopied, setScriptCopied] = useState(false);
   const [isCopyingScript, setIsCopyingScript] = useState(false);
 
-  const displayLoaderScript = `loadstring(game:HttpGet("${window.location.origin}/api/lua/load?token=..."))()`;
+  const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const displayLoaderScript = `loadstring(game:HttpGet("${BACKEND_URL}/api/lua/load?token=..."))()`;
 
   const handleCopyKey = () => {
     if (user?.apiKey) {
@@ -26,7 +27,7 @@ export const SettingsPage: React.FC = () => {
     try {
       const res = await api.post('/auth/loader-token', {});
       if (res.success && res.token) {
-        const copyText = `loadstring(game:HttpGet("${window.location.origin}/api/lua/load?token=${res.token}"))()`;
+        const copyText = `loadstring(game:HttpGet("${BACKEND_URL}/api/lua/load?token=${res.token}"))()`;
         await navigator.clipboard.writeText(copyText);
         setScriptCopied(true);
         setTimeout(() => setScriptCopied(false), 2000);
@@ -35,7 +36,7 @@ export const SettingsPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Error generating token:', err);
-      const fallbackUrl = `${window.location.origin}/api/lua/load?key=${user?.apiKey || 'YOUR_API_KEY'}`;
+      const fallbackUrl = `${BACKEND_URL}/api/lua/load?key=${user?.apiKey || 'YOUR_API_KEY'}`;
       const fallbackScript = `loadstring(game:HttpGet("${fallbackUrl}"))()`;
       await navigator.clipboard.writeText(fallbackScript);
       setScriptCopied(true);
