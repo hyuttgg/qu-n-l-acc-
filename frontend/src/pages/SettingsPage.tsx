@@ -143,7 +143,7 @@ export const SettingsPage: React.FC = () => {
           <ol className="list-decimal pl-4 space-y-1.5 text-slate-400">
             <li>Copy the **Roblox Loader Script** above.</li>
             <li>Execute the loader script in your Roblox executor (such as Delta, Fluxus, or VMOS).</li>
-            <li>On the in-game GUI, paste your **API Key** when prompted to connect and start syncing.</li>
+            <li>The script will automatically connect using your secure credentials and start syncing.</li>
           </ol>
         </div>
       </div>

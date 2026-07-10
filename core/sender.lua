@@ -4,7 +4,7 @@
 -- ==========================================================
 
 -- Configuration
-_G.ApiKey = "" -- Optionally paste your API key here (or enter it in the ingame GUI)
+_G.ApiKey = "" -- Optionally paste your API key here
 _G.ServerUrl = "https://quan-ly-acc-viet-nam.onrender.com" -- Change to your hosted backend URL if deployed
 _G.HeartbeatInterval = 15 -- Heartbeat in seconds
 
@@ -408,8 +408,8 @@ end
 -- Main Window Frame (Themed glassmorphism crimson)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 360, 0, 260)
-MainFrame.Position = UDim2.new(0.5, -180, 0.4, -130)
+MainFrame.Size = UDim2.new(0, 360, 0, 180)
+MainFrame.Position = UDim2.new(0.5, -180, 0.4, -90)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 10, 12) -- Crimson Charcoal
 MainFrame.BackgroundTransparency = 0.15
 MainFrame.BorderSizePixel = 0
@@ -487,70 +487,13 @@ AnchorStroke.Thickness = 1.5
 AnchorStroke.Color = Color3.fromRGB(239, 68, 68)
 AnchorStroke.Parent = AnchorBtn
 
--- 1. Key Ingest Screen (Visible when Key not authenticated)
-local IngestScreen = Instance.new("Frame")
-IngestScreen.Name = "IngestScreen"
-IngestScreen.Size = UDim2.new(1, 0, 0.8, 0)
-IngestScreen.Position = UDim2.new(0, 0, 0.2, 0)
-IngestScreen.BackgroundTransparency = 1
-IngestScreen.Parent = MainFrame
-
-local IngestDesc = Instance.new("TextLabel")
-IngestDesc.Size = UDim2.new(0.9, 0, 0.25, 0)
-IngestDesc.Position = UDim2.new(0.05, 0, 0.08, 0)
-IngestDesc.BackgroundTransparency = 1
-IngestDesc.Text = "Enter your CrimsonForge API key to connect this bot instance to your web dashboard."
-IngestDesc.TextColor3 = Color3.fromRGB(244, 197, 205) -- Light Slate Rose
-IngestDesc.Font = Enum.Font.GothamSemibold
-IngestDesc.TextSize = 12
-IngestDesc.TextWrapped = true
-IngestDesc.Parent = IngestScreen
-
-local KeyBox = Instance.new("TextBox")
-KeyBox.Name = "KeyBox"
-KeyBox.Size = UDim2.new(0.9, 0, 0.22, 0)
-KeyBox.Position = UDim2.new(0.05, 0, 0.38, 0)
-KeyBox.BackgroundColor3 = Color3.fromRGB(12, 6, 8) -- Deep Dark Charcoal Red
-KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyBox.PlaceholderText = "Paste api key here..."
-KeyBox.PlaceholderColor3 = Color3.fromRGB(153, 27, 27) -- Crimson Red
-KeyBox.ClearTextOnFocus = false
-KeyBox.Font = Enum.Font.Code
-KeyBox.TextSize = 11
-KeyBox.Text = _G.ApiKey
-KeyBox.Parent = IngestScreen
-
-local KeyCorner = Instance.new("UICorner")
-KeyCorner.CornerRadius = UDim.new(0, 8)
-KeyCorner.Parent = KeyBox
-
-local KeyStroke = Instance.new("UIStroke")
-KeyStroke.Thickness = 1
-KeyStroke.Color = Color3.fromRGB(220, 38, 38) -- Neon Red
-KeyStroke.Parent = KeyBox
-
-local ConnectBtn = Instance.new("TextButton")
-ConnectBtn.Name = "ConnectBtn"
-ConnectBtn.Size = UDim2.new(0.9, 0, 0.22, 0)
-ConnectBtn.Position = UDim2.new(0.05, 0, 0.68, 0)
-ConnectBtn.BackgroundColor3 = Color3.fromRGB(220, 38, 38) -- Neon Red
-ConnectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ConnectBtn.Text = "CONNECT FLEET"
-ConnectBtn.Font = Enum.Font.GothamBold
-ConnectBtn.TextSize = 12
-ConnectBtn.Parent = IngestScreen
-
-local ConnectCorner = Instance.new("UICorner")
-ConnectCorner.CornerRadius = UDim.new(0, 8)
-ConnectCorner.Parent = ConnectBtn
-
--- 2. Connected Monitor Screen (Visible when Key authenticated)
+-- Connected Monitor Screen (Always visible, starts syncing immediately)
 local MonitorScreen = Instance.new("Frame")
 MonitorScreen.Name = "MonitorScreen"
-MonitorScreen.Size = UDim2.new(1, 0, 0.8, 0)
-MonitorScreen.Position = UDim2.new(0, 0, 0.2, 0)
+MonitorScreen.Size = UDim2.new(1, 0, 0.75, 0)
+MonitorScreen.Position = UDim2.new(0, 0, 0.25, 0)
 MonitorScreen.BackgroundTransparency = 1
-MonitorScreen.Visible = false
+MonitorScreen.Visible = true
 MonitorScreen.Parent = MainFrame
 
 -- Led pulsating dot indicators
@@ -579,8 +522,8 @@ LedLabel.Parent = MonitorScreen
 
 -- Account details breakdown (Crimson styles)
 local StatsFrame = Instance.new("Frame")
-StatsFrame.Size = UDim2.new(0.9, 0, 0.52, 0)
-StatsFrame.Position = UDim2.new(0.05, 0, 0.22, 0)
+StatsFrame.Size = UDim2.new(0.9, 0, 0.7, 0)
+StatsFrame.Position = UDim2.new(0.05, 0, 0.25, 0)
 StatsFrame.BackgroundTransparency = 1
 StatsFrame.Parent = MonitorScreen
 
@@ -626,26 +569,6 @@ IslandLabel.Font = Enum.Font.GothamSemibold
 IslandLabel.TextSize = 12
 IslandLabel.TextXAlignment = Enum.TextXAlignment.Left
 IslandLabel.Parent = StatsFrame
-
-local DisconnectBtn = Instance.new("TextButton")
-DisconnectBtn.Name = "DisconnectBtn"
-DisconnectBtn.Size = UDim2.new(0.9, 0, 0.18, 0)
-DisconnectBtn.Position = UDim2.new(0.05, 0, 0.78, 0)
-DisconnectBtn.BackgroundColor3 = Color3.fromRGB(20, 10, 12)
-DisconnectBtn.TextColor3 = Color3.fromRGB(239, 68, 68) -- Neon Red
-DisconnectBtn.Text = "DISCONNECT ENGINE"
-DisconnectBtn.Font = Enum.Font.GothamBold
-DisconnectBtn.TextSize = 10
-DisconnectBtn.Parent = MonitorScreen
-
-local DisconnectCorner = Instance.new("UICorner")
-DisconnectCorner.CornerRadius = UDim.new(0, 8)
-DisconnectCorner.Parent = DisconnectBtn
-
-local DisconnectStroke = Instance.new("UIStroke")
-DisconnectStroke.Thickness = 1
-DisconnectStroke.Color = Color3.fromRGB(239, 68, 68)
-DisconnectStroke.Parent = DisconnectBtn
 
 -- Helper to format Beli/Fragments numbers with commas
 local function formatComma(amount)
@@ -862,38 +785,17 @@ local function saveKey(key)
     end
 end
 
--- Toggle Connection handler
-local function connectEngine(key)
-    if not key or key == "" then
-        warn("OceanForge: API Key field is empty.")
-        return
-    end
-    
-    _G.ApiKey = key
-    saveKey(key) -- Save key locally
-    IngestScreen.Visible = false
-    MonitorScreen.Visible = true
+-- Start the engine automatically
+local savedKey = loadSavedKey()
+if _G.ApiKey and _G.ApiKey ~= "" and _G.ApiKey ~= "YOUR_API_KEY_HERE" then
+    saveKey(_G.ApiKey)
+    startHeartbeatScheduler()
+elseif savedKey and savedKey ~= "" then
+    _G.ApiKey = savedKey
+    startHeartbeatScheduler()
+else
     startHeartbeatScheduler()
 end
-
-local function disconnectEngine()
-    _G.ApiKey = ""
-    stopHeartbeatScheduler()
-    if isfile and delfile and isfile("crimsonforge_key.json") then
-        pcall(delfile, "crimsonforge_key.json")
-    end
-    MonitorScreen.Visible = false
-    IngestScreen.Visible = true
-end
-
--- Button click listeners
-ConnectBtn.MouseButton1Click:Connect(function()
-    connectEngine(KeyBox.Text)
-end)
-
-DisconnectBtn.MouseButton1Click:Connect(function()
-    disconnectEngine()
-end)
 
 -- Minimize / Restore animations
 local function toggleMinimize()
@@ -909,19 +811,6 @@ end
 
 MinBtn.MouseButton1Click:Connect(toggleMinimize)
 AnchorBtn.MouseButton1Click:Connect(toggleMinimize)
-
--- Connect Hover Button Tweens
-local function addHoverTween(button, hoverBgColor, originalBgColor)
-    button.MouseEnter:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = hoverBgColor}):Play()
-    end)
-    button.MouseLeave:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = originalBgColor}):Play()
-    end)
-end
-
-addHoverTween(ConnectBtn, Color3.fromRGB(243, 229, 171), Color3.fromRGB(212, 175, 55))
-addHoverTween(DisconnectBtn, Color3.fromRGB(239, 68, 68), Color3.fromRGB(2, 6, 23))
 
 -- Custom smooth dragging controller
 local function makeDraggable(frame)
@@ -973,12 +862,3 @@ end
 makeDraggable(MainFrame)
 makeDraggable(AnchorBtn)
 
--- Check if global key is already provided at start or saved locally
-local savedKey = loadSavedKey()
-if _G.ApiKey and _G.ApiKey ~= "" and _G.ApiKey ~= "YOUR_API_KEY_HERE" then
-    connectEngine(_G.ApiKey)
-elseif savedKey and savedKey ~= "" then
-    connectEngine(savedKey)
-else
-    IngestScreen.Visible = true
-end

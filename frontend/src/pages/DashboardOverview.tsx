@@ -307,15 +307,15 @@ export const DashboardOverview: React.FC = () => {
             <div className="space-y-3 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
               <div className="flex gap-2">
                 <span className="w-5 h-5 rounded-full bg-gold/15 border border-gold/30 text-gold flex items-center justify-center font-bold flex-shrink-0">1</span>
-                <p className="text-slate-300">Copy your API Key from the top-bar header.</p>
+                <p className="text-slate-300">Copy the **Roblox Loader Script** above.</p>
               </div>
               <div className="flex gap-2">
                 <span className="w-5 h-5 rounded-full bg-gold/15 border border-gold/30 text-gold flex items-center justify-center font-bold flex-shrink-0">2</span>
-                <p className="text-slate-300">Execute the **Roblox Loader Script** copied above in your executor.</p>
+                <p className="text-slate-300">Execute the script in your executor (such as VMOS, Delta, or Fluxus).</p>
               </div>
               <div className="flex gap-2">
                 <span className="w-5 h-5 rounded-full bg-gold/15 border border-gold/30 text-gold flex items-center justify-center font-bold flex-shrink-0">3</span>
-                <p className="text-slate-300">Paste your API Key in the in-game CrimsonForge GUI to connect.</p>
+                <p className="text-slate-300">The script will automatically connect and synchronize your stats in real-time.</p>
               </div>
             </div>
           </div>

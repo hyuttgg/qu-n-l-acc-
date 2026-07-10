@@ -6,8 +6,7 @@
 -- NO GAMEPLAY AUTOMATION - READ ONLY.
 -- =====================================================================
 
--- Configuration
-_G.ApiKey = "" -- Optionally paste your API key here (or enter it in the ingame GUI)
+_G.ApiKey = "" -- Optionally paste your API key here
 _G.ServerUrl = "https://quan-ly-acc-viet-nam.onrender.com" -- Change to your hosted backend URL if deployed
 _G.HeartbeatInterval = 15 -- Heartbeat in seconds
 
@@ -355,8 +354,8 @@ local TweenService = game:GetService("TweenService")
 -- Main Frame (Dark green navy with emerald border)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 360, 0, 320)
-MainFrame.Position = UDim2.new(0.5, -180, 0.4, -160)
+MainFrame.Size = UDim2.new(0, 360, 0, 180)
+MainFrame.Position = UDim2.new(0.5, -180, 0.4, -90)
 MainFrame.BackgroundColor3 = Color3.fromRGB(11, 25, 23)
 MainFrame.BackgroundTransparency = 0.15
 MainFrame.BorderSizePixel = 0
@@ -457,86 +456,18 @@ LeviathanImage.ImageColor3 = Color3.fromRGB(16, 185, 129)
 LeviathanImage.ImageTransparency = 0.85
 LeviathanImage.Parent = MainFrame
 
--- Key Auth Screen
-local IngestScreen = Instance.new("Frame")
-IngestScreen.Name = "IngestScreen"
-IngestScreen.Size = UDim2.new(1, 0, 0.8, 0)
-IngestScreen.Position = UDim2.new(0, 0, 0.2, 0)
-IngestScreen.BackgroundTransparency = 1
-IngestScreen.Parent = MainFrame
-
-local IngestDesc = Instance.new("TextLabel")
-IngestDesc.Size = UDim2.new(0.9, 0, 0.18, 0)
-IngestDesc.Position = UDim2.new(0.05, 0, 0.04, 0)
-IngestDesc.BackgroundTransparency = 1
-IngestDesc.Text = "Configure your OceanForge server URL and API key to connect Roblox telemetry."
-IngestDesc.TextColor3 = Color3.fromRGB(200, 230, 215)
-IngestDesc.Font = Enum.Font.GothamSemibold
-IngestDesc.TextSize = 10
-IngestDesc.TextWrapped = true
-IngestDesc.Parent = IngestScreen
-
-local UrlBox = Instance.new("TextBox")
-UrlBox.Name = "UrlBox"
-UrlBox.Size = UDim2.new(0.9, 0, 0.16, 0)
-UrlBox.Position = UDim2.new(0.05, 0, 0.25, 0)
-UrlBox.BackgroundColor3 = Color3.fromRGB(6, 12, 10)
-UrlBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-UrlBox.PlaceholderText = "Server URL (Default: https://quan-ly-acc-viet-nam.onrender.com)"
-UrlBox.Text = _G.ServerUrl or "https://quan-ly-acc-viet-nam.onrender.com"
-UrlBox.Font = Enum.Font.GothamSemibold
-UrlBox.TextSize = 10
-UrlBox.ClearTextOnFocus = false
-UrlBox.Parent = IngestScreen
-
-local UrlCorner = Instance.new("UICorner")
-UrlCorner.CornerRadius = UDim.new(0, 6)
-UrlCorner.Parent = UrlBox
-
-local KeyBox = Instance.new("TextBox")
-KeyBox.Name = "KeyBox"
-KeyBox.Size = UDim2.new(0.9, 0, 0.16, 0)
-KeyBox.Position = UDim2.new(0.05, 0, 0.45, 0)
-KeyBox.BackgroundColor3 = Color3.fromRGB(6, 12, 10)
-KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyBox.PlaceholderText = "Paste API Key Here..."
-KeyBox.Text = _G.ApiKey or ""
-KeyBox.Font = Enum.Font.Code
-KeyBox.TextSize = 10
-KeyBox.ClearTextOnFocus = false
-KeyBox.Parent = IngestScreen
-
-local KeyCorner = Instance.new("UICorner")
-KeyCorner.CornerRadius = UDim.new(0, 6)
-KeyCorner.Parent = KeyBox
-
-local ConnectBtn = Instance.new("TextButton")
-ConnectBtn.Name = "ConnectBtn"
-ConnectBtn.Size = UDim2.new(0.9, 0, 0.18, 0)
-ConnectBtn.Position = UDim2.new(0.05, 0, 0.68, 0)
-ConnectBtn.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
-ConnectBtn.TextColor3 = Color3.fromRGB(11, 25, 23)
-ConnectBtn.Text = "START MONITORING"
-ConnectBtn.Font = Enum.Font.GothamBold
-ConnectBtn.TextSize = 12
-ConnectBtn.Parent = IngestScreen
-
-local ConnectCorner = Instance.new("UICorner")
-ConnectCorner.CornerRadius = UDim.new(0, 6)
-ConnectCorner.Parent = ConnectBtn
-
 -- Monitor Screen (Stats Tracking)
 local MonitorScreen = Instance.new("Frame")
 MonitorScreen.Name = "MonitorScreen"
-MonitorScreen.Size = UDim2.new(1, 0, 0.8, 0)
-MonitorScreen.Position = UDim2.new(0, 0, 0.2, 0)
+MonitorScreen.Size = UDim2.new(1, 0, 0.75, 0)
+MonitorScreen.Position = UDim2.new(0, 0, 0.25, 0)
 MonitorScreen.BackgroundTransparency = 1
-MonitorScreen.Visible = false
+MonitorScreen.Visible = true
 MonitorScreen.Parent = MainFrame
 
 local StatsFrame = Instance.new("Frame")
-StatsFrame.Size = UDim2.new(0.9, 0, 0.65, 0)
-StatsFrame.Position = UDim2.new(0.05, 0, 0.05, 0)
+StatsFrame.Size = UDim2.new(0.9, 0, 0.8, 0)
+StatsFrame.Position = UDim2.new(0.05, 0, 0.1, 0)
 StatsFrame.BackgroundTransparency = 1
 StatsFrame.Parent = MonitorScreen
 
@@ -594,26 +525,6 @@ RegionLabel.Font = Enum.Font.GothamSemibold
 RegionLabel.TextSize = 12
 RegionLabel.TextXAlignment = Enum.TextXAlignment.Left
 RegionLabel.Parent = StatsFrame
-
-local DisconnectBtn = Instance.new("TextButton")
-DisconnectBtn.Name = "DisconnectBtn"
-DisconnectBtn.Size = UDim2.new(0.9, 0, 0.18, 0)
-DisconnectBtn.Position = UDim2.new(0.05, 0, 0.78, 0)
-DisconnectBtn.BackgroundColor3 = Color3.fromRGB(6, 12, 10)
-DisconnectBtn.TextColor3 = Color3.fromRGB(239, 68, 68)
-DisconnectBtn.Text = "STOP MONITORING"
-DisconnectBtn.Font = Enum.Font.GothamBold
-DisconnectBtn.TextSize = 10
-DisconnectBtn.Parent = MonitorScreen
-
-local DisconnectCorner = Instance.new("UICorner")
-DisconnectCorner.CornerRadius = UDim.new(0, 6)
-DisconnectCorner.Parent = DisconnectBtn
-
-local DisconnectStroke = Instance.new("UIStroke")
-DisconnectStroke.Thickness = 1
-DisconnectStroke.Color = Color3.fromRGB(239, 68, 68)
-DisconnectStroke.Parent = DisconnectBtn
 
 -- Minimize Animation Connectors
 local isMinimized = false
@@ -776,12 +687,10 @@ function Collector.collectAndSend(url, apiKey)
     end)
 end
 
--- Telemetry Scheduling Control
 local function startTelemetry()
     if heartbeatLoopActive then return end
     heartbeatLoopActive = true
     
-    IngestScreen.Visible = false
     MonitorScreen.Visible = true
 
     task.spawn(function()
@@ -800,33 +709,7 @@ local function startTelemetry()
     end)
 end
 
-local function stopTelemetry()
-    heartbeatLoopActive = false
-    MonitorScreen.Visible = false
-    IngestScreen.Visible = true
-    LedIndicator.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
-end
-
-ConnectBtn.MouseButton1Click:Connect(function()
-    local url = UrlBox.Text
-    local key = KeyBox.Text
-    if url == "" then url = "https://quan-ly-acc-viet-nam.onrender.com" end
-    if key and key ~= "" then
-        _G.ServerUrl = url
-        _G.ApiKey = key
-        startTelemetry()
-    end
-end)
-
-DisconnectBtn.MouseButton1Click:Connect(function()
-    stopTelemetry()
-end)
-
--- Auto start if key is globally configured
-if _G.ApiKey and _G.ApiKey ~= "" and _G.ApiKey ~= "YOUR_API_KEY_HERE" then
-    KeyBox.Text = _G.ApiKey
-    UrlBox.Text = _G.ServerUrl or "https://quan-ly-acc-viet-nam.onrender.com"
-    startTelemetry()
-end
+-- Auto start telemetry immediately on load
+startTelemetry()
 
 return Collector
