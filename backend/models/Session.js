@@ -23,4 +23,8 @@ const SessionSchema = new mongoose.Schema({
   },
 });
 
+// Indexes for query optimization
+SessionSchema.index({ accountId: 1, online: 1 });
+SessionSchema.index({ accountId: 1, startTime: -1 });
+
 module.exports = mongoose.model('Session', SessionSchema);

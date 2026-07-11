@@ -23,24 +23,47 @@ router.get('/', protect, async (req, res) => {
 
     // Update statuses dynamically (if lastSeen was > 1 min ago, mark as offline)
     const timeout = 60 * 1000; // 1 minute
-    const updatedAccounts = await Promise.all(
-      accounts.map(async (acc) => {
-        if (acc.status !== 'offline' && Date.now() - new Date(acc.lastSeen).getTime() > timeout) {
-          acc.status = 'offline';
-          await acc.save();
+    const now = Date.now();
+    const updatedAccounts = [];
+    const accountsToOffline = [];
 
-          // Close active session
-          const session = await Session.findOne({ accountId: acc._id, online: true });
-          if (session) {
-            session.online = false;
-            session.endTime = Date.now();
-            session.duration = Math.floor((session.endTime - session.startTime) / 1000);
-            await session.save();
+    for (const acc of accounts) {
+      if (acc.status !== 'offline' && now - new Date(acc.lastSeen).getTime() > timeout) {
+        acc.status = 'offline';
+        accountsToOffline.push(acc._id);
+      }
+      updatedAccounts.push(acc);
+    }
+
+    // Perform database updates asynchronously (non-blocking)
+    if (accountsToOffline.length > 0) {
+      (async () => {
+        try {
+          await Account.updateMany({ _id: { $in: accountsToOffline } }, { status: 'offline' });
+
+          const activeSessions = await Session.find({ accountId: { $in: accountsToOffline }, online: true });
+          if (activeSessions.length > 0) {
+            const bulkOps = activeSessions.map((session) => {
+              const endTime = Date.now();
+              const duration = Math.floor((endTime - session.startTime) / 1000);
+              return {
+                updateOne: {
+                  filter: { _id: session._id },
+                  update: {
+                    online: false,
+                    endTime,
+                    duration,
+                  },
+                },
+              };
+            });
+            await Session.bulkWrite(bulkOps);
           }
+        } catch (dbErr) {
+          console.error('[Background Status Update] Error:', dbErr);
         }
-        return acc;
-      })
-    );
+      })();
+    }
 
     res.status(200).json({ success: true, count: updatedAccounts.length, data: updatedAccounts });
   } catch (error) {
@@ -79,16 +102,26 @@ router.get('/:id', protect, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Account not found' });
     }
 
-    const inventory = await Inventory.findOne({ accountId: account._id });
-    const activeSession = await Session.findOne({ accountId: account._id, online: true });
-    const recentLogs = await Log.find({ accountId: account._id }).sort({ timestamp: -1 }).limit(20);
+    // Fetch dependencies concurrently
+    const [inventory, activeSession, recentLogs] = await Promise.all([
+      Inventory.findOne({ accountId: account._id }),
+      Session.findOne({ accountId: account._id, online: true }),
+      Log.find({ accountId: account._id }).sort({ timestamp: -1 }).limit(20),
+    ]);
+
+    let finalActiveSession = activeSession;
+    if (activeSession && activeSession.online) {
+      finalActiveSession = activeSession.toObject();
+      finalActiveSession.endTime = new Date();
+      finalActiveSession.duration = Math.floor((Date.now() - new Date(activeSession.startTime).getTime()) / 1000);
+    }
 
     res.status(200).json({
       success: true,
       data: {
         account,
         inventory: inventory || { fruits: [], weapons: [], guns: [], styles: [], materials: [], accessories: [] },
-        activeSession,
+        activeSession: finalActiveSession,
         logs: recentLogs,
       },
     });

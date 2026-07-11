@@ -164,8 +164,12 @@ router.get('/overview', protect, async (req, res) => {
       }
     });
 
-    // 1. Get Inventory Items details (specifically stored fruits) for Pie Chart
-    const inventories = await Inventory.find({ accountId: { $in: accountIds } });
+    // 1. Get Inventory Items details and Sessions concurrently
+    const [inventories, sessions] = await Promise.all([
+      Inventory.find({ accountId: { $in: accountIds } }),
+      Session.find({ accountId: { $in: accountIds } }),
+    ]);
+
     const fruitCounts = {};
     let totalFruitsCount = 0;
 
@@ -232,7 +236,6 @@ router.get('/overview', protect, async (req, res) => {
     }
 
     // 4. Session stats (Online/Offline heatmap placeholder & summaries)
-    const sessions = await Session.find({ accountId: { $in: accountIds } });
     let totalSessionsCount = sessions.length;
     let avgSessionDuration = 0;
     let longestSessionDuration = 0;
@@ -240,7 +243,10 @@ router.get('/overview', protect, async (req, res) => {
     if (sessions.length > 0) {
       let sumDuration = 0;
       sessions.forEach((s) => {
-        const dur = s.duration || 0;
+        let dur = s.duration || 0;
+        if (s.online) {
+          dur = Math.floor((Date.now() - new Date(s.startTime).getTime()) / 1000);
+        }
         sumDuration += dur;
         if (dur > longestSessionDuration) {
           longestSessionDuration = dur;

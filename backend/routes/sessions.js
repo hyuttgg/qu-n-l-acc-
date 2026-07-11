@@ -28,7 +28,16 @@ router.get('/:accountId', protect, async (req, res) => {
 
     const sessions = await Session.find({ accountId: req.params.accountId }).sort({ startTime: -1 });
 
-    res.status(200).json({ success: true, count: sessions.length, data: sessions });
+    const updatedSessions = sessions.map(session => {
+      if (session.online) {
+        session = session.toObject();
+        session.endTime = new Date();
+        session.duration = Math.floor((Date.now() - new Date(session.startTime).getTime()) / 1000);
+      }
+      return session;
+    });
+
+    res.status(200).json({ success: true, count: updatedSessions.length, data: updatedSessions });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

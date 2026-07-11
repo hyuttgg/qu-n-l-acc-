@@ -32,6 +32,22 @@ const normalizeMaterials = (materialsList) => {
   return Object.keys(map).map((name) => ({ name, quantity: map[name] }));
 };
 
+const arraysEqual = (a, b) => {
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((val, index) => val === sortedB[index]);
+};
+
+const materialsEqual = (a, b) => {
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort((x, y) => x.name.localeCompare(y.name));
+  const sortedB = [...b].sort((x, y) => x.name.localeCompare(y.name));
+  return sortedA.every((val, index) => val.name === sortedB[index].name && val.quantity === sortedB[index].quantity);
+};
+
 // ══════════════════════════════════════════════════════════════
 // @desc    Serve Roblox Lua client script dynamically with configurations injected
 // @route   GET /api/lua/load
@@ -271,7 +287,31 @@ router.post(
 
       const oldLastSeen = account.lastSeen || new Date();
 
-      // Update account stats
+      // Update account stats in-memory
+      const nextEquipped = {
+        fruit: payload.fruit_equipped || payload.fruit || account.equipped.fruit,
+        fruitMastery: payload.fruit_mastery || account.equipped.fruitMastery,
+        sword: payload.sword || (payload.weapons && payload.weapons[0]) || account.equipped.sword,
+        gun: payload.gun || (payload.guns && payload.guns[0]) || account.equipped.gun,
+        fightingStyle: payload.fighting_style || (payload.styles && payload.styles[0]) || account.equipped.fightingStyle,
+        accessory: payload.accessory_equipped || account.equipped.accessory || 'None',
+      };
+
+      const statsChanged = isNew ||
+        account.level !== (payload.level || account.level) ||
+        account.beli !== (payload.beli !== undefined ? payload.beli : account.beli) ||
+        account.fragments !== (payload.fragments !== undefined ? payload.fragments : account.fragments) ||
+        account.sea !== (payload.sea !== undefined ? payload.sea : account.sea) ||
+        account.race !== (payload.race || account.race) ||
+        account.status !== (payload.status || 'grinding') ||
+        account.location !== (payload.location || account.location) ||
+        account.equipped.fruit !== nextEquipped.fruit ||
+        account.equipped.fruitMastery !== nextEquipped.fruitMastery ||
+        account.equipped.sword !== nextEquipped.sword ||
+        account.equipped.gun !== nextEquipped.gun ||
+        account.equipped.fightingStyle !== nextEquipped.fightingStyle ||
+        account.equipped.accessory !== nextEquipped.accessory;
+
       account.level = payload.level || account.level;
       account.beli = payload.beli !== undefined ? payload.beli : account.beli;
       account.fragments = payload.fragments !== undefined ? payload.fragments : account.fragments;
@@ -281,25 +321,20 @@ router.post(
       account.location = payload.location || account.location;
       account.playtime = payload.playtime || account.playtime;
       account.lastSeen = Date.now();
+      account.equipped = nextEquipped;
 
-      // Normalizing equipped item fields
-      account.equipped = {
-        fruit: payload.fruit_equipped || payload.fruit || account.equipped.fruit,
-        fruitMastery: payload.fruit_mastery || account.equipped.fruitMastery,
-        sword: payload.sword || (payload.weapons && payload.weapons[0]) || account.equipped.sword,
-        gun: payload.gun || (payload.guns && payload.guns[0]) || account.equipped.gun,
-        fightingStyle: payload.fighting_style || (payload.styles && payload.styles[0]) || account.equipped.fightingStyle,
-        accessory: payload.accessory_equipped || account.equipped.accessory || 'None',
-      };
-
-      await account.save();
+      // Throttle DB save: save if stats changed, if it is new, or if more than 30 seconds passed
+      const timeSinceLastSeen = Date.now() - new Date(oldLastSeen).getTime();
+      const shouldSaveAccount = statsChanged || timeSinceLastSeen > 30 * 1000;
+      if (shouldSaveAccount) {
+        await account.save();
+      }
 
       // 2. Handle Session Tracking
       let activeSession = await Session.findOne({ accountId: account._id, online: true });
       const sessionTimeoutThreshold = 5 * 60 * 1000; // 5 minutes
 
       if (activeSession) {
-        const timeSinceLastSeen = Date.now() - new Date(oldLastSeen).getTime();
         if (timeSinceLastSeen > sessionTimeoutThreshold) {
           // Close old session
           activeSession.online = false;
@@ -314,10 +349,16 @@ router.post(
             online: true,
           });
         } else {
-          // Update active session duration
+          // Update active session duration and end time in-memory
+          const oldEndTime = activeSession.endTime;
           activeSession.endTime = Date.now();
           activeSession.duration = Math.floor((activeSession.endTime - activeSession.startTime) / 1000);
-          await activeSession.save();
+          
+          // Throttle session updates in DB to once every 60 seconds
+          const timeSinceLastSessionUpdate = oldEndTime ? (Date.now() - new Date(oldEndTime).getTime()) : Infinity;
+          if (timeSinceLastSessionUpdate > 60 * 1000) {
+            await activeSession.save();
+          }
         }
       } else {
         // Start a new session
@@ -337,32 +378,59 @@ router.post(
         oldInventory = JSON.parse(JSON.stringify(inventory));
       }
 
+      // Compute next inventory
+      let nextFruits = inventory.fruits;
+      let nextWeapons = inventory.weapons;
+      let nextGuns = inventory.guns;
+      let nextStyles = inventory.styles;
+      let nextAccessories = inventory.accessories;
+      let nextMaterials = inventory.materials;
+
       // Inventory items mapping
       if (payload.inventory) {
-        inventory.fruits = payload.inventory.fruits || payload.inventory.stored_fruits || inventory.fruits;
-        inventory.weapons = payload.inventory.swords || payload.inventory.weapons || inventory.weapons;
-        inventory.guns = payload.inventory.guns || inventory.guns;
-        inventory.styles = payload.inventory.styles || payload.inventory.fighting_styles || inventory.styles;
-        inventory.accessories = payload.inventory.accessories || inventory.accessories;
+        nextFruits = payload.inventory.fruits || payload.inventory.stored_fruits || nextFruits;
+        nextWeapons = payload.inventory.swords || payload.inventory.weapons || nextWeapons;
+        nextGuns = payload.inventory.guns || nextGuns;
+        nextStyles = payload.inventory.styles || payload.inventory.fighting_styles || nextStyles;
+        nextAccessories = payload.inventory.accessories || nextAccessories;
         if (payload.inventory.materials) {
-          inventory.materials = normalizeMaterials(payload.inventory.materials);
+          nextMaterials = normalizeMaterials(payload.inventory.materials);
         }
       } else {
         // Flat payload fallbacks
-        if (payload.weapons) inventory.weapons = payload.weapons;
-        if (payload.guns) inventory.guns = payload.guns;
-        if (payload.styles) inventory.styles = payload.styles;
-        if (payload.accessories) inventory.accessories = payload.accessories;
+        if (payload.weapons) nextWeapons = payload.weapons;
+        if (payload.guns) nextGuns = payload.guns;
+        if (payload.styles) nextStyles = payload.styles;
+        if (payload.accessories) nextAccessories = payload.accessories;
         if (payload.materials) {
-          inventory.materials = normalizeMaterials(payload.materials);
+          nextMaterials = normalizeMaterials(payload.materials);
         }
         if (payload.inventory_fruits || payload.fruits) {
-          inventory.fruits = payload.inventory_fruits || payload.fruits;
+          nextFruits = payload.inventory_fruits || payload.fruits;
         }
       }
 
+      const inventoryChanged = !oldInventory ||
+        !arraysEqual(inventory.fruits, nextFruits) ||
+        !arraysEqual(inventory.weapons, nextWeapons) ||
+        !arraysEqual(inventory.guns, nextGuns) ||
+        !arraysEqual(inventory.styles, nextStyles) ||
+        !arraysEqual(inventory.accessories, nextAccessories) ||
+        !materialsEqual(inventory.materials, nextMaterials);
+
+      // Update inventory in-memory
+      inventory.fruits = nextFruits;
+      inventory.weapons = nextWeapons;
+      inventory.guns = nextGuns;
+      inventory.styles = nextStyles;
+      inventory.accessories = nextAccessories;
+      inventory.materials = nextMaterials;
       inventory.lastUpdated = Date.now();
-      await inventory.save();
+
+      // Only save if it actually changed or is a new record
+      if (inventoryChanged) {
+        await inventory.save();
+      }
 
       // 4. Generate Logs for changes
       const logs = [];

@@ -21,4 +21,7 @@ const LogSchema = new mongoose.Schema({
   },
 });
 
+// Index for query optimization
+LogSchema.index({ accountId: 1, timestamp: -1 });
+
 module.exports = mongoose.model('Log', LogSchema);

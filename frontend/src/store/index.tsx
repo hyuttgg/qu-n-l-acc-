@@ -106,6 +106,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedAccountDetails, setSelectedAccountDetails] = useState<AppContextType['selectedAccountDetails']>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Keep a ref to accounts state to prevent stale closures in socket event handlers
+  const accountsRef = React.useRef(accounts);
+  useEffect(() => {
+    accountsRef.current = accounts;
+  }, [accounts]);
+
   // Initialize Auth State from LocalStorage
   useEffect(() => {
     const initializeAuth = async () => {
@@ -172,8 +178,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // 3. Increment analytics dashboard metrics
         setAnalytics((prev) => {
           if (!prev) return null;
+          const currentAccounts = accountsRef.current;
           // Dynamically adjust count of online accounts
-          const wasOnline = accounts.find((a) => a._id === data.account._id)?.status !== 'offline';
+          const wasOnline = currentAccounts.find((a) => a._id === data.account._id)?.status !== 'offline';
           const isOnline = data.account.status !== 'offline';
           const onlineDiff = isOnline && !wasOnline ? 1 : !isOnline && wasOnline ? -1 : 0;
 
@@ -182,8 +189,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             summary: {
               ...prev.summary,
               onlineAccounts: Math.max(0, prev.summary.onlineAccounts + onlineDiff),
-              totalBeli: prev.summary.totalBeli + (data.account.beli - (accounts.find((a) => a._id === data.account._id)?.beli || 0)),
-              totalFragments: prev.summary.totalFragments + (data.account.fragments - (accounts.find((a) => a._id === data.account._id)?.fragments || 0)),
+              totalBeli: prev.summary.totalBeli + (data.account.beli - (currentAccounts.find((a) => a._id === data.account._id)?.beli || 0)),
+              totalFragments: prev.summary.totalFragments + (data.account.fragments - (currentAccounts.find((a) => a._id === data.account._id)?.fragments || 0)),
             }
           };
         });
