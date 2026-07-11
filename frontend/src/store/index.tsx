@@ -56,51 +56,6 @@ interface Log {
   timestamp: string;
 }
 
-export interface LeviathanSession {
-  _id: string;
-  userId: string;
-  accountId: any;
-  robloxUsername: string;
-  serverId: string;
-  status: 'Not Started' | 'Preparing' | 'Searching' | 'Activated' | 'Fighting' | 'Heart Obtained' | 'Finished';
-  startedAt: string;
-  endedAt?: string;
-  duration: number;
-  progress: {
-    spyMessage: string;
-    dangerLevel: number;
-    frozenDetected: boolean;
-    frozenTime?: string;
-    frozenSea?: number;
-    frozenCoordinates?: string;
-    heartStatus: 'Not Obtained' | 'Obtained' | 'Transporting' | 'Arrived' | 'Lost';
-    destination: string;
-    remainingDistance: number;
-    arrivalTime?: string;
-    currentStage: string;
-  };
-  team: {
-    username: string;
-    alive: boolean;
-    dead: boolean;
-    joinTime?: string;
-  }[];
-  rewards: {
-    scale: number;
-    fins?: number;
-    heart: number;
-    fragments: number;
-    exp: number;
-    otherDrop: string[];
-  };
-  battleStats: {
-    damagePhase: number;
-    membersAlive: number;
-    membersDead: number;
-    disconnectCount: number;
-  };
-  isActive: boolean;
-}
 
 interface Analytics {
   summary: {
@@ -130,8 +85,6 @@ interface AppContextType {
     logs: Log[];
   } | null;
   loading: boolean;
-  activeLeviathan: LeviathanSession | null;
-  leviathanHistory: LeviathanSession[];
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   register: (username: string, email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
@@ -140,9 +93,6 @@ interface AppContextType {
   fetchAccountDetails: (accountId: string) => Promise<void>;
   regenerateApiKey: () => Promise<void>;
   deleteAccount: (accountId: string) => Promise<void>;
-  fetchActiveLeviathan: () => Promise<void>;
-  fetchLeviathanHistory: () => Promise<void>;
-  fetchLeviathanAnalytics: () => Promise<{ totalHunts: number; successRate: number; avgDuration: number; totalScales: number; totalHearts: number; avgDeaths: string } | null>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -154,8 +104,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [selectedAccountDetails, setSelectedAccountDetails] = useState<AppContextType['selectedAccountDetails']>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeLeviathan, setActiveLeviathan] = useState<LeviathanSession | null>(null);
-  const [leviathanHistory, setLeviathanHistory] = useState<LeviathanSession[]>([]);
 
   // Initialize Auth State from LocalStorage
   useEffect(() => {
@@ -240,39 +188,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       });
 
-      newSocket.on('leviathan_update', (data: { session: LeviathanSession; account?: any }) => {
-        console.log('Realtime Leviathan Update:', data);
-        
-        // Update active session
-        setActiveLeviathan(data.session.isActive ? data.session : null);
-
-        // If it just finished or completed, refresh history & active state
-        setLeviathanHistory((prev) => {
-          const index = prev.findIndex((s) => s._id === data.session._id);
-          if (index !== -1) {
-            const updated = [...prev];
-            updated[index] = data.session;
-            return updated;
-          }
-          if (!data.session.isActive) {
-            return [data.session, ...prev].slice(0, 10);
-          }
-          return prev;
-        });
-
-        // Also update accounts status if account data was sent
-        if (data.account) {
-          setAccounts((prev) => {
-            const idx = prev.findIndex((acc) => acc._id === data.account._id);
-            if (idx !== -1) {
-              const updated = [...prev];
-              updated[idx] = data.account;
-              return updated;
-            }
-            return prev;
-          });
-        }
-      });
 
       return () => {
         newSocket.disconnect();
@@ -377,40 +292,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const fetchActiveLeviathan = async () => {
-    try {
-      const res = await api.get('/leviathan/active');
-      if (res.success) {
-        setActiveLeviathan(res.data);
-      }
-    } catch (err) {
-      console.error('Error fetching active leviathan', err);
-    }
-  };
-
-  const fetchLeviathanHistory = async () => {
-    try {
-      const res = await api.get('/leviathan/history');
-      if (res.success) {
-        setLeviathanHistory(res.data);
-      }
-    } catch (err) {
-      console.error('Error fetching leviathan history', err);
-    }
-  };
-
-  const fetchLeviathanAnalytics = async () => {
-    try {
-      const res = await api.get('/leviathan/analytics');
-      if (res.success) {
-        return res.data;
-      }
-      return null;
-    } catch (err) {
-      console.error('Error fetching leviathan analytics', err);
-      return null;
-    }
-  };
 
   return (
     <AppContext.Provider
@@ -421,8 +302,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         analytics,
         selectedAccountDetails,
         loading,
-        activeLeviathan,
-        leviathanHistory,
         login,
         register,
         logout,
@@ -431,9 +310,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         fetchAccountDetails,
         regenerateApiKey,
         deleteAccount,
-        fetchActiveLeviathan,
-        fetchLeviathanHistory,
-        fetchLeviathanAnalytics,
       }}
     >
       {children}

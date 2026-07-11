@@ -19,10 +19,7 @@ import {
   Copy,
   Check,
   Key,
-  Activity,
-  Anchor,
-  Waves,
-  Flame
+  Activity
 } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
@@ -40,7 +37,15 @@ export const DashboardLayout: React.FC = () => {
     }
   };
 
-  const menuGroups = [
+  const menuGroups: {
+    title: string;
+    items: {
+      name: string;
+      path: string;
+      icon: React.ComponentType<any>;
+      disabled?: boolean;
+    }[];
+  }[] = [
     {
       title: 'Core Fleet',
       items: [
@@ -57,15 +62,6 @@ export const DashboardLayout: React.FC = () => {
         { name: 'Weapons', path: '/dashboard/weapons', icon: Swords },
         { name: 'Fighting Styles', path: '/dashboard/styles', icon: Zap },
         { name: 'Accessories', path: '/dashboard/accessories', icon: Crown },
-      ]
-    },
-    {
-      title: 'Sea Events',
-      items: [
-        { name: 'Leviathan Manager', path: '/dashboard/leviathan', icon: Anchor },
-        { name: 'Sea Beast (Soon)', path: '#', icon: Waves, disabled: true },
-        { name: 'Mirage (Soon)', path: '#', icon: Compass, disabled: true },
-        { name: 'Kitsune Shrine (Soon)', path: '#', icon: Flame, disabled: true },
       ]
     },
     {

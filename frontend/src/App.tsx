@@ -14,7 +14,6 @@ import { InventoryList } from './pages/InventoryList';
 import { RealtimeTracker } from './pages/RealtimeTracker';
 import { AnalyticsDashboard } from './pages/AnalyticsDashboard';
 import { SettingsPage } from './pages/SettingsPage';
-import { LeviathanManager } from './pages/LeviathanManager';
 
 // Protected Route Guard
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -66,7 +65,6 @@ export const App: React.FC = () => {
             <Route path="analytics" element={<AnalyticsDashboard />} />
             <Route path="sessions" element={<AnalyticsDashboard />} />
             <Route path="settings" element={<SettingsPage />} />
-            <Route path="leviathan" element={<LeviathanManager />} />
           </Route>
 
           {/* Catch-all */}
