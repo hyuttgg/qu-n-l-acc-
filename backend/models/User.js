@@ -40,13 +40,17 @@ const UserSchema = new mongoose.Schema({
   },
 });
 
-// ───── Encrypt password using bcrypt (increased to 12 rounds) ─────
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
-    next();
+    return next();
   }
-  const salt = await bcrypt.genSalt(12); // Increased from 10 → 12 for stronger hashing
-  this.password = await bcrypt.hash(this.password, salt);
+  try {
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ───── Generate API key before saving if not present ─────
