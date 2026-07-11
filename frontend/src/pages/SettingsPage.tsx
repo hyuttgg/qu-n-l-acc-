@@ -1,14 +1,29 @@
 import React, { useState } from 'react';
 import { useApp } from '../store';
-import { Settings, Key, RefreshCw, Copy, Check, ShieldCheck, Mail, User } from 'lucide-react';
+import { Settings, Key, RefreshCw, Copy, Check, ShieldCheck, Mail, User, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 import { api } from '../utils/api';
 
 export const SettingsPage: React.FC = () => {
-  const { user, regenerateApiKey } = useApp();
+  const { user, regenerateApiKey, updateUser } = useApp();
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
   const [isCopyingScript, setIsCopyingScript] = useState(false);
+
+  // Update Email state
+  const [newEmail, setNewEmail] = useState('');
+  const [emailPassword, setEmailPassword] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailSuccess, setEmailSuccess] = useState('');
+  const [emailError, setEmailError] = useState('');
+
+  // Update Password state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   const BACKEND_URL = import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com';
   const displayLoaderScript = `loadstring(game:HttpGet("${BACKEND_URL}/api/lua/load?token=..."))()`;
@@ -61,6 +76,78 @@ export const SettingsPage: React.FC = () => {
       setRegenerating(true);
       await regenerateApiKey();
       setRegenerating(false);
+    }
+  };
+
+  const handleUpdateEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailError('');
+    setEmailSuccess('');
+    
+    if (!newEmail || !emailPassword) {
+      setEmailError('Vui lòng điền đầy đủ các trường.');
+      return;
+    }
+    
+    setEmailLoading(true);
+    try {
+      const res = await api.put('/auth/update-email', {
+        newEmail,
+        password: emailPassword
+      });
+      if (res.success && res.user) {
+        updateUser(res.user);
+        setEmailSuccess('Cập nhật Email thành công!');
+        setNewEmail('');
+        setEmailPassword('');
+      } else {
+        setEmailError(res.message || 'Cập nhật email thất bại.');
+      }
+    } catch (err: any) {
+      setEmailError(err.message || 'Đã xảy ra lỗi.');
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Vui lòng điền đầy đủ các trường.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Mật khẩu mới không trùng khớp.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('Mật khẩu mới phải có ít nhất 6 ký tự.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const res = await api.put('/auth/update-password', {
+        currentPassword,
+        newPassword
+      });
+      if (res.success) {
+        setPasswordSuccess('Cập nhật mật khẩu thành công!');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        setPasswordError(res.message || 'Cập nhật mật khẩu thất bại.');
+      }
+    } catch (err: any) {
+      setPasswordError(err.message || 'Đã xảy ra lỗi.');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -184,6 +271,170 @@ export const SettingsPage: React.FC = () => {
               />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Change Credentials Panels */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Change Email Panel */}
+        <div className="glass-panel p-6 border border-gold/10 space-y-6">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Mail className="w-5 h-5 text-gold" /> Thay đổi Email (Gmail)
+          </h3>
+          <p className="text-slate-400 text-xs">
+            Cập nhật địa chỉ email mới. Cần nhập mật khẩu hiện tại để xác minh danh tính.
+          </p>
+
+          {emailError && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              <span>{emailError}</span>
+            </div>
+          )}
+
+          {emailSuccess && (
+            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              <span>{emailSuccess}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleUpdateEmail} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">Email mới</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                  <Mail className="w-4 h-4" />
+                </span>
+                <input
+                  type="email"
+                  required
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="new-email@domain.com"
+                  className="w-full bg-slate-950/60 border border-slate-900 focus:border-gold focus:ring-1 focus:ring-gold rounded-xl py-2.5 pl-10 pr-4 text-white text-sm outline-none transition"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">Mật khẩu hiện tại</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                  <Lock className="w-4 h-4" />
+                </span>
+                <input
+                  type="password"
+                  required
+                  value={emailPassword}
+                  onChange={(e) => setEmailPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-950/60 border border-slate-900 focus:border-gold focus:ring-1 focus:ring-gold rounded-xl py-2.5 pl-10 pr-4 text-white text-sm outline-none transition"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={emailLoading}
+              className="w-full py-2.5 rounded-xl font-extrabold text-xs text-ocean-abyss bg-gold hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {emailLoading ? (
+                <div className="w-4 h-4 border-2 border-ocean-abyss border-t-transparent rounded-full animate-spin" />
+              ) : (
+                'CẬP NHẬT EMAIL'
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* Change Password Panel */}
+        <div className="glass-panel p-6 border border-gold/10 space-y-6">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Lock className="w-5 h-5 text-gold" /> Thay đổi Mật khẩu
+          </h3>
+          <p className="text-slate-400 text-xs">
+            Cập nhật mật khẩu tài khoản của bạn. Vui lòng ghi nhớ mật khẩu mới của bạn.
+          </p>
+
+          {passwordError && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              <span>{passwordError}</span>
+            </div>
+          )}
+
+          {passwordSuccess && (
+            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              <span>{passwordSuccess}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleUpdatePassword} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">Mật khẩu hiện tại</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                  <Lock className="w-4 h-4" />
+                </span>
+                <input
+                  type="password"
+                  required
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-950/60 border border-slate-900 focus:border-gold focus:ring-1 focus:ring-gold rounded-xl py-2.5 pl-10 pr-4 text-white text-sm outline-none transition"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">Mật khẩu mới</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                  <Lock className="w-4 h-4" />
+                </span>
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-950/60 border border-slate-900 focus:border-gold focus:ring-1 focus:ring-gold rounded-xl py-2.5 pl-10 pr-4 text-white text-sm outline-none transition"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">Xác nhận mật khẩu mới</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                  <Lock className="w-4 h-4" />
+                </span>
+                <input
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-950/60 border border-slate-900 focus:border-gold focus:ring-1 focus:ring-gold rounded-xl py-2.5 pl-10 pr-4 text-white text-sm outline-none transition"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={passwordLoading}
+              className="w-full py-2.5 rounded-xl font-extrabold text-xs text-ocean-abyss bg-gold hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {passwordLoading ? (
+                <div className="w-4 h-4 border-2 border-ocean-abyss border-t-transparent rounded-full animate-spin" />
+              ) : (
+                'CẬP NHẬT MẬT KHẨU'
+              )}
+            </button>
+          </form>
         </div>
       </div>
     </div>

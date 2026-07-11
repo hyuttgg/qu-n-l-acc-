@@ -91,4 +91,23 @@ const luaUpdateSchema = z.object({
   data => data.username || data.roblox_username,
   { message: 'Either username or roblox_username is required' }
 );
-module.exports = { validate, registerSchema, loginSchema, luaUpdateSchema };
+
+const updateEmailSchema = z.object({
+  newEmail: z.string().email('Invalid email address').trim().toLowerCase(),
+  password: z.string().min(1, 'Current password is required')
+});
+
+const updatePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(6, 'Password must be at least 6 characters').max(100, 'Password is too long')
+});
+
+module.exports = { 
+  validate, 
+  registerSchema, 
+  loginSchema, 
+  luaUpdateSchema, 
+  updateEmailSchema, 
+  updatePasswordSchema 
+};
+

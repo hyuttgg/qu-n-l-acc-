@@ -93,6 +93,7 @@ interface AppContextType {
   fetchAccountDetails: (accountId: string) => Promise<void>;
   regenerateApiKey: () => Promise<void>;
   deleteAccount: (accountId: string) => Promise<void>;
+  updateUser: (userData: User) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -293,6 +294,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
 
+  const updateUser = (userData: User) => {
+    setUser(userData);
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -310,6 +315,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         fetchAccountDetails,
         regenerateApiKey,
         deleteAccount,
+        updateUser,
       }}
     >
       {children}

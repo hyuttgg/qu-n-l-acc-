@@ -33,4 +33,14 @@ export const api = {
     });
     return res.json();
   },
+
+  put: async (endpoint: string, body: any) => {
+    const res = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  },
 };
+

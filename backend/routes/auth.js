@@ -7,7 +7,7 @@ const { protect } = require('../middleware/auth');
 
 // ───── Security Middleware ─────
 const { authLimiter } = require('../middleware/rateLimiter');
-const { validate, registerSchema, loginSchema } = require('../middleware/validator');
+const { validate, registerSchema, loginSchema, updateEmailSchema, updatePasswordSchema } = require('../middleware/validator');
 const { securityLogger } = require('../middleware/logging');
 
 const router = express.Router();
@@ -203,6 +203,139 @@ router.post('/loader-token', protect, async (req, res) => {
       { expiresIn: '5m' }
     );
     res.status(200).json({ success: true, token });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Update user email
+// @route   PUT /api/auth/update-email
+// @access  Private
+router.put('/update-email', protect, validate(updateEmailSchema), async (req, res) => {
+  const { newEmail, password } = req.body;
+
+  try {
+    // In-memory Mock fallback
+    if (!global.dbConnected) {
+      const user = mockStore.findUserById(req.user.id);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      if (user.password !== password) {
+        securityLogger.warn('Failed email update attempt: invalid password (mock)', { userId: user.id });
+        return res.status(400).json({ success: false, message: 'Incorrect password' });
+      }
+
+      const emailExists = mockStore.findUserByEmail(newEmail);
+      if (emailExists && emailExists.id !== user.id) {
+        return res.status(400).json({ success: false, message: 'Email already registered' });
+      }
+
+      user.email = newEmail;
+      securityLogger.info('User email updated (mock)', { userId: user.id, email: newEmail });
+
+      return res.status(200).json({
+        success: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          apiKey: user.apiKey,
+        },
+      });
+    }
+
+    // Database logic
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Verify current password
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      securityLogger.warn('Failed email update attempt: invalid password', { userId: user._id });
+      return res.status(400).json({ success: false, message: 'Incorrect password' });
+    }
+
+    // Check if new email is taken
+    const emailExists = await User.findOne({ email: newEmail });
+    if (emailExists && emailExists._id.toString() !== user._id.toString()) {
+      return res.status(400).json({ success: false, message: 'Email already registered' });
+    }
+
+    user.email = newEmail;
+    await user.save();
+
+    securityLogger.info('User email updated', { userId: user._id, email: newEmail });
+
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        apiKey: user.apiKey,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Update user password
+// @route   PUT /api/auth/update-password
+// @access  Private
+router.put('/update-password', protect, validate(updatePasswordSchema), async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  try {
+    // In-memory Mock fallback
+    if (!global.dbConnected) {
+      const user = mockStore.findUserById(req.user.id);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      if (user.password !== currentPassword) {
+        securityLogger.warn('Failed password update attempt: invalid current password (mock)', { userId: user.id });
+        return res.status(400).json({ success: false, message: 'Incorrect current password' });
+      }
+
+      user.password = newPassword;
+      securityLogger.info('User password updated (mock)', { userId: user.id });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Password updated successfully',
+      });
+    }
+
+    // Database logic
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Verify current password
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      securityLogger.warn('Failed password update attempt: invalid current password', { userId: user._id });
+      return res.status(400).json({ success: false, message: 'Incorrect current password' });
+    }
+
+    user.password = newPassword;
+    await user.save(); // Password will be hashed by UserSchema pre('save') hook
+
+    securityLogger.info('User password updated', { userId: user._id });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password updated successfully',
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
