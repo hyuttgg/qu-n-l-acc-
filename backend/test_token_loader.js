@@ -95,7 +95,7 @@ const runTest = async () => {
     process.exit(1);
   }
   const loaderToken = tokenRes.token;
-  console.log(`Loader token generated successfully! (Expires in 5 minutes)`);
+  console.log(`Loader token generated successfully! (Expires in 24 hours)`);
 
   // 3. Request loader script using the loader token
   console.log('\n[3/5] Requesting sender.lua script using the loader token...');
