@@ -162,4 +162,37 @@ router.delete('/:id', protect, async (req, res) => {
   }
 });
 
+// @desc    Update account notes
+// @route   PUT /api/accounts/:id/notes
+// @access  Private
+router.put('/:id/notes', protect, async (req, res) => {
+  try {
+    const { notes } = req.body;
+
+    // In-memory Mock fallback
+    if (!global.dbConnected) {
+      const account = mockStore.findAccountById(req.params.id);
+      if (!account) {
+        return res.status(404).json({ success: false, message: 'Account not found' });
+      }
+      account.notes = notes || '';
+      return res.status(200).json({ success: true, data: account });
+    }
+
+    const account = await Account.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      { notes: notes || '' },
+      { new: true }
+    );
+
+    if (!account) {
+      return res.status(404).json({ success: false, message: 'Account not found' });
+    }
+
+    res.status(200).json({ success: true, data: account });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

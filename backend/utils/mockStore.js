@@ -56,6 +56,7 @@ module.exports = {
       status: 'offline',
       location: 'Starter Island',
       playtime: 0,
+      notes: '',
       lastSeen: new Date(),
       createdAt: new Date(),
       save: async function() { return this; }

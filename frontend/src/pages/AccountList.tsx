@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../store';
-import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity } from 'lucide-react';
+import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity, FileText } from 'lucide-react';
 
 // Image resolver helper for item assets served statically from the frontend public folder
 const resolveItemImage = (category: string, name: string) => {
@@ -72,19 +72,54 @@ const ItemImage: React.FC<ItemImageProps> = ({
 };
 
 export const AccountList: React.FC = () => {
-  const { accounts, fetchAccounts, selectedAccountDetails, fetchAccountDetails, deleteAccount } = useApp();
+  const { accounts, fetchAccounts, selectedAccountDetails, fetchAccountDetails, deleteAccount, updateAccountNotes } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'equipped' | 'inventory' | 'sessions' | 'logs'>('equipped');
+
+  // Notes state
+  const [notesInput, setNotesInput] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAccounts();
   }, []);
 
+  // Sync notes input only when opening details for a different account
+  useEffect(() => {
+    if (selectedAccountDetails) {
+      if (selectedAccountDetails.account._id !== activeAccountId) {
+        setNotesInput(selectedAccountDetails.account.notes || '');
+        setActiveAccountId(selectedAccountDetails.account._id);
+      }
+    } else {
+      setNotesInput('');
+      setActiveAccountId(null);
+    }
+  }, [selectedAccountDetails, activeAccountId]);
+
   const handleOpenDetails = (accountId: string) => {
     fetchAccountDetails(accountId);
     setActiveTab('equipped');
     setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setActiveAccountId(null);
+  };
+
+  const handleSaveNotes = async () => {
+    if (!selectedAccountDetails) return;
+    setSavingNotes(true);
+    const success = await updateAccountNotes(selectedAccountDetails.account._id, notesInput);
+    if (success) {
+      alert('Đã lưu ghi chú thành công! / Note saved successfully!');
+    } else {
+      alert('Không thể lưu ghi chú. / Failed to save note.');
+    }
+    setSavingNotes(false);
   };
 
   const handleDelete = async (accountId: string, e: React.MouseEvent) => {
@@ -165,7 +200,16 @@ export const AccountList: React.FC = () => {
                   onClick={() => handleOpenDetails(acc._id)}
                   className="hover:bg-slate-900/30 transition-colors cursor-pointer group"
                 >
-                  <td className="py-4 font-bold text-white group-hover:text-gold transition-colors">{acc.robloxUsername}</td>
+                  <td className="py-4 font-bold text-white group-hover:text-gold transition-colors">
+                    <div className="flex items-center gap-2">
+                      {acc.robloxUsername}
+                      {acc.notes && (
+                        <span title={acc.notes} className="inline-flex items-center text-ocean-cyan hover:text-white cursor-help" onClick={(e) => e.stopPropagation()}>
+                          <FileText className="w-3.5 h-3.5" />
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="py-4 text-slate-300 font-semibold">{acc.level}</td>
                   <td className="py-4 text-emerald-400 font-mono">{formatBeli(acc.beli)}</td>
                   <td className="py-4 text-purple-400 font-mono">{formatBeli(acc.fragments)}</td>
@@ -237,7 +281,7 @@ export const AccountList: React.FC = () => {
                 <p className="text-xs text-slate-400 mt-1">Level {selectedAccountDetails.account.level} &bull; {selectedAccountDetails.account.race}</p>
               </div>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={handleCloseModal}
                 className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
               >
                 <X className="w-5 h-5" />
@@ -289,6 +333,28 @@ export const AccountList: React.FC = () => {
                       <span className="text-sm font-bold text-slate-300 flex items-center gap-1 mt-1">
                         <Clock className="w-4 h-4" /> {formatPlaytime(selectedAccountDetails.account.playtime)}
                       </span>
+                    </div>
+                  </div>
+
+                  {/* Account Notes */}
+                  <div className="bg-ocean-deep/60 p-4 rounded-xl border border-slate-800 space-y-2">
+                    <label className="text-slate-400 text-xs uppercase font-extrabold tracking-wider block">
+                      Ghi chú tài khoản / Account Notes
+                    </label>
+                    <div className="flex gap-2">
+                      <textarea
+                        value={notesInput}
+                        onChange={(e) => setNotesInput(e.target.value)}
+                        placeholder="Thêm ghi chú cho tài khoản này... / Add a note for this account..."
+                        className="flex-1 bg-ocean-abyss border border-slate-850 focus:border-ocean-cyan focus:ring-1 focus:ring-ocean-cyan rounded-lg p-2 text-white text-xs outline-none transition resize-none h-16"
+                      />
+                      <button
+                        onClick={handleSaveNotes}
+                        disabled={savingNotes}
+                        className="px-4 py-2 bg-ocean-cyan/25 border border-ocean-cyan/40 hover:bg-ocean-cyan/40 text-ocean-cyan hover:text-white rounded-lg text-xs font-bold transition flex items-center justify-center self-end disabled:opacity-50 h-10"
+                      >
+                        {savingNotes ? 'Saving...' : 'Lưu / Save'}
+                      </button>
                     </div>
                   </div>
 
@@ -524,7 +590,7 @@ export const AccountList: React.FC = () => {
                 Last Ingestion: {new Date(selectedAccountDetails.account.lastSeen).toLocaleString()}
               </span>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={handleCloseModal}
                 className="px-6 py-2 rounded-xl text-xs font-extrabold uppercase bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 hover:text-white transition"
               >
                 Close View

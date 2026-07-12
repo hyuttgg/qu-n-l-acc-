@@ -30,6 +30,7 @@ interface Account {
   location: string;
   playtime: number;
   lastSeen: string;
+  notes?: string;
 }
 
 interface Inventory {
@@ -94,6 +95,7 @@ interface AppContextType {
   regenerateApiKey: () => Promise<void>;
   deleteAccount: (accountId: string) => Promise<void>;
   updateUser: (userData: User) => void;
+  updateAccountNotes: (accountId: string, notes: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -305,6 +307,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(userData);
   };
 
+  const updateAccountNotes = async (accountId: string, notes: string) => {
+    try {
+      const res = await api.put(`/accounts/${accountId}/notes`, { notes });
+      if (res.success) {
+        setAccounts((prev) =>
+          prev.map((acc) => (acc._id === accountId ? { ...acc, notes } : acc))
+        );
+        setSelectedAccountDetails((prev) => {
+          if (prev && prev.account._id === accountId) {
+            return {
+              ...prev,
+              account: { ...prev.account, notes },
+            };
+          }
+          return prev;
+        });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error updating account notes', err);
+      return false;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -323,6 +350,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         regenerateApiKey,
         deleteAccount,
         updateUser,
+        updateAccountNotes,
       }}
     >
       {children}
