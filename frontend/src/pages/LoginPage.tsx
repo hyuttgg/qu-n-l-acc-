@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
 import { Compass, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { ReCaptcha } from '../components/ReCaptcha';
+import type { ReCaptchaRef } from '../components/ReCaptcha';
 
 export const LoginPage: React.FC = () => {
   const { login } = useApp();
@@ -12,19 +14,30 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [captchaRequired, setCaptchaRequired] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCaptchaRef>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
-    const res = await login(email, password);
+    if (captchaRequired && !captchaToken) {
+      return setError('Please complete the reCAPTCHA');
+    }
+
+    setLoading(true);
+    const res = await login(email, password, captchaToken || undefined);
     setLoading(false);
 
     if (res.success) {
       navigate('/dashboard');
     } else {
       setError(res.message || 'Invalid email or password');
+      if (res.captchaRequired) {
+        setCaptchaRequired(true);
+      }
+      recaptchaRef.current?.reset();
     }
   };
 
@@ -129,10 +142,20 @@ export const LoginPage: React.FC = () => {
               <label htmlFor="remember" className="ml-2 text-xs text-slate-400 select-none">Remember this device</label>
             </div>
 
+            {captchaRequired && (
+              <ReCaptcha
+                siteKey={(import.meta.env.VITE_RECAPTCHA_SITE_KEY || '').trim()}
+                onChange={setCaptchaToken}
+                ref={recaptchaRef}
+              />
+            )}
+
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-4 rounded-xl font-extrabold text-sm text-ocean-abyss bg-gradient-to-r from-gold via-gold-light to-gold shadow-gold-glow hover:opacity-90 transition cursor-pointer flex items-center justify-center gap-2"
+              disabled={loading || (captchaRequired && !captchaToken)}
+              className={`w-full py-4 rounded-xl font-extrabold text-sm text-ocean-abyss bg-gradient-to-r from-gold via-gold-light to-gold shadow-gold-glow hover:opacity-90 transition cursor-pointer flex items-center justify-center gap-2 ${
+                ((captchaRequired && !captchaToken) || loading) ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-ocean-abyss border-t-transparent rounded-full animate-spin" />

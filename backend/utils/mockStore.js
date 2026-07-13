@@ -114,5 +114,34 @@ module.exports = {
     };
     store.logs.push(newLog);
     return newLog;
+  },
+
+  // Failed attempts tracking (In-Memory fallback)
+  getFailedAttempts: (ip, email) => {
+    store.failedAttempts = store.failedAttempts || [];
+    const now = Date.now();
+    // Auto-expire records older than 15 minutes (900000 ms)
+    store.failedAttempts = store.failedAttempts.filter(fa => now - fa.lastAttempt < 900000);
+    
+    const record = store.failedAttempts.find(fa => fa.ip === ip && fa.email === email.toLowerCase());
+    return record ? record.attempts : 0;
+  },
+  
+  incrementFailedAttempts: (ip, email) => {
+    store.failedAttempts = store.failedAttempts || [];
+    const now = Date.now();
+    const index = store.failedAttempts.findIndex(fa => fa.ip === ip && fa.email === email.toLowerCase());
+    if (index !== -1) {
+      store.failedAttempts[index].attempts += 1;
+      store.failedAttempts[index].lastAttempt = now;
+    } else {
+      store.failedAttempts.push({ ip, email: email.toLowerCase(), attempts: 1, lastAttempt: now });
+    }
+  },
+  
+  resetFailedAttempts: (ip, email) => {
+    store.failedAttempts = store.failedAttempts || [];
+    store.failedAttempts = store.failedAttempts.filter(fa => !(fa.ip === ip && fa.email === email.toLowerCase()));
   }
 };
+

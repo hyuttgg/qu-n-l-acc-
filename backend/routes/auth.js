@@ -9,6 +9,8 @@ const { protect } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimiter');
 const { validate, registerSchema, loginSchema, updateEmailSchema, updatePasswordSchema } = require('../middleware/validator');
 const { securityLogger } = require('../middleware/logging');
+const { verifyCaptcha } = require('../middleware/recaptcha');
+const { incrementAttempts, resetAttempts, getAttempts } = require('../utils/loginAttemptTracker');
 
 const router = express.Router();
 
@@ -22,8 +24,8 @@ const getSignedJwtToken = (id) => {
 // @desc    Register a user
 // @route   POST /api/auth/register
 // @access  Public
-// Security: authLimiter (10 req/15 min) + Zod validation
-router.post('/register', authLimiter, validate(registerSchema), async (req, res) => {
+// Security: authLimiter (10 req/15 min) + Zod validation + reCAPTCHA (always)
+router.post('/register', authLimiter, validate(registerSchema), verifyCaptcha, async (req, res) => {
   const { username, email, password } = req.body;
 
   try {
@@ -87,8 +89,8 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
 // @desc    Login user
 // @route   POST /api/auth/login
 // @access  Public
-// Security: authLimiter (10 req/15 min) + Zod validation
-router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
+// Security: authLimiter (10 req/15 min) + Zod validation + conditional reCAPTCHA (after 3 failed attempts)
+router.post('/login', authLimiter, validate(loginSchema), verifyCaptcha, async (req, res) => {
   const { email, password } = req.body;
 
   try {
@@ -97,8 +99,16 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
       const user = mockStore.findUserByEmail(email);
       if (!user || user.password !== password) {
         securityLogger.warn('Failed login attempt (mock)', { email, ip: req.ip });
-        return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        await incrementAttempts(req.ip, email);
+        const attempts = await getAttempts(req.ip, email);
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Invalid credentials', 
+          captchaRequired: attempts >= 3 
+        });
       }
+      
+      await resetAttempts(req.ip, email);
       const token = getSignedJwtToken(user.id);
 
       securityLogger.info('User logged in (mock)', { email });
@@ -121,7 +131,13 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
 
     if (!user) {
       securityLogger.warn('Failed login attempt: user not found', { email, ip: req.ip });
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      await incrementAttempts(req.ip, email);
+      const attempts = await getAttempts(req.ip, email);
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid credentials', 
+        captchaRequired: attempts >= 3 
+      });
     }
 
     // Check if password matches
@@ -129,9 +145,16 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
 
     if (!isMatch) {
       securityLogger.warn('Failed login attempt: wrong password', { email, ip: req.ip });
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      await incrementAttempts(req.ip, email);
+      const attempts = await getAttempts(req.ip, email);
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid credentials', 
+        captchaRequired: attempts >= 3 
+      });
     }
 
+    await resetAttempts(req.ip, email);
     const token = getSignedJwtToken(user._id);
 
     securityLogger.info('User logged in', { email, userId: user._id });

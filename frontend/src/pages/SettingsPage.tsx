@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../store';
-import { Settings, Key, RefreshCw, Copy, Check, ShieldCheck, Mail, User, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Settings, Key, RefreshCw, Copy, Check, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 import { api } from '../utils/api';
 
 export const SettingsPage: React.FC = () => {
@@ -235,44 +235,7 @@ export const SettingsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* User profile details panel */}
-      <div className="glass-panel p-6 space-y-6">
-        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-          <ShieldCheck className="w-5 h-5 text-ocean-cyan" /> User Profile Information
-        </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider mb-2">Username</label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
-                <User className="w-5 h-5" />
-              </span>
-              <input
-                type="text"
-                disabled
-                value={user?.username || ''}
-                className="w-full bg-slate-950/60 border border-slate-900 rounded-xl py-3 pl-10 pr-4 text-slate-500 text-sm cursor-not-allowed"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider mb-2">Email Address</label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
-                <Mail className="w-5 h-5" />
-              </span>
-              <input
-                type="email"
-                disabled
-                value={user?.email || ''}
-                className="w-full bg-slate-950/60 border border-slate-900 rounded-xl py-3 pl-10 pr-4 text-slate-500 text-sm cursor-not-allowed"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Change Credentials Panels */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

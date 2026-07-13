@@ -86,8 +86,8 @@ interface AppContextType {
     logs: Log[];
   } | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  register: (username: string, email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  login: (email: string, password: string, captcha?: string) => Promise<{ success: boolean; message?: string; captchaRequired?: boolean }>;
+  register: (username: string, email: string, password: string, captcha: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   fetchAccounts: () => Promise<void>;
   fetchAnalytics: () => Promise<void>;
@@ -205,24 +205,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [user, token]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, captcha?: string) => {
     try {
-      const res = await api.post('/auth/login', { email, password });
+      const res = await api.post('/auth/login', { email, password, captcha });
       if (res.success) {
         localStorage.setItem('token', res.token);
         setToken(res.token);
         setUser(res.user);
         return { success: true };
       }
-      return { success: false, message: res.message || 'Login failed' };
+      return { 
+        success: false, 
+        message: res.message || 'Login failed', 
+        captchaRequired: res.captchaRequired 
+      };
     } catch (err: any) {
       return { success: false, message: err.message || 'Login error occurred' };
     }
   };
 
-  const register = async (username: string, email: string, password: string) => {
+  const register = async (username: string, email: string, password: string, captcha: string) => {
     try {
-      const res = await api.post('/auth/register', { username, email, password });
+      const res = await api.post('/auth/register', { username, email, password, captcha });
       if (res.success) {
         localStorage.setItem('token', res.token);
         setToken(res.token);
