@@ -126,8 +126,8 @@ router.get('/load', async (req, res) => {
     // Dynamic configuration injection
     // Replace default API Key placeholder with user's verified key (permanent API key or Roblox session token)
     scriptContent = scriptContent.replace(
-      '_G.ApiKey = ""',
-      `_G.ApiKey = "${finalApiKey}"`
+      '_G.OceanForgeApiKey = ""',
+      `_G.OceanForgeApiKey = "${finalApiKey}"`
     );
 
     // Replace Server URL placeholder with the requesting host/domain URL
@@ -135,8 +135,8 @@ router.get('/load', async (req, res) => {
     const host = req.get('host');
     const serverUrl = `${protocol}://${host}`;
     scriptContent = scriptContent.replace(
-      '_G.ServerUrl = "https://quan-ly-acc-viet-nam.onrender.com"',
-      `_G.ServerUrl = "${serverUrl}"`
+      '_G.OceanForgeServerUrl = "https://quan-ly-acc-viet-nam.onrender.com"',
+      `_G.OceanForgeServerUrl = "${serverUrl}"`
     );
 
     res.setHeader('Content-Type', 'text/plain');

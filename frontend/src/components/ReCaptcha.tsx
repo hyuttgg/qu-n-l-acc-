@@ -74,7 +74,7 @@ export const ReCaptcha = forwardRef<ReCaptchaRef, ReCaptchaProps>(({ siteKey, on
 
   return (
     <div className="w-full flex justify-center my-3">
-      <div className="p-0.5 rounded-[5px] hover:shadow-cyan-glow transition-all duration-300 flex justify-center items-center bg-transparent">
+      <div className="p-1 rounded-[6px] border border-slate-800/80 bg-ocean-deep/30 hover:border-ocean-cyan/60 hover:shadow-cyan-glow transition-all duration-300 flex justify-center items-center">
         <div ref={containerRef} />
       </div>
     </div>

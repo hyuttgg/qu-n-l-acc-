@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const passport = require('passport');
 const User = require('../models/User');
 const mockStore = require('../utils/mockStore');
 const { protect } = require('../middleware/auth');
@@ -9,8 +10,7 @@ const { protect } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimiter');
 const { validate, registerSchema, loginSchema, updateEmailSchema, updatePasswordSchema } = require('../middleware/validator');
 const { securityLogger } = require('../middleware/logging');
-const { verifyCaptcha } = require('../middleware/recaptcha');
-const { incrementAttempts, resetAttempts, getAttempts } = require('../utils/loginAttemptTracker');
+const authEmitter = require('../events/authEvents');
 
 const router = express.Router();
 
@@ -24,8 +24,8 @@ const getSignedJwtToken = (id) => {
 // @desc    Register a user
 // @route   POST /api/auth/register
 // @access  Public
-// Security: authLimiter (10 req/15 min) + Zod validation + reCAPTCHA (always)
-router.post('/register', authLimiter, validate(registerSchema), verifyCaptcha, async (req, res) => {
+// Security: authLimiter (10 req/15 min) + Zod validation
+router.post('/register', authLimiter, validate(registerSchema), async (req, res) => {
   const { username, email, password } = req.body;
 
   try {
@@ -54,21 +54,31 @@ router.post('/register', authLimiter, validate(registerSchema), verifyCaptcha, a
       });
     }
 
+    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
     // Check if user already exists
     let user = await User.findOne({ $or: [{ email }, { username }] });
     if (user) {
       return res.status(400).json({ success: false, message: 'Username or Email already registered' });
     }
 
+    // IP Limit: Max 5 accounts per IP for standard registration
+    const registrationCountOnIp = await User.countDocuments({ creationIp: ip });
+    if (registrationCountOnIp >= 5) {
+      return res.status(400).json({ success: false, message: 'Địa chỉ IP của bạn đã đăng ký quá số lượng tài khoản cho phép (Tối đa 5).' });
+    }
+
+    // Create user
     user = await User.create({
       username,
       email,
       password,
+      creationIp: ip,
     });
 
     const token = getSignedJwtToken(user._id);
 
-    securityLogger.info('User registered', { username, email });
+    securityLogger.info('New user registered successfully', { userId: user._id, username });
 
     res.status(201).json({
       success: true,
@@ -89,8 +99,8 @@ router.post('/register', authLimiter, validate(registerSchema), verifyCaptcha, a
 // @desc    Login user
 // @route   POST /api/auth/login
 // @access  Public
-// Security: authLimiter (10 req/15 min) + Zod validation + conditional reCAPTCHA (after 3 failed attempts)
-router.post('/login', authLimiter, validate(loginSchema), verifyCaptcha, async (req, res) => {
+// Security: authLimiter + Zod validation
+router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
   const { email, password } = req.body;
 
   try {
@@ -98,20 +108,14 @@ router.post('/login', authLimiter, validate(loginSchema), verifyCaptcha, async (
     if (!global.dbConnected) {
       const user = mockStore.findUserByEmail(email);
       if (!user || user.password !== password) {
-        securityLogger.warn('Failed login attempt (mock)', { email, ip: req.ip });
-        await incrementAttempts(req.ip, email);
-        const attempts = await getAttempts(req.ip, email);
-        return res.status(401).json({ 
-          success: false, 
-          message: 'Invalid credentials', 
-          captchaRequired: attempts >= 3 
-        });
+        return res.status(401).json({ success: false, message: 'Invalid credentials' });
       }
-      
-      await resetAttempts(req.ip, email);
-      const token = getSignedJwtToken(user.id);
 
-      securityLogger.info('User logged in (mock)', { email });
+      const token = getSignedJwtToken(user.id);
+      securityLogger.info('User logged in (mock)', { userId: user.id });
+
+      // Emit login success event to record history
+      authEmitter.emit('login.success', { user, req });
 
       return res.status(200).json({
         success: true,
@@ -128,36 +132,24 @@ router.post('/login', authLimiter, validate(loginSchema), verifyCaptcha, async (
 
     // Check for user
     const user = await User.findOne({ email }).select('+password');
-
     if (!user) {
-      securityLogger.warn('Failed login attempt: user not found', { email, ip: req.ip });
-      await incrementAttempts(req.ip, email);
-      const attempts = await getAttempts(req.ip, email);
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid credentials', 
-        captchaRequired: attempts >= 3 
-      });
+      securityLogger.warn('Failed login attempt: Email not found', { email, ip: req.ip });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     // Check if password matches
     const isMatch = await user.matchPassword(password);
-
     if (!isMatch) {
-      securityLogger.warn('Failed login attempt: wrong password', { email, ip: req.ip });
-      await incrementAttempts(req.ip, email);
-      const attempts = await getAttempts(req.ip, email);
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid credentials', 
-        captchaRequired: attempts >= 3 
-      });
+      securityLogger.warn('Failed login attempt: Incorrect password', { userId: user._id, ip: req.ip });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    await resetAttempts(req.ip, email);
     const token = getSignedJwtToken(user._id);
 
-    securityLogger.info('User logged in', { email, userId: user._id });
+    securityLogger.info('User logged in successfully', { userId: user._id });
+
+    // Emit login success event to record history and send email notification
+    authEmitter.emit('login.success', { user, req });
 
     res.status(200).json({
       success: true,
@@ -175,51 +167,32 @@ router.post('/login', authLimiter, validate(loginSchema), verifyCaptcha, async (
   }
 });
 
-// @desc    Get current user details
+// @desc    Get current logged in user
 // @route   GET /api/auth/me
 // @access  Private
 router.get('/me', protect, async (req, res) => {
-  res.status(200).json({
-    success: true,
-    user: req.user,
-  });
-});
-
-// @desc    Regenerate user API key
-// @route   POST /api/auth/regenerate-key
-// @access  Private
-router.post('/regenerate-key', protect, async (req, res) => {
   try {
-    const newApiKey = 'forge_' + crypto.randomBytes(24).toString('hex');
-    
-    securityLogger.info('API key regenerated', { userId: req.user._id || req.user.id });
-
-    if (!global.dbConnected) {
-      req.user.apiKey = newApiKey;
-      return res.status(200).json({
-        success: true,
-        apiKey: newApiKey,
-      });
-    }
-
-    req.user.apiKey = newApiKey;
-    await req.user.save();
-
     res.status(200).json({
       success: true,
-      apiKey: newApiKey,
+      user: {
+        id: req.user.id || req.user._id,
+        username: req.user.username,
+        email: req.user.email,
+        role: req.user.role,
+        apiKey: req.user.apiKey,
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// @desc    Generate a token for script loading (expires in 24 hours)
+// @desc    Generate a short-lived loader token for Roblox script loading
 // @route   POST /api/auth/loader-token
 // @access  Private
 router.post('/loader-token', protect, async (req, res) => {
   try {
-    const userId = req.user._id || req.user.id;
+    const userId = req.user.id || req.user._id;
     const token = jwt.sign(
       { userId: userId.toString(), purpose: 'loader_token' },
       process.env.JWT_SECRET || 'super_secret_key',
@@ -232,77 +205,42 @@ router.post('/loader-token', protect, async (req, res) => {
 });
 
 // @desc    Update user email
-// @route   PUT /api/auth/update-email
+// @route   PUT /api/auth/email
 // @access  Private
-router.put('/update-email', protect, validate(updateEmailSchema), async (req, res) => {
-  const { newEmail, password } = req.body;
+router.put('/email', protect, validate(updateEmailSchema), async (req, res) => {
+  const { email } = req.body;
 
   try {
-    // In-memory Mock fallback
     if (!global.dbConnected) {
       const user = mockStore.findUserById(req.user.id);
       if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
       }
-
-      if (user.password !== password) {
-        securityLogger.warn('Failed email update attempt: invalid password (mock)', { userId: user.id });
-        return res.status(400).json({ success: false, message: 'Incorrect password' });
-      }
-
-      const emailExists = mockStore.findUserByEmail(newEmail);
-      if (emailExists && emailExists.id !== user.id) {
-        return res.status(400).json({ success: false, message: 'Email already registered' });
-      }
-
-      user.email = newEmail;
-      securityLogger.info('User email updated (mock)', { userId: user.id, email: newEmail });
-
-      return res.status(200).json({
-        success: true,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          apiKey: user.apiKey,
-        },
-      });
+      user.email = email;
+      securityLogger.info('User email updated (mock)', { userId: user.id });
+      return res.status(200).json({ success: true, message: 'Email updated successfully', email });
     }
 
-    // Database logic
-    const user = await User.findById(req.user._id).select('+password');
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Verify current password
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      securityLogger.warn('Failed email update attempt: invalid password', { userId: user._id });
-      return res.status(400).json({ success: false, message: 'Incorrect password' });
-    }
-
-    // Check if new email is taken
-    const emailExists = await User.findOne({ email: newEmail });
+    // Check if new email is already taken
+    const emailExists = await User.findOne({ email });
     if (emailExists && emailExists._id.toString() !== user._id.toString()) {
-      return res.status(400).json({ success: false, message: 'Email already registered' });
+      return res.status(400).json({ success: false, message: 'Email is already in use' });
     }
 
-    user.email = newEmail;
+    user.email = email;
     await user.save();
 
-    securityLogger.info('User email updated', { userId: user._id, email: newEmail });
+    securityLogger.info('User email updated', { userId: user._id });
 
     res.status(200).json({
       success: true,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        apiKey: user.apiKey,
-      },
+      message: 'Email updated successfully',
+      email: user.email,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -310,44 +248,36 @@ router.put('/update-email', protect, validate(updateEmailSchema), async (req, re
 });
 
 // @desc    Update user password
-// @route   PUT /api/auth/update-password
+// @route   PUT /api/auth/password
 // @access  Private
-router.put('/update-password', protect, validate(updatePasswordSchema), async (req, res) => {
+router.put('/password', protect, validate(updatePasswordSchema), async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
   try {
-    // In-memory Mock fallback
     if (!global.dbConnected) {
       const user = mockStore.findUserById(req.user.id);
       if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
       }
-
-      if (user.password !== currentPassword) {
-        securityLogger.warn('Failed password update attempt: invalid current password (mock)', { userId: user.id });
+      if (user.password && user.password !== currentPassword) {
         return res.status(400).json({ success: false, message: 'Incorrect current password' });
       }
-
       user.password = newPassword;
       securityLogger.info('User password updated (mock)', { userId: user.id });
-
-      return res.status(200).json({
-        success: true,
-        message: 'Password updated successfully',
-      });
+      return res.status(200).json({ success: true, message: 'Password updated successfully' });
     }
 
-    // Database logic
     const user = await User.findById(req.user._id).select('+password');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Verify current password
-    const isMatch = await user.matchPassword(currentPassword);
-    if (!isMatch) {
-      securityLogger.warn('Failed password update attempt: invalid current password', { userId: user._id });
-      return res.status(400).json({ success: false, message: 'Incorrect current password' });
+    // Verify current password if user has one (OAuth users might not have a password initially)
+    if (user.password) {
+      const isMatch = await user.matchPassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({ success: false, message: 'Incorrect current password' });
+      }
     }
 
     user.password = newPassword;
@@ -362,6 +292,74 @@ router.put('/update-password', protect, validate(updatePasswordSchema), async (r
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
+});
+
+
+// @desc    Auth with Discord
+// @route   GET /api/auth/discord
+// @access  Public
+router.get('/discord', passport.authenticate('discord'));
+
+// @desc    Discord auth callback
+// @route   GET /api/auth/discord/callback
+// @access  Public
+router.get('/discord/callback', (req, res, next) => {
+  passport.authenticate('discord', { session: false }, (err, user, info) => {
+    if (err) {
+      securityLogger.error('Discord OAuth callback error', { 
+        error: err.message, 
+        stack: err.stack,
+        url: req.originalUrl 
+      });
+      if (err.message === 'ip_limit') {
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=discord_ip_limit`);
+      }
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=oauth_failed`);
+    }
+    if (!user) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=oauth_failed`);
+    }
+    
+    try {
+      const token = getSignedJwtToken(user._id || user.id);
+      
+      // Emit login success event to record history and send email notification
+      authEmitter.emit('login.success', { user, req });
+
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      res.redirect(`${frontendUrl}/oauth-success?token=${token}`);
+    } catch (error) {
+      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=oauth_failed`);
+    }
+  })(req, res, next);
+});
+
+// @desc    Auth with Google
+// @route   GET /api/auth/google
+// @access  Public
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+// @desc    Google auth callback
+// @route   GET /api/auth/google/callback
+// @access  Public
+router.get('/google/callback', (req, res, next) => {
+  passport.authenticate('google', { session: false }, (err, user, info) => {
+    if (err) {
+      securityLogger.error('Google OAuth callback error', { 
+        error: err.message, 
+        stack: err.stack,
+        url: req.originalUrl 
+      });
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=oauth_failed`);
+    }
+    if (!user) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=oauth_failed`);
+    }
+    
+    // Successful authentication, redirect to frontend with JWT token
+    const token = getSignedJwtToken(user._id || user.id);
+    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?token=${token}`);
+  })(req, res, next);
 });
 
 module.exports = router;

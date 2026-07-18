@@ -96,6 +96,7 @@ interface AppContextType {
   deleteAccount: (accountId: string) => Promise<void>;
   updateUser: (userData: User) => void;
   updateAccountNotes: (accountId: string, notes: string) => Promise<boolean>;
+  oauthLogin: (token: string) => Promise<{ success: boolean }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -117,8 +118,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Initialize Auth State from LocalStorage
   useEffect(() => {
     const initializeAuth = async () => {
-      const storedToken = localStorage.getItem('token');
-      if (storedToken) {
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get('token');
+      const currentToken = urlToken || localStorage.getItem('token');
+
+      if (urlToken) {
+        localStorage.setItem('token', urlToken);
+        setToken(urlToken);
+        // Clear token from URL address bar
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
+      if (currentToken) {
         try {
           const res = await api.get('/auth/me');
           if (res.success) {
@@ -336,6 +347,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const oauthLogin = async (tokenValue: string) => {
+    try {
+      localStorage.setItem('token', tokenValue);
+      setToken(tokenValue);
+      const res = await api.get('/auth/me');
+      if (res.success) {
+        setUser(res.user);
+        return { success: true };
+      } else {
+        logout();
+        return { success: false };
+      }
+    } catch {
+      logout();
+      return { success: false };
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -355,6 +384,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteAccount,
         updateUser,
         updateAccountNotes,
+        oauthLogin,
       }}
     >
       {children}

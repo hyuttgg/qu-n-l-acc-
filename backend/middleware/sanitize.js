@@ -52,6 +52,13 @@ function sanitizeItem(target) {
  * Express middleware — sanitizes body, query, and params
  */
 const sanitizeInput = (req, res, next) => {
+  // Bypass query parameter sanitization for Google OAuth callback to prevent corrupting 'code' containing '/'
+  if (req.path && req.path.includes('/google/callback')) {
+    if (req.body) req.body = sanitizeItem(req.body);
+    if (req.params) req.params = sanitizeItem(req.params);
+    return next();
+  }
+
   if (req.body) req.body = sanitizeItem(req.body);
   if (req.query) req.query = sanitizeItem(req.query);
   if (req.params) req.params = sanitizeItem(req.params);

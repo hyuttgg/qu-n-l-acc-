@@ -21,9 +21,16 @@ const UserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Please add a password'],
+    required: function() {
+      return !this.googleId;
+    },
     minlength: 6,
     select: false,
+  },
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true,
   },
   role: {
     type: String,
@@ -38,10 +45,13 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  creationIp: {
+    type: String,
+  },
 });
 
 UserSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) {
+  if (!this.password || !this.isModified('password')) {
     return next();
   }
   try {

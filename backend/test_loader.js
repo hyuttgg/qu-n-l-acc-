@@ -104,8 +104,8 @@ const runTest = async () => {
   console.log(`Response Content-Type: ${successRes.headers['content-type']}`);
   
   // Verify that placeholders were replaced
-  const hasKeyInjected = successRes.body.includes(`_G.ApiKey = "${apiKey}"`);
-  const hasUrlInjected = successRes.body.includes('_G.ServerUrl = "http://localhost:5000"');
+  const hasKeyInjected = successRes.body.includes(`_G.OceanForgeApiKey = "${apiKey}"`);
+  const hasUrlInjected = successRes.body.includes('_G.OceanForgeServerUrl = "http://localhost:5000"');
   
   if (hasKeyInjected && hasUrlInjected) {
     console.log('\nVerification details:');

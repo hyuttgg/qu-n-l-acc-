@@ -164,3 +164,63 @@
 .gold-border {
   @apply border border-gold/20 shadow-gold-border;
 }
+
+/* Custom Leaflet Map Integration & Markers styling */
+.leaflet-container {
+  background-color: #0a0a0a !important;
+  font-family: 'Outfit', sans-serif !important;
+}
+
+/* Custom Leaflet marker resets */
+.custom-leaflet-marker {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Custom glow borders and texts */
+.shadow-gold-border {
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.12), inset 0 0 10px rgba(255, 215, 0, 0.05) !important;
+}
+
+.shadow-gold-glow {
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.4) !important;
+}
+
+.glow-text-gold {
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5) !important;
+}
+
+/* Slowly spinning elements */
+.animate-spin-slow {
+  animation: spin 30s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Marker entrance animation */
+.marker-animation {
+  animation: marker-pulse 1.5s ease-out;
+}
+
+@keyframes marker-pulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

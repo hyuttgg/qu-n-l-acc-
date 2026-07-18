@@ -19,7 +19,9 @@ import {
   Copy,
   Check,
   Key,
-  Activity
+  Activity,
+  Globe,
+  FileText
 } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
@@ -44,6 +46,7 @@ export const DashboardLayout: React.FC = () => {
       path: string;
       icon: React.ComponentType<any>;
       disabled?: boolean;
+      external?: boolean;
     }[];
   }[] = [
     {
@@ -52,6 +55,7 @@ export const DashboardLayout: React.FC = () => {
         { name: 'Dashboard', path: '/dashboard', icon: Compass },
         { name: 'Accounts', path: '/dashboard/accounts', icon: Layers },
         { name: 'Live Fleet', path: '/dashboard/live', icon: Activity },
+        { name: 'Geo Monitor', path: '/dashboard/geo', icon: Globe },
       ]
     },
     {
@@ -70,6 +74,7 @@ export const DashboardLayout: React.FC = () => {
         { name: 'Analytics', path: '/dashboard/analytics', icon: BarChart2 },
         { name: 'Sessions', path: '/dashboard/sessions', icon: Clock },
         { name: 'Settings', path: '/dashboard/settings', icon: Settings },
+        { name: 'API Docs', path: '/dashboard/docs', icon: FileText }
       ]
     }
   ];
@@ -117,6 +122,20 @@ export const DashboardLayout: React.FC = () => {
                       <Icon className="w-4.5 h-4.5 text-slate-750" />
                       <span>{item.name}</span>
                     </div>
+                  );
+                }
+                if (item.external) {
+                  return (
+                    <a
+                      key={item.name}
+                      href={item.path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-4 py-2 rounded-xl font-semibold text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 transition-all duration-200"
+                    >
+                      <Icon className="w-4.5 h-4.5 text-slate-400" />
+                      <span>{item.name}</span>
+                    </a>
                   );
                 }
                 return (

@@ -7,6 +7,7 @@ global.mockStore = global.mockStore || {
   sessions: [],
   inventories: [],
   logs: [],
+  loginHistories: [],
 };
 
 const store = global.mockStore;
@@ -19,7 +20,8 @@ module.exports = {
   findUserByUsername: (username) => store.users.find(u => u.username === username),
   findUserById: (id) => store.users.find(u => u.id === id.toString()),
   findUserByApiKey: (apiKey) => store.users.find(u => u.apiKey === apiKey),
-  createUser: (username, email, password) => {
+  findUserByDiscordId: (discordId) => store.users.find(u => u.discordId === discordId),
+  createUser: (username, email, password, googleId = null, discordId = null) => {
     const userId = Math.random().toString(36).substr(2, 9);
     const newUser = {
       id: userId,
@@ -28,6 +30,8 @@ module.exports = {
       email,
       password, // simple check
       role: 'user',
+      googleId,
+      discordId,
       apiKey: 'forge_' + crypto.randomBytes(24).toString('hex'),
       createdAt: new Date(),
       save: async function() { return this; }
@@ -142,6 +146,17 @@ module.exports = {
   resetFailedAttempts: (ip, email) => {
     store.failedAttempts = store.failedAttempts || [];
     store.failedAttempts = store.failedAttempts.filter(fa => !(fa.ip === ip && fa.email === email.toLowerCase()));
+  },
+  
+  saveLoginHistory: (data) => {
+    store.loginHistories = store.loginHistories || [];
+    const newHistory = {
+      ...data,
+      id: Math.random().toString(36).substr(2, 9),
+      loginTime: new Date()
+    };
+    store.loginHistories.push(newHistory);
+    return newHistory;
   }
 };
 

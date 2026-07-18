@@ -14,6 +14,9 @@ import { InventoryList } from './pages/InventoryList';
 import { RealtimeTracker } from './pages/RealtimeTracker';
 import { AnalyticsDashboard } from './pages/AnalyticsDashboard';
 import { SettingsPage } from './pages/SettingsPage';
+import { OAuthSuccess } from './pages/OAuthSuccess';
+import { GeoMonitor } from './pages/GeoMonitor';
+import { ApiDocsPage } from './pages/ApiDocsPage';
 
 // Protected Route Guard
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -44,6 +47,7 @@ export const App: React.FC = () => {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/oauth-success" element={<OAuthSuccess />} />
 
           {/* Protected Dashboard routes */}
           <Route
@@ -62,9 +66,11 @@ export const App: React.FC = () => {
             <Route path="styles" element={<InventoryList />} />
             <Route path="accessories" element={<InventoryList />} />
             <Route path="live" element={<RealtimeTracker />} />
+            <Route path="geo" element={<GeoMonitor />} />
             <Route path="analytics" element={<AnalyticsDashboard />} />
             <Route path="sessions" element={<AnalyticsDashboard />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="docs" element={<ApiDocsPage />} />
           </Route>
 
           {/* Catch-all */}

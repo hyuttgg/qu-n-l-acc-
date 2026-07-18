@@ -111,15 +111,15 @@ const runTest = async () => {
   console.log(`First 500 chars of script body:\n${scriptBody.substring(0, 500)}`);
   
   // Verify that ApiKey placeholder was replaced with a JWT session token instead of permanent API key
-  const apiKeyLine = scriptBody.split('\n').find(l => l.includes('_G.ApiKey ='));
+  const apiKeyLine = scriptBody.split('\n').find(l => l.includes('_G.OceanForgeApiKey ='));
   console.log(`Injected Key Line: ${apiKeyLine}`);
 
   if (!apiKeyLine) {
-    console.error('Verification failed: _G.ApiKey injection line not found in script.');
+    console.error('Verification failed: _G.OceanForgeApiKey injection line not found in script.');
     process.exit(1);
   }
 
-  const match = apiKeyLine.match(/_G\.ApiKey = "([^"]+)"/);
+  const match = apiKeyLine.match(/_G\.OceanForgeApiKey = "([^"]+)"/);
   if (!match || !match[1]) {
     console.error('Verification failed: ApiKey string could not be extracted.');
     process.exit(1);
