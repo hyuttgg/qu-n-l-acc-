@@ -4,6 +4,7 @@ import { useApp } from '../store';
 import { Compass, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { ReCaptcha } from '../components/ReCaptcha';
 import type { ReCaptchaRef } from '../components/ReCaptcha';
+import { TreasureMapAnimation } from '../components/TreasureMapAnimation';
 
 export const LoginPage: React.FC = () => {
   const { login, user } = useApp();
@@ -94,6 +95,7 @@ export const LoginPage: React.FC = () => {
             <p className="text-slate-400 text-sm">
               Log in to access your dashboard. Track live inventory drops, farm rates, and manage session heartbeats for your bot fleet.
             </p>
+            <TreasureMapAnimation />
           </div>
 
           <div className="text-slate-500 text-xs">

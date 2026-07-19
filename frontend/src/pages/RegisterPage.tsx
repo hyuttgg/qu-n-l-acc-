@@ -4,6 +4,7 @@ import { useApp } from '../store';
 import { Compass, User, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { ReCaptcha } from '../components/ReCaptcha';
 import type { ReCaptchaRef } from '../components/ReCaptcha';
+import { TreasureMapAnimation } from '../components/TreasureMapAnimation';
 
 export const RegisterPage: React.FC = () => {
   const { register } = useApp();
@@ -69,6 +70,7 @@ export const RegisterPage: React.FC = () => {
             <p className="text-slate-400 text-sm">
               Create an account to deploy your API webhook. Manage infinite Roblox bots, trace drops, compile level charts, and share live data statistics with others.
             </p>
+            <TreasureMapAnimation />
           </div>
 
           <div className="text-slate-500 text-xs">
