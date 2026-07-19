@@ -21,6 +21,17 @@ const getSignedJwtToken = (id) => {
   });
 };
 
+// Helper to get safe redirect URL (bulletproofs against missing http/https protocols in env configs)
+const getRedirectUrl = (path = '') => {
+  let baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  baseUrl = baseUrl.trim();
+  if (!/^https?:\/\//i.test(baseUrl)) {
+    baseUrl = `https://${baseUrl}`;
+  }
+  baseUrl = baseUrl.replace(/\/+$/, '');
+  return `${baseUrl}${path}`;
+};
+
 // @desc    Register a user
 // @route   POST /api/auth/register
 // @access  Public
@@ -312,12 +323,12 @@ router.get('/discord/callback', (req, res, next) => {
         url: req.originalUrl 
       });
       if (err.message === 'ip_limit') {
-        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=discord_ip_limit`);
+        return res.redirect(getRedirectUrl(`/login?error=discord_ip_limit`));
       }
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=oauth_failed`);
+      return res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
     }
     if (!user) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=oauth_failed`);
+      return res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
     }
     
     try {
@@ -326,10 +337,9 @@ router.get('/discord/callback', (req, res, next) => {
       // Emit login success event to record history and send email notification
       authEmitter.emit('login.success', { user, req });
 
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-      res.redirect(`${frontendUrl}/oauth-success?token=${token}`);
+      res.redirect(getRedirectUrl(`/oauth-success?token=${token}`));
     } catch (error) {
-      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=oauth_failed`);
+      res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
     }
   })(req, res, next);
 });
@@ -350,15 +360,15 @@ router.get('/google/callback', (req, res, next) => {
         stack: err.stack,
         url: req.originalUrl 
       });
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=oauth_failed`);
+      return res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
     }
     if (!user) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=oauth_failed`);
+      return res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
     }
     
     // Successful authentication, redirect to frontend with JWT token
     const token = getSignedJwtToken(user._id || user.id);
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?token=${token}`);
+    res.redirect(getRedirectUrl(`/login?token=${token}`));
   })(req, res, next);
 });
 
