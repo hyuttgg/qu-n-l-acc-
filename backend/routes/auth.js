@@ -372,4 +372,51 @@ router.get('/google/callback', (req, res, next) => {
   })(req, res, next);
 });
 
+// @desc    Delete user account and all related data
+// @route   DELETE /api/auth/delete
+// @access  Private
+router.delete('/delete', protect, async (req, res) => {
+  try {
+    const userId = req.user.id || req.user._id;
+
+    if (!global.dbConnected) {
+      mockStore.deleteUser(userId);
+      return res.status(200).json({ success: true, message: 'Account deleted successfully' });
+    }
+
+    // 1. Find all Roblox accounts associated with this user
+    const AccountModel = require('../models/Account');
+    const InventoryModel = require('../models/Inventory');
+    const SessionModel = require('../models/Session');
+    const LogModel = require('../models/Log');
+    const LoginHistoryModel = require('../models/LoginHistory');
+
+    const accounts = await AccountModel.find({ userId });
+    const accountIds = accounts.map((acc) => acc._id);
+
+    // 2. Delete inventory records, sessions, and logs for those Roblox accounts
+    if (accountIds.length > 0) {
+      await InventoryModel.deleteMany({ accountId: { $in: accountIds } });
+      await SessionModel.deleteMany({ accountId: { $in: accountIds } });
+      await LogModel.deleteMany({ accountId: { $in: accountIds } });
+    }
+
+    // 3. Delete the Roblox accounts themselves
+    await AccountModel.deleteMany({ userId });
+
+    // 4. Delete login history
+    await LoginHistoryModel.deleteMany({ userId });
+
+    // 5. Delete the main User account
+    await User.findByIdAndDelete(userId);
+
+    securityLogger.info('User account deleted permanently', { userId });
+
+    res.status(200).json({ success: true, message: 'Account and all associated data deleted successfully' });
+  } catch (error) {
+    securityLogger.error('Failed to delete user account', { error: error.message, userId: req.user?.id || req.user?._id });
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useApp } from '../store';
-import { Settings, Key, RefreshCw, Copy, Check, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Settings, Key, RefreshCw, Copy, Check, Mail, Lock, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 import { api } from '../utils/api';
 
 export const SettingsPage: React.FC = () => {
-  const { user, regenerateApiKey, updateUser } = useApp();
+    const { user, regenerateApiKey, updateUser, logout } = useApp();
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
   const [isCopyingScript, setIsCopyingScript] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Update Email state
   const [newEmail, setNewEmail] = useState('');
@@ -148,6 +149,29 @@ export const SettingsPage: React.FC = () => {
       setPasswordError(err.message || 'Đã xảy ra lỗi.');
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirm1 = window.confirm('BẠN CÓ CHẮC CHẮN MUỐN XÓA TÀI KHOẢN? Hành động này sẽ xóa vĩnh viễn tài khoản và toàn bộ dữ liệu, nhật ký, bot Roblox của bạn.');
+    if (!confirm1) return;
+
+    const confirm2 = window.confirm('CẢNH BÁO LẦN CUỐI: Hành động này KHÔNG THỂ HOÀN TÁC. Bạn vẫn muốn tiếp tục xóa tài khoản chứ?');
+    if (!confirm2) return;
+
+    setDeleteLoading(true);
+    try {
+      const res = await api.delete('/auth/delete');
+      if (res.success) {
+        alert('Tài khoản của bạn đã được xóa thành công.');
+        logout();
+      } else {
+        alert(res.message || 'Xóa tài khoản thất bại.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Đã xảy ra lỗi khi xóa tài khoản.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -399,6 +423,32 @@ export const SettingsPage: React.FC = () => {
             </button>
           </form>
         </div>
+      </div>
+
+      {/* Danger Zone Panel */}
+      <div className="glass-panel p-6 border border-red-500/10 space-y-6">
+        <div className="flex justify-between items-start gap-4 flex-col sm:flex-row">
+          <div>
+            <h3 className="text-lg font-bold text-red-500 flex items-center gap-2">
+              <Trash2 className="w-5 h-5" /> Danger Zone (Khu vực nguy hiểm)
+            </h3>
+            <p className="text-slate-400 text-xs mt-1">
+              Hành động này sẽ xóa vĩnh viễn tài khoản chính, các tài khoản Roblox đã liên kết, nhật ký hoạt động và toàn bộ cấu hình. Không thể khôi phục lại dữ liệu sau khi xóa.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleDeleteAccount}
+          disabled={deleteLoading}
+          className="w-full py-2.5 rounded-xl font-extrabold text-xs text-white bg-red-650 hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer border border-red-500/20"
+        >
+          {deleteLoading ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            'XÓA VĨNH VIỄN TÀI KHOẢN'
+          )}
+        </button>
       </div>
     </div>
   );

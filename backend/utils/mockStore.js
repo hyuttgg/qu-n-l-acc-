@@ -157,6 +157,20 @@ module.exports = {
     };
     store.loginHistories.push(newHistory);
     return newHistory;
+  },
+
+  deleteUser: (userId) => {
+    const idStr = userId.toString();
+    store.users = store.users.filter(u => u.id !== idStr);
+    const accounts = store.accounts.filter(a => a.userId === idStr);
+    const accountIds = accounts.map(a => a.id);
+    store.inventories = store.inventories.filter(i => !accountIds.includes(i.accountId));
+    store.sessions = store.sessions.filter(s => !accountIds.includes(s.accountId));
+    store.logs = store.logs.filter(l => !accountIds.includes(l.accountId));
+    store.accounts = store.accounts.filter(a => a.userId !== idStr);
+    if (store.loginHistories) {
+      store.loginHistories = store.loginHistories.filter(lh => lh.userId !== idStr);
+    }
   }
 };
 
