@@ -29,19 +29,16 @@ const securityLogger = winston.createLogger({
     }),
     new winston.transports.File({
       filename: path.join(__dirname, '../logs/security-combined.log')
+    }),
+    new winston.transports.Console({
+      format: combine(
+        colorize(),
+        timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+        securityFormat
+      )
     })
   ]
 });
-
-if (process.env.NODE_ENV !== 'production') {
-  securityLogger.add(new winston.transports.Console({
-    format: combine(
-      colorize(),
-      timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-      securityFormat
-    )
-  }));
-}
 
 /**
  * Audit log middleware — logs security-relevant actions
