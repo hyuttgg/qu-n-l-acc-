@@ -22,7 +22,7 @@ const UserSchema = new mongoose.Schema({
   password: {
     type: String,
     required: function() {
-      return !this.googleId;
+      return !this.googleId && !this.discordId;
     },
     minlength: 6,
     select: false,
