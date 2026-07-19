@@ -5,21 +5,33 @@ const mockStore = require('../utils/mockStore');
 const { securityLogger } = require('../middleware/logging');
 
 module.exports = function (passport) {
+  const cleanEnv = (val) => {
+    if (!val) return '';
+    return val.toString().trim().replace(/[\r\n\t]/g, '');
+  };
+
+  const discordClientId = cleanEnv(process.env.DISCORD_CLIENT_ID);
+  const discordClientSecret = cleanEnv(process.env.DISCORD_CLIENT_SECRET);
+  const discordCallbackUrl = cleanEnv(process.env.DISCORD_CALLBACK_URL) || 'http://localhost:5000/auth/discord/callback';
+  const googleClientId = cleanEnv(process.env.GOOGLE_CLIENT_ID);
+  const googleClientSecret = cleanEnv(process.env.GOOGLE_CLIENT_SECRET);
+  const googleCallbackUrl = cleanEnv(process.env.GOOGLE_CALLBACK_URL) || 'http://localhost:5000/api/auth/google/callback';
+
   securityLogger.info('Passport initialization check', {
-    discordClientId: process.env.DISCORD_CLIENT_ID,
-    discordClientSecretLength: process.env.DISCORD_CLIENT_SECRET ? process.env.DISCORD_CLIENT_SECRET.length : 0,
-    discordCallbackUrl: process.env.DISCORD_CALLBACK_URL || 'http://localhost:5000/auth/discord/callback',
-    googleClientId: process.env.GOOGLE_CLIENT_ID,
-    googleClientSecretLength: process.env.GOOGLE_CLIENT_SECRET ? process.env.GOOGLE_CLIENT_SECRET.length : 0,
-    googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback'
+    discordClientId,
+    discordClientSecretLength: discordClientSecret ? discordClientSecret.length : 0,
+    discordCallbackUrl,
+    googleClientId,
+    googleClientSecretLength: googleClientSecret ? googleClientSecret.length : 0,
+    googleCallbackUrl
   });
 
   passport.use(
     new DiscordStrategy(
       {
-        clientID: process.env.DISCORD_CLIENT_ID,
-        clientSecret: process.env.DISCORD_CLIENT_SECRET,
-        callbackURL: process.env.DISCORD_CALLBACK_URL || 'http://localhost:5000/auth/discord/callback',
+        clientID: discordClientId,
+        clientSecret: discordClientSecret,
+        callbackURL: discordCallbackUrl,
         scope: ['identify', 'email'],
         passReqToCallback: true,
       },
@@ -100,9 +112,9 @@ module.exports = function (passport) {
   passport.use(
     new GoogleStrategy(
       {
-        clientID: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
+        clientID: googleClientId,
+        clientSecret: googleClientSecret,
+        callbackURL: googleCallbackUrl,
         passReqToCallback: true,
       },
       async (req, accessToken, refreshToken, profile, done) => {
