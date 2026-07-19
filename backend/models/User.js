@@ -32,6 +32,11 @@ const UserSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
   },
+  discordId: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
   role: {
     type: String,
     enum: ['user', 'admin'],
