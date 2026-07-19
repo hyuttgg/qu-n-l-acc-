@@ -6,10 +6,21 @@ const securityConfig = require('../config/security.config');
  * ──────────────────────────────────────
  * Protects against: Clickjacking, XSS, MIME sniffing, server fingerprinting
  */
+// Helper to clean origins from trailing whitespaces/newlines/carriage returns (\r)
+const cleanOrigin = (url) => {
+  if (!url) return '';
+  return url.trim().replace(/[\r\n\t]/g, '');
+};
+
+const frontendUrl = cleanOrigin(process.env.FRONTEND_URL);
+const allowedOrigins = securityConfig.cors.allowedOrigins
+  ? securityConfig.cors.allowedOrigins.map(cleanOrigin).filter(Boolean)
+  : [];
+
 const allowedFrameAncestors = [
   "'self'",
-  ...securityConfig.cors.allowedOrigins,
-  process.env.FRONTEND_URL
+  ...allowedOrigins,
+  frontendUrl
 ].filter(Boolean);
 
 module.exports = helmet({
@@ -22,7 +33,7 @@ module.exports = helmet({
       "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       "img-src": ["'self'", "data:", "blob:"],
       "frame-ancestors": allowedFrameAncestors,
-      "connect-src": ["'self'", "ws:", "wss:", "http://localhost:5000", ...securityConfig.cors.allowedOrigins, process.env.FRONTEND_URL].filter(Boolean),
+      "connect-src": ["'self'", "ws:", "wss:", "http://localhost:5000", ...allowedOrigins, frontendUrl].filter(Boolean),
     },
   },
   crossOriginEmbedderPolicy: false,
