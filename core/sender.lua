@@ -236,7 +236,7 @@ end
 -- Fighting style lookup table for O(1) performance
 local FIGHTING_STYLES = {
     ["Combat"] = true, ["Dark Step"] = true, ["Death Step"] = true,
-    ["Electro"] = true, ["Electric Claw"] = true, ["Water Kung Fu"] = true,
+    ["Electric"] = true, ["Electro"] = true, ["Electric Claw"] = true, ["Water Kung Fu"] = true,
     ["Sharkman Karate"] = true, ["Dragon Breath"] = true, ["Dragon Talon"] = true,
     ["Superhuman"] = true, ["Godhuman"] = true, ["Sanguine Art"] = true
 }
@@ -742,30 +742,23 @@ local function startHeartbeatScheduler()
         while heartbeatLoopActive do
             local currentStyle = getEquippedFightingStyle()
             if currentStyle ~= lastFightingStyle then
-                local timeSinceLastSend = tick() - lastSendTime
-                if timeSinceLastSend >= 15 then
-                    lastFightingStyle = currentStyle
-                    print("OceanForge: Fighting style changed to " .. tostring(currentStyle) .. ". Sending immediate update...")
-                    local success, err = pcall(sendStats)
-                    if not success then
-                        warn("OceanForge: Error in sendStats: " .. tostring(err))
+                lastFightingStyle = currentStyle -- Update immediately to prevent duplicate triggers
+                
+                task.spawn(function()
+                    local timeSinceLastSend = tick() - lastSendTime
+                    if timeSinceLastSend < 15 then
+                        task.wait(15 - timeSinceLastSend)
                     end
-                else
-                    -- Within 15s window, queue the update to fire exactly at the end of the cooldown
-                    local waitTime = 15 - timeSinceLastSend
-                    task.wait(waitTime)
                     
-                    -- Check if it's still changed after the wait before sending
-                    local newStyle = getEquippedFightingStyle()
-                    if newStyle ~= lastFightingStyle then
-                        lastFightingStyle = newStyle
-                        print("OceanForge: Fighting style changed (throttled). Sending update...")
+                    -- Check if it's still the current style before sending
+                    if getEquippedFightingStyle() == currentStyle then
+                        print("OceanForge: Fighting style changed to " .. tostring(currentStyle) .. ". Sending update...")
                         local success, err = pcall(sendStats)
                         if not success then
                             warn("OceanForge: Error in sendStats: " .. tostring(err))
                         end
                     end
-                end
+                end)
             end
             task.wait(1)
         end
