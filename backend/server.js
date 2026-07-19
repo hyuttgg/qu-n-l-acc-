@@ -122,7 +122,13 @@ const jwt = require('jsonwebtoken');
 
 const io = socketIo(server, {
   cors: {
-    origin: securityConfig.cors.allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (securityConfig.cors.allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST'],
     credentials: true
   },
