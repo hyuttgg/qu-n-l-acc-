@@ -475,10 +475,10 @@ export const AccountList: React.FC = () => {
                     {/* 1. Stored Fruits */}
                     <div>
                       <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
-                        Devil Fruits ({selectedAccountDetails.inventory.fruits.length})
+                        Devil Fruits ({selectedAccountDetails.inventory.fruits?.length || 0})
                       </h4>
                       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                        {selectedAccountDetails.inventory.fruits.map((fruit, idx) => (
+                        {(selectedAccountDetails.inventory.fruits || []).map((fruit, idx) => (
                           <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center relative overflow-hidden">
                             <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
                               <ItemImage
@@ -492,19 +492,123 @@ export const AccountList: React.FC = () => {
                             <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{fruit}</span>
                           </div>
                         ))}
-                        {selectedAccountDetails.inventory.fruits.length === 0 && (
+                        {(selectedAccountDetails.inventory.fruits || []).length === 0 && (
                           <span className="text-xs text-slate-600 italic">No fruits stored in inventory.</span>
                         )}
                       </div>
                     </div>
 
-                    {/* 2. Materials */}
+                    {/* 2. Swords */}
                     <div className="pt-2">
                       <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
-                        Materials ({selectedAccountDetails.inventory.materials.length})
+                        Swords ({selectedAccountDetails.inventory.weapons?.length || 0})
                       </h4>
                       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                        {selectedAccountDetails.inventory.materials.map((mat, idx) => (
+                        {(selectedAccountDetails.inventory.weapons || []).map((sword, idx) => (
+                          <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center">
+                            <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
+                              <ItemImage
+                                category="swords"
+                                name={sword}
+                                fallbackEmoji="⚔️"
+                                emojiClass="text-base text-slate-500"
+                                imgClass="w-8 h-8 object-contain"
+                              />
+                            </div>
+                            <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{sword}</span>
+                          </div>
+                        ))}
+                        {(selectedAccountDetails.inventory.weapons || []).length === 0 && (
+                          <span className="text-xs text-slate-600 italic">No swords stored.</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 3. Guns */}
+                    <div className="pt-2">
+                      <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
+                        Guns ({selectedAccountDetails.inventory.guns?.length || 0})
+                      </h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                        {(selectedAccountDetails.inventory.guns || []).map((gun, idx) => (
+                          <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center">
+                            <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
+                              <ItemImage
+                                category="guns"
+                                name={gun}
+                                fallbackEmoji="🔫"
+                                emojiClass="text-base text-slate-500"
+                                imgClass="w-8 h-8 object-contain"
+                              />
+                            </div>
+                            <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{gun}</span>
+                          </div>
+                        ))}
+                        {(selectedAccountDetails.inventory.guns || []).length === 0 && (
+                          <span className="text-xs text-slate-600 italic">No guns stored.</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 4. Fighting Styles */}
+                    <div className="pt-2">
+                      <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
+                        Fighting Styles ({selectedAccountDetails.inventory.styles?.length || 0})
+                      </h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                        {(selectedAccountDetails.inventory.styles || []).map((style, idx) => (
+                          <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center">
+                            <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
+                              <ItemImage
+                                category="styles"
+                                name={style}
+                                fallbackEmoji="👊"
+                                emojiClass="text-base text-slate-500"
+                                imgClass="w-8 h-8 object-contain"
+                              />
+                            </div>
+                            <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{style}</span>
+                          </div>
+                        ))}
+                        {(selectedAccountDetails.inventory.styles || []).length === 0 && (
+                          <span className="text-xs text-slate-600 italic">No fighting styles stored.</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 5. Accessories */}
+                    <div className="pt-2">
+                      <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
+                        Accessories ({selectedAccountDetails.inventory.accessories?.length || 0})
+                      </h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                        {(selectedAccountDetails.inventory.accessories || []).map((acc, idx) => (
+                          <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center">
+                            <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
+                              <ItemImage
+                                category="accessories"
+                                name={acc}
+                                fallbackEmoji="👑"
+                                emojiClass="text-base text-slate-500"
+                                imgClass="w-8 h-8 object-contain"
+                              />
+                            </div>
+                            <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{acc}</span>
+                          </div>
+                        ))}
+                        {(selectedAccountDetails.inventory.accessories || []).length === 0 && (
+                          <span className="text-xs text-slate-600 italic">No accessories.</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 6. Materials */}
+                    <div className="pt-2">
+                      <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
+                        Materials ({selectedAccountDetails.inventory.materials?.length || 0})
+                      </h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                        {(selectedAccountDetails.inventory.materials || []).map((mat, idx) => (
                           <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center relative overflow-hidden">
                             <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
                               <ItemImage
@@ -521,34 +625,8 @@ export const AccountList: React.FC = () => {
                             </span>
                           </div>
                         ))}
-                        {selectedAccountDetails.inventory.materials.length === 0 && (
+                        {(selectedAccountDetails.inventory.materials || []).length === 0 && (
                           <span className="text-xs text-slate-600 italic">No materials stored.</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 3. Accessories */}
-                    <div className="pt-2">
-                      <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
-                        Accessories ({selectedAccountDetails.inventory.accessories.length})
-                      </h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                        {selectedAccountDetails.inventory.accessories.map((acc, idx) => (
-                          <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center">
-                            <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
-                              <ItemImage
-                                category="accessories"
-                                name={acc}
-                                fallbackEmoji="👑"
-                                emojiClass="text-base text-slate-500"
-                                imgClass="w-8 h-8 object-contain"
-                              />
-                            </div>
-                            <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{acc}</span>
-                          </div>
-                        ))}
-                        {selectedAccountDetails.inventory.accessories.length === 0 && (
-                          <span className="text-xs text-slate-600 italic">No accessories.</span>
                         )}
                       </div>
                     </div>

@@ -7,7 +7,7 @@ export const TreasureMapAnimation: React.FC = () => {
     <div className="relative w-full h-48 bg-slate-950/40 rounded-2xl border border-slate-800/30 overflow-hidden flex items-center justify-center p-4 shadow-inner group">
       {/* Grid Overlay background */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:24px_24px] opacity-30" />
-      
+
       {/* Compass rose in the background */}
       <div className="absolute right-4 top-4 w-16 h-16 border border-gold/10 rounded-full flex items-center justify-center opacity-25 group-hover:opacity-40 transition-opacity duration-500">
         <div className="w-12 h-12 border border-dashed border-gold/20 rounded-full animate-spin-slow" style={{ animationDuration: '60s' }} />
@@ -69,7 +69,7 @@ export const TreasureMapAnimation: React.FC = () => {
           strokeLinecap="round"
           className="opacity-20"
         />
-        
+
         {/* Active glowing animated route segment */}
         <path
           d={pathD}
@@ -95,7 +95,7 @@ export const TreasureMapAnimation: React.FC = () => {
         >
           {/* Glowing ship trail */}
           <circle r="6" fill="#eab308" opacity="0.3" filter="url(#glow-gold)" className="animate-ping" style={{ animationDuration: '1.5s' }} />
-          
+
           {/* Stylized Pirate/Sailing Ship SVG */}
           <g transform="translate(-10, -14) scale(0.8)">
             {/* Hull */}
@@ -113,7 +113,7 @@ export const TreasureMapAnimation: React.FC = () => {
         <g transform="translate(340, 60) scale(0.9)" className="cursor-pointer">
           {/* Pulsing glow ring */}
           <circle r="14" fill="none" stroke="#eab308" strokeWidth="1" className="animate-ping" style={{ animationDuration: '2s' }} />
-          
+
           {/* Golden Chest SVG */}
           <g transform="translate(-12, -12)">
             {/* Chest base */}

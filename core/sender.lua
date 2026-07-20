@@ -106,6 +106,71 @@ local function getIslandName()
     return closestIslandName
 end
 
+-- Fighting style lookup table for O(1) performance
+local FIGHTING_STYLES = {
+    ["Combat"] = true, ["Dark Step"] = true, ["Death Step"] = true,
+    ["Electric"] = true, ["Electro"] = true, ["Electric Claw"] = true, ["Water Kung Fu"] = true,
+    ["Sharkman Karate"] = true, ["Dragon Breath"] = true, ["Dragon Talon"] = true,
+    ["Superhuman"] = true, ["Godhuman"] = true, ["Sanguine Art"] = true
+}
+
+-- Helper to identify if a tool is a fighting style (melee)
+local function isFightingStyle(item)
+    if item:IsA("Tool") then
+        local name = item.Name
+        local toolType = item:GetAttribute("Type") or ""
+        if toolType == "Melee" or FIGHTING_STYLES[name] or string_find(name, "Style", 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Get current equipped fighting style (checks character and backpack, no network remotes)
+local function getEquippedFightingStyle()
+    local char = LocalPlayer.Character
+    if char then
+        for _, item in ipairs(char:GetChildren()) do
+            if isFightingStyle(item) then
+                return item.Name
+            end
+        end
+    end
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if backpack then
+        for _, item in ipairs(backpack:GetChildren()) do
+            if isFightingStyle(item) then
+                return item.Name
+            end
+        end
+    end
+    return "Combat"
+end
+
+local bfAccessories = {
+    ["Bear Ears"] = true, ["Black Cape"] = true, ["Black Spikey Coat"] = true,
+    ["Blue Spikey Coat"] = true, ["Choppa"] = true, ["Cool Shades"] = true,
+    ["Dark Coat"] = true, ["Dino Hood"] = true, ["Dojo Belt"] = true,
+    ["Feathered Visage"] = true, ["Ghoul Mask"] = true, ["Golden Sunhat"] = true,
+    ["Holy Crown"] = true, ["Hunter Cape"] = true, ["Jaw Shield"] = true,
+    ["Kitsune Mask"] = true, ["Kitsune Ribbon"] = true, ["Lei"] = true,
+    ["Leviathan Crown"] = true, ["Leviathan Shield"] = true, ["Marine Cap"] = true,
+    ["Musketeer Hat"] = true, ["Pale Scarf"] = true, ["Pilot Helmet"] = true,
+    ["Pink Coat"] = true, ["Pretty Helmet"] = true, ["Red Spikey Coat"] = true,
+    ["Shark Tooth Necklace"] = true, ["Swan Glasses"] = true, ["Swordsman Hat"] = true,
+    ["T-Rex Skull"] = true, ["Terror Jaw"] = true, ["Tomoe Ring"] = true,
+    ["Top Hat"] = true, ["Usoap's Hat"] = true, ["Valkyrie Helm"] = true,
+    ["Warrior Helmet"] = true, ["Zebra Cap"] = true, ["Bandanna"] = true
+}
+
+local function isBFAccessory(name)
+    if bfAccessories[name] then return true end
+    for k, _ in pairs(bfAccessories) do
+        if string_find(name, k, 1, true) then return true end
+    end
+    return false
+end
+
 -- Scan Character Inventory, Backpack, and Equipment details
 local function scanInventory()
     local inventory = {
@@ -128,6 +193,13 @@ local function scanInventory()
                 table_insert(inventory.swords, name)
             elseif toolType == "Gun" or string_find(name, "Guitar", 1, true) or string_find(name, "Rifle", 1, true) or string_find(name, "Revolver", 1, true) or string_find(name, "Slingshot", 1, true) or string_find(name, "Bow", 1, true) then
                 table_insert(inventory.guns, name)
+            elseif isFightingStyle(item) then
+                table_insert(inventory.styles, name)
+            end
+        elseif item:IsA("Accessory") then
+            local name = item.Name
+            if isBFAccessory(name) then
+                table_insert(inventory.accessories, name)
             end
         end
     end
@@ -230,48 +302,22 @@ local function scanInventory()
         end
     end
 
+    -- Always scan the currently equipped fighting style and add to styles inventory if not already present
+    local equippedStyle = getEquippedFightingStyle()
+    if equippedStyle then
+        local found = false
+        for _, val in ipairs(inventory.styles) do
+            if val == equippedStyle then
+                found = true
+                break
+            end
+        end
+        if not found then
+            table_insert(inventory.styles, equippedStyle)
+        end
+    end
+
     return inventory
-end
-
--- Fighting style lookup table for O(1) performance
-local FIGHTING_STYLES = {
-    ["Combat"] = true, ["Dark Step"] = true, ["Death Step"] = true,
-    ["Electric"] = true, ["Electro"] = true, ["Electric Claw"] = true, ["Water Kung Fu"] = true,
-    ["Sharkman Karate"] = true, ["Dragon Breath"] = true, ["Dragon Talon"] = true,
-    ["Superhuman"] = true, ["Godhuman"] = true, ["Sanguine Art"] = true
-}
-
--- Helper to identify if a tool is a fighting style (melee)
-local function isFightingStyle(item)
-    if item:IsA("Tool") then
-        local name = item.Name
-        local toolType = item:GetAttribute("Type") or ""
-        if toolType == "Melee" or FIGHTING_STYLES[name] or string_find(name, "Style", 1, true) then
-            return true
-        end
-    end
-    return false
-end
-
--- Get current equipped fighting style (checks character and backpack, no network remotes)
-local function getEquippedFightingStyle()
-    local char = LocalPlayer.Character
-    if char then
-        for _, item in ipairs(char:GetChildren()) do
-            if isFightingStyle(item) then
-                return item.Name
-            end
-        end
-    end
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack then
-        for _, item in ipairs(backpack:GetChildren()) do
-            if isFightingStyle(item) then
-                return item.Name
-            end
-        end
-    end
-    return "Combat"
 end
 
 -- Scan Equipped items
@@ -284,29 +330,7 @@ local function getEquippedDetails(inv)
         fightingStyle = "Combat",
         accessory = "None"
     }
-    local bfAccessories = {
-        ["Bear Ears"] = true, ["Black Cape"] = true, ["Black Spikey Coat"] = true,
-        ["Blue Spikey Coat"] = true, ["Choppa"] = true, ["Cool Shades"] = true,
-        ["Dark Coat"] = true, ["Dino Hood"] = true, ["Dojo Belt"] = true,
-        ["Feathered Visage"] = true, ["Ghoul Mask"] = true, ["Golden Sunhat"] = true,
-        ["Holy Crown"] = true, ["Hunter Cape"] = true, ["Jaw Shield"] = true,
-        ["Kitsune Mask"] = true, ["Kitsune Ribbon"] = true, ["Lei"] = true,
-        ["Leviathan Crown"] = true, ["Leviathan Shield"] = true, ["Marine Cap"] = true,
-        ["Musketeer Hat"] = true, ["Pale Scarf"] = true, ["Pilot Helmet"] = true,
-        ["Pink Coat"] = true, ["Pretty Helmet"] = true, ["Red Spikey Coat"] = true,
-        ["Shark Tooth Necklace"] = true, ["Swan Glasses"] = true, ["Swordsman Hat"] = true,
-        ["T-Rex Skull"] = true, ["Terror Jaw"] = true, ["Tomoe Ring"] = true,
-        ["Top Hat"] = true, ["Usoap's Hat"] = true, ["Valkyrie Helm"] = true,
-        ["Warrior Helmet"] = true, ["Zebra Cap"] = true, ["Bandanna"] = true
-    }
 
-    local function isBFAccessory(name)
-        if bfAccessories[name] then return true end
-        for k, _ in pairs(bfAccessories) do
-            if string_find(name, k, 1, true) then return true end
-        end
-        return false
-    end
 
     local function checkItem(item)
         if item:IsA("Tool") then

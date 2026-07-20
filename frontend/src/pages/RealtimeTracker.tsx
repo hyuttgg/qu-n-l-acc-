@@ -88,6 +88,14 @@ export const RealtimeTracker: React.FC = () => {
                 <span className="text-slate-500 font-semibold">Fighting Style:</span>
                 <span className="font-bold text-sky-400">{acc.equipped.fightingStyle}</span>
               </div>
+              <div className="flex justify-between items-center border-t border-slate-900/50 pt-2">
+                <span className="text-slate-500 font-semibold">Equipped Gun:</span>
+                <span className="font-bold text-slate-300">{acc.equipped.gun || 'None'}</span>
+              </div>
+              <div className="flex justify-between items-center border-t border-slate-900/50 pt-2">
+                <span className="text-slate-500 font-semibold">Equipped Accessory:</span>
+                <span className="font-bold text-slate-300">{acc.equipped.accessory || 'None'}</span>
+              </div>
             </div>
           </div>
         ))}
