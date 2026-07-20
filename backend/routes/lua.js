@@ -8,6 +8,7 @@ const User = require('../models/User');
 const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
 
 // ───── Security Middleware ─────
 const { requireApiKey } = require('../middleware/auth');
@@ -114,14 +115,20 @@ router.get('/load', async (req, res) => {
       }
     }
 
-    // Read the Lua client sender script from the core folder
-    const scriptPath = path.join(__dirname, '../../core/sender.lua');
-    if (!fs.existsSync(scriptPath)) {
-      res.setHeader('Content-Type', 'text/plain');
-      return res.send('-- Error: Lua client script file not found on server.');
+    // Dynamically fetch the Lua client sender script from GitHub raw URL with local fallback
+    let scriptContent = '';
+    try {
+      const response = await axios.get('https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender%20copy.lua', { timeout: 5000 });
+      scriptContent = response.data;
+    } catch (fetchErr) {
+      console.warn('Failed to fetch Lua client script from GitHub, falling back to local file:', fetchErr.message);
+      const scriptPath = path.join(__dirname, '../../core/sender copy.lua');
+      if (!fs.existsSync(scriptPath)) {
+        res.setHeader('Content-Type', 'text/plain');
+        return res.send('-- Error: Lua client script file not found on server.');
+      }
+      scriptContent = fs.readFileSync(scriptPath, 'utf8');
     }
-
-    let scriptContent = fs.readFileSync(scriptPath, 'utf8');
 
     // Dynamic configuration injection
     // Replace default API Key placeholder with user's verified key (permanent API key or Roblox session token)
