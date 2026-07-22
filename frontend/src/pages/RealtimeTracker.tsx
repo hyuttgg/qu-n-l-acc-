@@ -54,7 +54,7 @@ export const RealtimeTracker: React.FC = () => {
               <div className="flex items-center gap-2.5 text-slate-300">
                 <Zap className="w-4 h-4 text-gold" />
                 <span className="font-semibold">Level:</span>
-                <span className="text-white font-bold">{acc.level} / 2550</span>
+                <span className="text-white font-bold">{acc.level} / 2800</span>
               </div>
 
               <div className="flex items-center gap-2.5 text-slate-300">

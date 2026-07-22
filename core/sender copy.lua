@@ -587,7 +587,7 @@ local LevelLabel = Instance.new("TextLabel")
 LevelLabel.Size = UDim2.new(1, 0, 0.25, 0)
 LevelLabel.Position = UDim2.new(0, 0, 0.25, 0)
 LevelLabel.BackgroundTransparency = 1
-LevelLabel.Text = "Level: -- / 2550"
+LevelLabel.Text = "Level: -- / 2800"
 LevelLabel.TextColor3 = Color3.fromRGB(244, 63, 94) -- Rose Red
 LevelLabel.Font = Enum.Font.GothamSemibold
 LevelLabel.TextSize = 12
@@ -645,7 +645,7 @@ local function sendStats()
     local equipped = getEquippedDetails(inventory)
     
     -- Update UI stats labels
-    LevelLabel.Text = "Level: " .. formatComma(level) .. " / 2550"
+    LevelLabel.Text = "Level: " .. formatComma(level) .. " / 2800"
     BeliLabel.Text = "Beli: $" .. formatComma(beli) .. "  |  Fragments: " .. formatComma(fragments)
     IslandLabel.Text = "Island: " .. getIslandName() .. " (Sea " .. getSea() .. ")"
     

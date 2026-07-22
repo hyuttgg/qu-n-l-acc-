@@ -108,7 +108,7 @@ export const AnalyticsDashboard: React.FC = () => {
               <LineChart data={levelProgress}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                 <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
-                <YAxis domain={[0, 2550]} stroke="#64748b" fontSize={11} />
+                <YAxis domain={[0, 2800]} stroke="#64748b" fontSize={11} />
                 <Tooltip contentStyle={{ backgroundColor: '#0b1329', border: '1px solid #1e2541' }} labelStyle={{ color: '#fff' }} />
                 <Line type="monotone" dataKey="level" stroke="#d4af37" strokeWidth={3} dot={{ fill: '#d4af37', strokeWidth: 2 }} activeDot={{ r: 8 }} />
               </LineChart>

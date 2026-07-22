@@ -226,7 +226,7 @@ export const DashboardOverview: React.FC = () => {
                 {accounts.slice(0, 5).map((acc) => (
                   <tr key={acc._id} className="hover:bg-slate-900/30 transition-colors">
                     <td className="py-3 font-bold text-white">{acc.robloxUsername}</td>
-                    <td className="py-3 text-slate-300 font-semibold">{acc.level} / 2550</td>
+                    <td className="py-3 text-slate-300 font-semibold">{acc.level} / 2800</td>
                     <td className="py-3 text-emerald-400 font-mono">{formatBeli(acc.beli)}</td>
                     <td className="py-3 text-purple-400 font-mono">{formatBeli(acc.fragments)}</td>
                     <td className="py-3">
