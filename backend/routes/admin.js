@@ -2,6 +2,8 @@ const express = require('express');
 const { protect } = require('../middleware/auth');
 const luaPayloadLogger = require('../utils/luaPayloadLogger');
 
+const router = express.Router();
+
 const MASTER_ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || 'khanh2007nw';
 
 // Middleware to verify passcode header for admin routes
