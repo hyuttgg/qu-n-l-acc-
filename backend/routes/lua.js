@@ -88,11 +88,12 @@ router.get('/load', async (req, res) => {
           return res.send('-- Error: User not found for token.');
         }
 
-        // Generate 24-hour Roblox session JWT token
+        // Generate Roblox session JWT token with user selected expiration (24h, 32h, 72h)
+        const sessionExpiresIn = decoded.expiresIn || '24h';
         finalApiKey = jwt.sign(
           { userId: user._id ? user._id.toString() : user.id.toString(), purpose: 'roblox_session' },
           process.env.JWT_SECRET || 'super_secret_key',
-          { expiresIn: '1d' }
+          { expiresIn: sessionExpiresIn }
         );
       } catch (jwtErr) {
         res.setHeader('Content-Type', 'text/plain');

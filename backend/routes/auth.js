@@ -203,18 +203,22 @@ router.get('/me', protect, async (req, res) => {
   }
 });
 
-// @desc    Generate a short-lived loader token for Roblox script loading
+// @desc    Generate a short-lived loader token for Roblox script loading with configurable expiration (24h, 32h, 72h)
 // @route   POST /api/auth/loader-token
 // @access  Private
 router.post('/loader-token', protect, async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
+    const { expiresIn } = req.body || {};
+    const validExpirations = ['24h', '32h', '72h'];
+    const expiry = validExpirations.includes(expiresIn) ? expiresIn : '24h';
+
     const token = jwt.sign(
-      { userId: userId.toString(), purpose: 'loader_token' },
+      { userId: userId.toString(), purpose: 'loader_token', expiresIn: expiry },
       process.env.JWT_SECRET || 'super_secret_key',
-      { expiresIn: '24h' }
+      { expiresIn: expiry }
     );
-    res.status(200).json({ success: true, token });
+    res.status(200).json({ success: true, token, expiresIn: expiry });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

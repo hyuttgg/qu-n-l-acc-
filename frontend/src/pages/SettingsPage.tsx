@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../store';
-import { Settings, Key, RefreshCw, Copy, Check, Mail, Lock, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
+import { Settings, Key, RefreshCw, Copy, Check, Mail, Lock, AlertCircle, CheckCircle, Trash2, Clock } from 'lucide-react';
 import { api } from '../utils/api';
 
 export const SettingsPage: React.FC = () => {
@@ -10,6 +10,7 @@ export const SettingsPage: React.FC = () => {
   const [scriptCopied, setScriptCopied] = useState(false);
   const [isCopyingScript, setIsCopyingScript] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [tokenExpiry, setTokenExpiry] = useState<'24h' | '32h' | '72h'>('24h');
 
   // Update Email state
   const [newEmail, setNewEmail] = useState('');
@@ -48,7 +49,7 @@ export const SettingsPage: React.FC = () => {
     if (isCopyingScript) return;
     setIsCopyingScript(true);
     try {
-      const res = await api.post('/auth/loader-token', {});
+      const res = await api.post('/auth/loader-token', { expiresIn: tokenExpiry });
       if (res.success && res.token) {
         const rawUrl = `${BACKEND_URL}/api/lua/load?token=${res.token}`;
         const encryptedUrl = obfuscateToLuaEscapes(rawUrl);
@@ -232,8 +233,34 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* Roblox Loader Script */}
-        <div className="space-y-2">
-          <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">Roblox Loader Script</label>
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">
+              Roblox Loader Script
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400 text-xs font-semibold flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-gold" /> Hạn token:
+              </span>
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-900">
+                {(['24h', '32h', '72h'] as const).map((expiryOption) => (
+                  <button
+                    key={expiryOption}
+                    type="button"
+                    onClick={() => setTokenExpiry(expiryOption)}
+                    className={`px-3 py-1 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+                      tokenExpiry === expiryOption
+                        ? 'bg-gold text-ocean-abyss shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    }`}
+                  >
+                    {expiryOption}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center gap-3 bg-slate-950 p-4 rounded-xl border border-slate-900">
             <span className="font-mono text-white text-xs select-all break-all flex-1">
               {displayLoaderScript}
@@ -243,7 +270,7 @@ export const SettingsPage: React.FC = () => {
                 onClick={handleCopyScript}
                 disabled={isCopyingScript}
                 className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition disabled:opacity-50"
-                title="Copy Script (Generates dynamic token)"
+                title={`Copy Script (Hạn dùng token ${tokenExpiry})`}
               >
                 {scriptCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </button>

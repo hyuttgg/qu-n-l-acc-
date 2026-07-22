@@ -84,18 +84,18 @@ const runTest = async () => {
   const userToken = registerResult.token;
   console.log('User registered successfully.');
 
-  // 2. Generate short-lived loader token
-  console.log('\n[2/5] Requesting short-lived loader token from website context...');
+  // 2. Generate short-lived loader token with 32h expiration
+  console.log('\n[2/5] Requesting short-lived loader token with 32h expiration...');
   const tokenRes = await post('/api/auth/loader-token', {
     'Authorization': `Bearer ${userToken}`
-  }, {});
+  }, { expiresIn: '32h' });
 
   if (!tokenRes.success || !tokenRes.token) {
     console.error('Failed to generate loader token:', tokenRes);
     process.exit(1);
   }
   const loaderToken = tokenRes.token;
-  console.log(`Loader token generated successfully! (Expires in 24 hours)`);
+  console.log(`Loader token generated successfully! (Expires in ${tokenRes.expiresIn || '32h'})`);
 
   // 3. Request loader script using the loader token
   console.log('\n[3/5] Requesting sender.lua script using the loader token...');
