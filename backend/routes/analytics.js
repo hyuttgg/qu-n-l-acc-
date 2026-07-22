@@ -8,6 +8,48 @@ const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Helper to parse fruit items e.g. "Dragon-Dragon (x2)" -> { name: "Dragon", quantity: 2 }
+const parseFruitItem = (item) => {
+  if (!item) return null;
+
+  let rawName = '';
+  let quantity = 1;
+
+  if (typeof item === 'string') {
+    rawName = item;
+    const matchQty = rawName.match(/\(x(\d+)\)/i) || rawName.match(/x(\d+)/i);
+    if (matchQty) {
+      quantity = parseInt(matchQty[1], 10) || 1;
+    }
+  } else if (typeof item === 'object') {
+    rawName = item.name || item.Name || item.fruit || item.Fruit || '';
+    quantity = item.quantity || item.Quantity || item.count || item.Count || item.value || item.Value || 1;
+  }
+
+  if (!rawName || typeof rawName !== 'string') return null;
+
+  // Clean quantity portion e.g. "(x2)" or "x2"
+  let cleanName = rawName.replace(/\(x\d+\)/gi, '').replace(/x\d+/gi, '').trim();
+
+  // Handle Blox Fruits "Name-Name" format e.g. "Dragon-Dragon" -> "Dragon"
+  if (cleanName.includes('-')) {
+    const parts = cleanName.split('-');
+    if (parts[0] && parts[1] && parts[0].trim().toLowerCase() === parts[1].trim().toLowerCase()) {
+      cleanName = parts[0].trim();
+    } else if (parts[0]) {
+      cleanName = parts[0].trim();
+    }
+  }
+
+  // Remove "Fruit" word at the end e.g. "Rocket Fruit" -> "Rocket"
+  cleanName = cleanName.replace(/\s+Fruit$/i, '').trim();
+  if (!cleanName) return null;
+
+  // Title Case
+  cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+  return { name: cleanName, quantity: Number(quantity) || 1 };
+};
+
 // @desc    Get aggregate analytics for user
 // @route   GET /api/analytics/overview
 // @access  Private
@@ -37,9 +79,12 @@ router.get('/overview', protect, async (req, res) => {
       let totalFruitsCount = 0;
 
       inventories.forEach((inv) => {
-        inv.fruits.forEach((fruit) => {
-          fruitCounts[fruit] = (fruitCounts[fruit] || 0) + 1;
-          totalFruitsCount++;
+        (inv.fruits || []).forEach((item) => {
+          const parsed = parseFruitItem(item);
+          if (parsed) {
+            fruitCounts[parsed.name] = (fruitCounts[parsed.name] || 0) + parsed.quantity;
+            totalFruitsCount += parsed.quantity;
+          }
         });
       });
 
@@ -48,7 +93,7 @@ router.get('/overview', protect, async (req, res) => {
         value: fruitCounts[name],
       })).sort((a, b) => b.value - a.value).slice(0, 8);
 
-      if (fruitsDistribution.length === 0) {
+      if (fruitsDistribution.length === 0 && accounts.length === 0) {
         fruitsDistribution.push(
           { name: 'Dragon', value: 4 },
           { name: 'Leopard', value: 3 },
@@ -76,8 +121,10 @@ router.get('/overview', protect, async (req, res) => {
 
       const materialCounts = {};
       inventories.forEach((inv) => {
-        inv.materials.forEach((mat) => {
-          materialCounts[mat.name] = (materialCounts[mat.name] || 0) + mat.quantity;
+        (inv.materials || []).forEach((mat) => {
+          if (mat && mat.name) {
+            materialCounts[mat.name] = (materialCounts[mat.name] || 0) + (mat.quantity || 1);
+          }
         });
       });
 
@@ -86,7 +133,7 @@ router.get('/overview', protect, async (req, res) => {
         quantity: materialCounts[name],
       })).sort((a, b) => b.quantity - a.quantity);
 
-      if (materialsDistribution.length === 0) {
+      if (materialsDistribution.length === 0 && accounts.length === 0) {
         materialsDistribution.push(
           { name: 'Conjured Cocoa', quantity: 15 },
           { name: 'Dragon Scale', quantity: 24 },
@@ -111,7 +158,7 @@ router.get('/overview', protect, async (req, res) => {
         });
         avgSessionDuration = Math.round(sumDuration / sessions.length);
       } else {
-        totalSessionsCount = 12;
+        totalSessionsCount = accounts.length > 0 ? accounts.length : 12;
         avgSessionDuration = 1200;
         longestSessionDuration = 3600;
       }
@@ -174,9 +221,12 @@ router.get('/overview', protect, async (req, res) => {
     let totalFruitsCount = 0;
 
     inventories.forEach((inv) => {
-      (inv.fruits || []).forEach((fruit) => {
-        fruitCounts[fruit] = (fruitCounts[fruit] || 0) + 1;
-        totalFruitsCount++;
+      (inv.fruits || []).forEach((item) => {
+        const parsed = parseFruitItem(item);
+        if (parsed) {
+          fruitCounts[parsed.name] = (fruitCounts[parsed.name] || 0) + parsed.quantity;
+          totalFruitsCount += parsed.quantity;
+        }
       });
     });
 
@@ -185,8 +235,8 @@ router.get('/overview', protect, async (req, res) => {
       value: fruitCounts[name],
     })).sort((a, b) => b.value - a.value).slice(0, 8); // Top 8 fruits
 
-    // Fallbacks if no data exists yet (to make UI look gorgeous on initial launch)
-    if (fruitsDistribution.length === 0) {
+    // Fallbacks if no accounts created yet
+    if (fruitsDistribution.length === 0 && accounts.length === 0) {
       fruitsDistribution.push(
         { name: 'Dragon', value: 4 },
         { name: 'Leopard', value: 3 },

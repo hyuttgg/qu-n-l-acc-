@@ -24,7 +24,11 @@ export const AnalyticsDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchAnalytics();
-  }, []);
+    const interval = setInterval(() => {
+      fetchAnalytics();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [fetchAnalytics]);
 
   const formatBeli = (num: number) => {
     if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';

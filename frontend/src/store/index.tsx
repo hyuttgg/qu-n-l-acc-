@@ -147,6 +147,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     initializeAuth();
   }, [token]);
 
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      const res = await api.get('/analytics/overview');
+      if (res.success) {
+        setAnalytics(res.data);
+      }
+    } catch (err) {
+      console.error('Error fetching analytics', err);
+    }
+  }, []);
+
   // Setup Socket Connection for Realtime Tracking
   useEffect(() => {
     if (user && token) {
@@ -197,11 +208,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return prev;
         });
 
-        // 3. Increment analytics dashboard metrics
+        // 3. Increment analytics dashboard metrics and trigger re-fetch for fresh charts
         setAnalytics((prev) => {
           if (!prev) return null;
           const currentAccounts = accountsRef.current;
-          // Dynamically adjust count of online accounts
           const wasOnline = currentAccounts.find((a) => a._id === data.account._id)?.status !== 'offline';
           const isOnline = data.account.status !== 'offline';
           const onlineDiff = isOnline && !wasOnline ? 1 : !isOnline && wasOnline ? -1 : 0;
@@ -216,13 +226,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           };
         });
+
+        fetchAnalytics();
       });
 
       return () => {
         newSocket.disconnect();
       };
     }
-  }, [user, token]);
+  }, [user, token, fetchAnalytics]);
 
   const login = useCallback(async (email: string, password: string, captcha?: string) => {
     try {
@@ -278,16 +290,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const fetchAnalytics = useCallback(async () => {
-    try {
-      const res = await api.get('/analytics/overview');
-      if (res.success) {
-        setAnalytics(res.data);
-      }
-    } catch (err) {
-      console.error('Error fetching analytics', err);
-    }
-  }, []);
 
   const fetchAccountDetails = useCallback(async (accountId: string) => {
     try {
