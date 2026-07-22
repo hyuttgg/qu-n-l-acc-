@@ -75,7 +75,7 @@ const ItemImage: React.FC<ItemImageProps> = ({
 };
 
 export const InventoryList: React.FC = () => {
-  const { accounts, fetchAccounts } = useApp();
+  const { accounts } = useApp();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<'fruits' | 'swords' | 'guns' | 'styles' | 'accessories' | 'materials'>('fruits');
   const [searchTerm, setSearchTerm] = useState('');
