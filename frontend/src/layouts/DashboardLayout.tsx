@@ -21,7 +21,8 @@ import {
   Key,
   Activity,
   Globe,
-  FileText
+  FileText,
+  Terminal
 } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
@@ -72,6 +73,7 @@ export const DashboardLayout: React.FC = () => {
       title: 'System',
       items: [
         { name: 'Analytics', path: '/dashboard/analytics', icon: BarChart2 },
+        { name: 'Lua Inspector', path: '/dashboard/admin-lua', icon: Terminal },
         { name: 'Sessions', path: '/dashboard/sessions', icon: Clock },
         { name: 'Settings', path: '/dashboard/settings', icon: Settings },
         { name: 'API Docs', path: '/dashboard/docs', icon: FileText }

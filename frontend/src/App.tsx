@@ -17,6 +17,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ defa
 const OAuthSuccess = lazy(() => import('./pages/OAuthSuccess').then(m => ({ default: m.OAuthSuccess })));
 const GeoMonitor = lazy(() => import('./pages/GeoMonitor').then(m => ({ default: m.GeoMonitor })));
 const ApiDocsPage = lazy(() => import('./pages/ApiDocsPage').then(m => ({ default: m.ApiDocsPage })));
+const AdminLuaInspector = lazy(() => import('./pages/AdminLuaInspector').then(m => ({ default: m.AdminLuaInspector })));
 
 const PageFallback: React.FC = () => (
   <div className="deepsea-bg min-h-screen flex flex-col items-center justify-center">
@@ -72,6 +73,7 @@ export const App: React.FC = () => {
               <Route path="geo" element={<GeoMonitor />} />
               <Route path="analytics" element={<AnalyticsDashboard />} />
               <Route path="sessions" element={<AnalyticsDashboard />} />
+              <Route path="admin-lua" element={<AdminLuaInspector />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="docs" element={<ApiDocsPage />} />
             </Route>

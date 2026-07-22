@@ -183,6 +183,32 @@ router.post(
       return res.status(400).json({ success: false, message: 'robloxUsername is required' });
     }
 
+    // Log raw Lua telemetry for Admin Inspection (100% exact JSON)
+    luaPayloadLogger.addPayloadLog({
+      userEmail: user?.email,
+      username: user?.username,
+      robloxUsername,
+      ip: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+      executorHeader: req.headers['user-agent'] || 'Roblox HttpService',
+      payloadSize: JSON.stringify(payload).length,
+      rawPayload: payload,
+      level: payload.level,
+      beli: payload.beli,
+      fragments: payload.fragments,
+      sea: payload.sea,
+      race: payload.race,
+      status: payload.status,
+      location: payload.location,
+      equipped: payload.equipped || {
+        fruit: payload.fruit_equipped || payload.fruit,
+        sword: payload.sword,
+        gun: payload.gun,
+        fightingStyle: payload.fighting_style || payload.fightingStyle,
+        accessory: payload.accessory_equipped || payload.accessory
+      },
+      inventory: payload.inventory
+    });
+
     try {
       // In-memory Mock fallback
       if (!global.dbConnected) {
