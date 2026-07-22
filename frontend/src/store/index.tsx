@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { api } from '../utils/api';
 
@@ -154,11 +154,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const newSocket = io(socketUrl, {
         auth: {
           token
-        }
+        },
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
       });
 
       newSocket.on('connect', () => {
         console.log('Socket connected to backend');
+        newSocket.emit('join_room', user.id);
+      });
+
+      newSocket.on('reconnect', (attempt) => {
+        console.log(`Socket reconnected on attempt ${attempt}`);
         newSocket.emit('join_room', user.id);
       });
 
@@ -210,14 +218,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       });
 
-
       return () => {
         newSocket.disconnect();
       };
     }
   }, [user, token]);
 
-  const login = async (email: string, password: string, captcha?: string) => {
+  const login = useCallback(async (email: string, password: string, captcha?: string) => {
     try {
       const res = await api.post('/auth/login', { email, password, captcha });
       if (res.success) {
@@ -234,9 +241,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (err: any) {
       return { success: false, message: err.message || 'Login error occurred' };
     }
-  };
+  }, []);
 
-  const register = async (username: string, email: string, password: string, captcha: string) => {
+  const register = useCallback(async (username: string, email: string, password: string, captcha: string) => {
     try {
       const res = await api.post('/auth/register', { username, email, password, captcha });
       if (res.success) {
@@ -249,18 +256,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (err: any) {
       return { success: false, message: err.message || 'Registration error occurred' };
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
     setAccounts([]);
     setAnalytics(null);
     setSelectedAccountDetails(null);
-  };
+  }, []);
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async () => {
     try {
       const res = await api.get('/accounts');
       if (res.success) {
@@ -269,9 +276,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (err) {
       console.error('Error fetching accounts', err);
     }
-  };
+  }, []);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       const res = await api.get('/analytics/overview');
       if (res.success) {
@@ -280,9 +287,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (err) {
       console.error('Error fetching analytics', err);
     }
-  };
+  }, []);
 
-  const fetchAccountDetails = async (accountId: string) => {
+  const fetchAccountDetails = useCallback(async (accountId: string) => {
     try {
       const res = await api.get(`/accounts/${accountId}`);
       if (res.success) {
@@ -291,39 +298,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (err) {
       console.error('Error fetching account details', err);
     }
-  };
+  }, []);
 
-  const regenerateApiKey = async () => {
+  const regenerateApiKey = useCallback(async () => {
     try {
       const res = await api.post('/auth/regenerate-key', {});
       if (res.success && user) {
-        setUser({ ...user, apiKey: res.apiKey });
+        setUser((prev) => prev ? { ...prev, apiKey: res.apiKey } : null);
       }
     } catch (err) {
       console.error('Error regenerating API key', err);
     }
-  };
+  }, [user]);
 
-  const deleteAccount = async (accountId: string) => {
+  const deleteAccount = useCallback(async (accountId: string) => {
     try {
       const res = await api.delete(`/accounts/${accountId}`);
       if (res.success) {
         setAccounts((prev) => prev.filter((acc) => acc._id !== accountId));
-        if (selectedAccountDetails?.account._id === accountId) {
-          setSelectedAccountDetails(null);
-        }
+        setSelectedAccountDetails((prev) => prev?.account._id === accountId ? null : prev);
       }
     } catch (err) {
       console.error('Error deleting account', err);
     }
-  };
+  }, []);
 
-
-  const updateUser = (userData: User) => {
+  const updateUser = useCallback((userData: User) => {
     setUser(userData);
-  };
+  }, []);
 
-  const updateAccountNotes = async (accountId: string, notes: string) => {
+  const updateAccountNotes = useCallback(async (accountId: string, notes: string) => {
     try {
       const res = await api.put(`/accounts/${accountId}/notes`, { notes });
       if (res.success) {
@@ -346,9 +350,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error updating account notes', err);
       return false;
     }
-  };
+  }, []);
 
-  const oauthLogin = async (tokenValue: string) => {
+  const oauthLogin = useCallback(async (tokenValue: string) => {
     try {
       localStorage.setItem('token', tokenValue);
       setToken(tokenValue);
@@ -364,7 +368,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       logout();
       return { success: false };
     }
-  };
+  }, [logout]);
 
   const contextValue = React.useMemo(() => ({
     user,

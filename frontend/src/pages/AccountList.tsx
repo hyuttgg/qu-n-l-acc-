@@ -99,6 +99,15 @@ export const AccountList: React.FC = () => {
     }
   }, [selectedAccountDetails, activeAccountId]);
 
+  // Toast & Modal States for UI Feedback
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+
+  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const handleOpenDetails = (accountId: string) => {
     fetchAccountDetails(accountId);
     setActiveTab('equipped');
@@ -115,17 +124,23 @@ export const AccountList: React.FC = () => {
     setSavingNotes(true);
     const success = await updateAccountNotes(selectedAccountDetails.account._id, notesInput);
     if (success) {
-      alert('Đã lưu ghi chú thành công! / Note saved successfully!');
+      showToast('Đã lưu ghi chú thành công!', 'success');
     } else {
-      alert('Không thể lưu ghi chú. / Failed to save note.');
+      showToast('Không thể lưu ghi chú. Vui lòng thử lại!', 'error');
     }
     setSavingNotes(false);
   };
 
-  const handleDelete = async (accountId: string, e: React.MouseEvent) => {
+  const promptDeleteAccount = (accountId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm('Are you sure you want to delete this account and all associated logs?')) {
-      await deleteAccount(accountId);
+    setDeletingAccountId(accountId);
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (deletingAccountId) {
+      await deleteAccount(deletingAccountId);
+      setDeletingAccountId(null);
+      showToast('Đã xóa tài khoản thành công!', 'success');
     }
   };
 
@@ -245,7 +260,7 @@ export const AccountList: React.FC = () => {
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={(e) => handleDelete(acc._id, e)}
+                        onClick={(e) => promptDeleteAccount(acc._id, e)}
                         className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-white transition"
                         title="Delete Record"
                       >
@@ -674,6 +689,54 @@ export const AccountList: React.FC = () => {
                 Close View
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Glassmorphic Modal */}
+      {deletingAccountId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-ocean-deep border border-red-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-400">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-white text-base">Xác Nhận Xóa Tài Khoản</h3>
+                <p className="text-xs text-slate-400">Hành động này không thể hoàn tác!</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Bạn có chắc chắn muốn xóa tài khoản này và tất cả nhật ký dữ liệu liên quan khỏi hệ thống không?
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setDeletingAccountId(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                onClick={confirmDeleteAccount}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20 transition"
+              >
+                Xóa Vĩnh Viễn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Glassmorphic Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 animate-bounce-in">
+          <div className={`px-5 py-3 rounded-xl border backdrop-blur-md shadow-2xl flex items-center gap-3 text-xs font-bold ${
+            toastMessage.type === 'success'
+              ? 'bg-emerald-950/80 border-emerald-500/30 text-emerald-300'
+              : 'bg-red-950/80 border-red-500/30 text-red-300'
+          }`}>
+            <span className="w-2 h-2 rounded-full animate-ping bg-current" />
+            <span>{toastMessage.text}</span>
           </div>
         </div>
       )}

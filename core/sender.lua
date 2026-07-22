@@ -179,8 +179,19 @@ local bfAccessories = {
     ["Warrior Helmet"] = true, ["Zebra Cap"] = true, ["Bandanna"] = true
 }
 
-local function isBFAccessory(name)
+local function isBFAccessory(itemOrName)
+    local name = type(itemOrName) == "string" and itemOrName or (itemOrName and itemOrName.Name)
+    if not name then return false end
     if bfAccessories[name] then return true end
+
+    -- Smart detection for Accessory instances inside Character
+    if typeof(itemOrName) == "Instance" and itemOrName:IsA("Accessory") then
+        local lowerName = name:lower()
+        if not string_find(lowerName, "hair", 1, true) and not string_find(lowerName, "roblox", 1, true) and not string_find(lowerName, "shirt", 1, true) and not string_find(lowerName, "pants", 1, true) then
+            return true
+        end
+    end
+
     for k, _ in pairs(bfAccessories) do
         if string_find(name, k, 1, true) then return true end
     end
@@ -213,9 +224,8 @@ local function scanInventory()
                 table_insert(inventory.styles, name)
             end
         elseif item:IsA("Accessory") then
-            local name = item.Name
-            if isBFAccessory(name) then
-                table_insert(inventory.accessories, name)
+            if isBFAccessory(item) then
+                table_insert(inventory.accessories, item.Name)
             end
         end
     end
@@ -343,7 +353,6 @@ local function getEquippedDetails(inv)
         accessory = "None"
     }
 
-
     local function checkItem(item)
         if item:IsA("Tool") then
             local name = item.Name
@@ -360,16 +369,22 @@ local function getEquippedDetails(inv)
 
     -- First detect what is actively equipped on the Character
     local char = LocalPlayer.Character
+    local equippedAccessories = {}
     if char then
         for _, item in ipairs(char:GetChildren()) do
             if item:IsA("Accessory") then
-                if isBFAccessory(item.Name) then
-                    details.accessory = item.Name
+                if isBFAccessory(item) then
+                    table_insert(equippedAccessories, item.Name)
                 end
             else
                 checkItem(item)
             end
         end
+    end
+
+    if #equippedAccessories > 0 then
+        equippedAccessories = deduplicateArray(equippedAccessories)
+        details.accessory = table.concat(equippedAccessories, ", ")
     end
 
     -- If no sword/gun in hand, look inside Backpack (hotbar loadout)
@@ -772,29 +787,31 @@ local function startHeartbeatScheduler()
         end
     end)
 
-    -- Observe fighting style changes and send immediate updates (throttled to 15s to prevent server load)
+    -- Observe all equipment changes (Melee, Sword, Gun, Accessory) and send immediate updates (throttled to 15s to prevent server load)
     task.spawn(function()
-        local lastFightingStyle = getEquippedFightingStyle()
+        local lastEquippedHash = ""
         while heartbeatLoopActive do
-            local currentStyle = getEquippedFightingStyle()
-            if currentStyle ~= lastFightingStyle then
-                lastFightingStyle = currentStyle -- Update immediately to prevent duplicate triggers
+            local inv = scanInventory()
+            local currentDetails = getEquippedDetails(inv)
+            local currentHash = tostring(currentDetails.fightingStyle) .. "|" .. tostring(currentDetails.sword) .. "|" .. tostring(currentDetails.gun) .. "|" .. tostring(currentDetails.accessory)
+            
+            if lastEquippedHash ~= "" and currentHash ~= lastEquippedHash then
+                lastEquippedHash = currentHash -- Update hash immediately to prevent duplicate triggers
                 
                 task.spawn(function()
-                    local timeSinceLastSend = tick() - lastSendTime
+                    local timeSinceLastSend = tick() - (lastSendTime or 0)
                     if timeSinceLastSend < 15 then
                         task.wait(15 - timeSinceLastSend)
                     end
                     
-                    -- Check if it's still the current style before sending
-                    if getEquippedFightingStyle() == currentStyle then
-                        print("OceanForge: Fighting style changed to " .. tostring(currentStyle) .. ". Sending update...")
-                        local success, err = pcall(sendStats)
-                        if not success then
-                            warn("OceanForge: Error in sendStats: " .. tostring(err))
-                        end
+                    print("OceanForge: Equipment state changed (" .. currentHash .. "). Sending immediate update...")
+                    local success, err = pcall(sendStats)
+                    if not success then
+                        warn("OceanForge: Error in sendStats: " .. tostring(err))
                     end
                 end)
+            else
+                lastEquippedHash = currentHash
             end
             task.wait(1)
         end

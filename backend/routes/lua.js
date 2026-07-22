@@ -118,11 +118,11 @@ router.get('/load', async (req, res) => {
     // Dynamically fetch the Lua client sender script from GitHub raw URL with local fallback
     let scriptContent = '';
     try {
-      const response = await axios.get('https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender%20copy.lua', { timeout: 5000 });
+      const response = await axios.get('https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender.lua', { timeout: 5000 });
       scriptContent = response.data;
     } catch (fetchErr) {
       console.warn('Failed to fetch Lua client script from GitHub, falling back to local file:', fetchErr.message);
-      const scriptPath = path.join(__dirname, '../../core/sender copy.lua');
+      const scriptPath = path.join(__dirname, '../../core/sender.lua');
       if (!fs.existsSync(scriptPath)) {
         res.setHeader('Content-Type', 'text/plain');
         return res.send('-- Error: Lua client script file not found on server.');
@@ -204,13 +204,14 @@ router.post(
         account.playtime = payload.playtime || account.playtime;
         account.lastSeen = new Date();
 
+        const eqPayload = payload.equipped || {};
         account.equipped = {
-          fruit: payload.fruit_equipped || payload.fruit || account.equipped.fruit,
-          fruitMastery: payload.fruit_mastery || account.equipped.fruitMastery,
-          sword: payload.sword || (payload.weapons && payload.weapons[0]) || account.equipped.sword,
-          gun: payload.gun || (payload.guns && payload.guns[0]) || account.equipped.gun,
-          fightingStyle: payload.fighting_style || (payload.styles && payload.styles[0]) || account.equipped.fightingStyle,
-          accessory: payload.accessory_equipped || account.equipped.accessory || 'None',
+          fruit: payload.fruit_equipped || payload.fruit || eqPayload.fruit || account.equipped?.fruit || 'None',
+          fruitMastery: payload.fruit_mastery !== undefined ? payload.fruit_mastery : (eqPayload.fruitMastery !== undefined ? eqPayload.fruitMastery : (account.equipped?.fruitMastery || 0)),
+          sword: payload.sword || payload.equipped_sword || eqPayload.sword || (payload.weapons && payload.weapons[0]) || account.equipped?.sword || 'None',
+          gun: payload.gun || payload.equipped_gun || eqPayload.gun || (payload.guns && payload.guns[0]) || account.equipped?.gun || 'None',
+          fightingStyle: payload.fighting_style || payload.fightingStyle || payload.equipped_melee || eqPayload.fightingStyle || (payload.styles && payload.styles[0]) || account.equipped?.fightingStyle || 'Combat',
+          accessory: payload.accessory_equipped || payload.accessory || eqPayload.accessory || account.equipped?.accessory || 'None',
         };
 
         // Handle Session In Memory
@@ -294,14 +295,14 @@ router.post(
 
       const oldLastSeen = account.lastSeen || new Date();
 
-      // Update account stats in-memory
+      const eqPayloadDB = payload.equipped || {};
       const nextEquipped = {
-        fruit: payload.fruit_equipped || payload.fruit || account.equipped.fruit,
-        fruitMastery: payload.fruit_mastery || account.equipped.fruitMastery,
-        sword: payload.sword || (payload.weapons && payload.weapons[0]) || account.equipped.sword,
-        gun: payload.gun || (payload.guns && payload.guns[0]) || account.equipped.gun,
-        fightingStyle: payload.fighting_style || (payload.styles && payload.styles[0]) || account.equipped.fightingStyle,
-        accessory: payload.accessory_equipped || account.equipped.accessory || 'None',
+        fruit: payload.fruit_equipped || payload.fruit || eqPayloadDB.fruit || (account.equipped && account.equipped.fruit) || 'None',
+        fruitMastery: payload.fruit_mastery !== undefined ? payload.fruit_mastery : (eqPayloadDB.fruitMastery !== undefined ? eqPayloadDB.fruitMastery : (account.equipped && account.equipped.fruitMastery) || 0),
+        sword: payload.sword || payload.equipped_sword || eqPayloadDB.sword || (payload.weapons && payload.weapons[0]) || (account.equipped && account.equipped.sword) || 'None',
+        gun: payload.gun || payload.equipped_gun || eqPayloadDB.gun || (payload.guns && payload.guns[0]) || (account.equipped && account.equipped.gun) || 'None',
+        fightingStyle: payload.fighting_style || payload.fightingStyle || payload.equipped_melee || eqPayloadDB.fightingStyle || (payload.styles && payload.styles[0]) || (account.equipped && account.equipped.fightingStyle) || 'Combat',
+        accessory: payload.accessory_equipped || payload.accessory || eqPayloadDB.accessory || (account.equipped && account.equipped.accessory) || 'None',
       };
 
       const statsChanged = isNew ||

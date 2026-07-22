@@ -72,14 +72,40 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleRegenerate = async () => {
-    if (window.confirm('WARNING: Regenerating your API Key will break all active Roblox Lua scripts. You will need to update the key in your scripts. Do you want to proceed?')) {
-      setRegenerating(true);
-      await regenerateApiKey();
-      setRegenerating(false);
-    }
+  // Modal states
+  const [showRegenModal, setShowRegenModal] = useState(false);
+  const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
+  const [toastMsg, setToastMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+    setToastMsg({ text, type });
+    setTimeout(() => setToastMsg(null), 3000);
   };
 
+  const confirmRegenerateKey = async () => {
+    setShowRegenModal(false);
+    setRegenerating(true);
+    await regenerateApiKey();
+    setRegenerating(false);
+    showToast('Đã làm mới API Key thành công!');
+  };
+
+  const confirmDeleteUser = async () => {
+    setShowDeleteUserModal(false);
+    setDeleteLoading(true);
+    try {
+      const res = await api.delete('/auth/delete');
+      if (res.success) {
+        logout();
+      } else {
+        showToast(res.message || 'Xóa tài khoản thất bại.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Đã xảy ra lỗi khi xóa tài khoản.', 'error');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
   const handleUpdateEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setEmailError('');
@@ -152,29 +178,6 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    const confirm1 = window.confirm('BẠN CÓ CHẮC CHẮN MUỐN XÓA TÀI KHOẢN? Hành động này sẽ xóa vĩnh viễn tài khoản và toàn bộ dữ liệu, nhật ký, bot Roblox của bạn.');
-    if (!confirm1) return;
-
-    const confirm2 = window.confirm('CẢNH BÁO LẦN CUỐI: Hành động này KHÔNG THỂ HOÀN TÁC. Bạn vẫn muốn tiếp tục xóa tài khoản chứ?');
-    if (!confirm2) return;
-
-    setDeleteLoading(true);
-    try {
-      const res = await api.delete('/auth/delete');
-      if (res.success) {
-        alert('Tài khoản của bạn đã được xóa thành công.');
-        logout();
-      } else {
-        alert(res.message || 'Xóa tài khoản thất bại.');
-      }
-    } catch (err: any) {
-      alert(err.message || 'Đã xảy ra lỗi khi xóa tài khoản.');
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
@@ -217,7 +220,7 @@ export const SettingsPage: React.FC = () => {
                 {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </button>
               <button
-                onClick={handleRegenerate}
+                onClick={() => setShowRegenModal(true)}
                 disabled={regenerating}
                 className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-red-400 hover:text-white hover:bg-red-500/10 hover:border-red-500/20 transition"
                 title="Regenerate Key"
@@ -258,8 +261,6 @@ export const SettingsPage: React.FC = () => {
           </ol>
         </div>
       </div>
-
-
 
       {/* Change Credentials Panels */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -439,7 +440,7 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         <button
-          onClick={handleDeleteAccount}
+          onClick={() => setShowDeleteUserModal(true)}
           disabled={deleteLoading}
           className="w-full py-2.5 rounded-xl font-extrabold text-xs text-white bg-red-650 hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer border border-red-500/20"
         >
@@ -450,6 +451,88 @@ export const SettingsPage: React.FC = () => {
           )}
         </button>
       </div>
+
+      {/* Regenerate Key Glassmorphic Modal */}
+      {showRegenModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-ocean-deep border border-gold/30 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-gold">
+              <div className="w-10 h-10 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center flex-shrink-0">
+                <RefreshCw className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-white text-base">Xác Nhận Tạo API Key Mới</h3>
+                <p className="text-xs text-slate-400">Cảnh báo ngắt kết nối Roblox Client!</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Việc tạo lại API Key sẽ vô hiệu hóa ngay lập tức chìa khóa cũ. Tất cả script Roblox đang chạy sẽ ngừng gửi dữ liệu cho đến khi bạn cập nhật API Key mới.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowRegenModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                onClick={confirmRegenerateKey}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-gold hover:opacity-90 text-ocean-abyss shadow-lg shadow-gold/20 transition"
+              >
+                Tạo Key Mới
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Account Modal */}
+      {showDeleteUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-ocean-deep border border-red-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-400">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-white text-base">CẢNH BÁO: Xóa Tài Khoản Hệ Thống</h3>
+                <p className="text-xs text-slate-400">Hành động này KHÔNG THỂ KHÔI PHỤC!</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản chính cùng toàn bộ tài khoản Roblox, nhật ký và dữ liệu cá nhân không?
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowDeleteUserModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                onClick={confirmDeleteUser}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20 transition"
+              >
+                Xác Nhận Xóa Hẳn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Glassmorphic Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50 animate-bounce-in">
+          <div className={`px-5 py-3 rounded-xl border backdrop-blur-md shadow-2xl flex items-center gap-3 text-xs font-bold ${
+            toastMsg.type === 'success'
+              ? 'bg-emerald-950/80 border-emerald-500/30 text-emerald-300'
+              : 'bg-red-950/80 border-red-500/30 text-red-300'
+          }`}>
+            <span className="w-2 h-2 rounded-full animate-ping bg-current" />
+            <span>{toastMsg.text}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
