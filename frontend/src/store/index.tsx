@@ -366,28 +366,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const contextValue = React.useMemo(() => ({
+    user,
+    token,
+    accounts,
+    analytics,
+    selectedAccountDetails,
+    loading,
+    login,
+    register,
+    logout,
+    fetchAccounts,
+    fetchAnalytics,
+    fetchAccountDetails,
+    regenerateApiKey,
+    deleteAccount,
+    updateUser,
+    updateAccountNotes,
+    oauthLogin,
+  }), [user, token, accounts, analytics, selectedAccountDetails, loading]);
+
   return (
-    <AppContext.Provider
-      value={{
-        user,
-        token,
-        accounts,
-        analytics,
-        selectedAccountDetails,
-        loading,
-        login,
-        register,
-        logout,
-        fetchAccounts,
-        fetchAnalytics,
-        fetchAccountDetails,
-        regenerateApiKey,
-        deleteAccount,
-        updateUser,
-        updateAccountNotes,
-        oauthLogin,
-      }}
-    >
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );

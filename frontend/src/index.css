@@ -224,3 +224,16 @@
     opacity: 1;
   }
 }
+
+/* GPU Hardware Acceleration Utilities for Smooth 60fps UI */
+.gpu-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
+.smooth-transition {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+

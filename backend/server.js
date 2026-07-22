@@ -56,8 +56,8 @@ app.use(passport.initialize());
 // STATIC ASSETS
 // ══════════════════════════════════════
 const imagesPath = path.join(__dirname, '../ảnh');
-app.use('/api/images', express.static(imagesPath));
-console.log(`Static asset folder mapped: serving "/api/images" from "${imagesPath}"`);
+app.use('/api/images', express.static(imagesPath, { maxAge: '1d', etag: true }));
+console.log(`Static asset folder mapped: serving "/api/images" with 24h caching from "${imagesPath}"`);
 
 // ══════════════════════════════════════
 // API ROUTES
