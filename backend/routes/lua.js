@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
+const luaPayloadLogger = require('../utils/luaPayloadLogger');
 
 // ───── Security Middleware ─────
 const { requireApiKey } = require('../middleware/auth');
