@@ -107,6 +107,7 @@ local function getIslandName()
 end
 
 -- Fighting style lookup table for O(1) performance
+-- Fighting style lookup table for O(1) performance
 local FIGHTING_STYLES = {
     ["Combat"] = true, ["Dark Step"] = true, ["Death Step"] = true,
     ["Electric"] = true, ["Electro"] = true, ["Electric Claw"] = true, ["Water Kung Fu"] = true,
@@ -116,14 +117,29 @@ local FIGHTING_STYLES = {
 
 -- Helper to identify if a tool is a fighting style (melee)
 local function isFightingStyle(item)
-    if item:IsA("Tool") then
-        local name = item.Name
-        local toolType = item:GetAttribute("Type") or ""
-        if toolType == "Melee" or FIGHTING_STYLES[name] or string_find(name, "Style", 1, true) then
-            return true
-        end
+    if not item or not item:IsA("Tool") then return false end
+    local name = item.Name
+    if FIGHTING_STYLES[name] then return true end
+    local toolType = item:GetAttribute("Type") or item:GetAttribute("ToolTip") or ""
+    if toolType == "Melee" or toolType == "Style" then return true end
+    if item:FindFirstChild("Melee") or item:FindFirstChild("Combat") then return true end
+    if string_find(name, "Style", 1, true) or string_find(name, "Step", 1, true) or string_find(name, "Karate", 1, true) or string_find(name, "Kung Fu", 1, true) or string_find(name, "Talon", 1, true) or string_find(name, "Breath", 1, true) or string_find(name, "Human", 1, true) or string_find(name, "Art", 1, true) then
+        return true
     end
     return false
+end
+
+-- Deduplicate table array entries
+local function deduplicateArray(tbl)
+    local seen = {}
+    local result = {}
+    for _, v in ipairs(tbl) do
+        if v and not seen[v] then
+            seen[v] = true
+            table_insert(result, v)
+        end
+    end
+    return result
 end
 
 -- Get current equipped fighting style (checks character and backpack, no network remotes)
@@ -255,6 +271,8 @@ local function scanInventory()
                         end
                     elseif itemType == "Blox Fruit" or itemType == "Fruit" then
                         table_insert(inventory.fruits, item.Name)
+                    elseif itemType == "Melee" or itemType == "Style" or FIGHTING_STYLES[item.Name] or isFightingStyle(item) then
+                        table_insert(inventory.styles, item.Name)
                     end
                 end
             end
@@ -283,39 +301,33 @@ local function scanInventory()
         end
     end
 
-    -- Fallback to local scan for swords/guns/accessories/fruits if remote scanning failed or was not available
-    if not scannedViaRemote then
-        -- Check Backpack
-        local backpack = LocalPlayer:FindFirstChild("Backpack")
-        if backpack then
-            for _, item in ipairs(backpack:GetChildren()) do
-                parseItem(item)
-            end
+    -- ALWAYS scan local Backpack and Character to guarantee hotbar items & active fighting styles are captured
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if backpack then
+        for _, item in ipairs(backpack:GetChildren()) do
+            parseItem(item)
         end
-        
-        -- Check currently equipped item in Character
-        local char = LocalPlayer.Character
-        if char then
-            for _, item in ipairs(char:GetChildren()) do
-                parseItem(item)
-            end
+    end
+    
+    local char = LocalPlayer.Character
+    if char then
+        for _, item in ipairs(char:GetChildren()) do
+            parseItem(item)
         end
     end
 
-    -- Always scan the currently equipped fighting style and add to styles inventory if not already present
+    -- Always scan the currently equipped fighting style and add to styles inventory
     local equippedStyle = getEquippedFightingStyle()
     if equippedStyle then
-        local found = false
-        for _, val in ipairs(inventory.styles) do
-            if val == equippedStyle then
-                found = true
-                break
-            end
-        end
-        if not found then
-            table_insert(inventory.styles, equippedStyle)
-        end
+        table_insert(inventory.styles, equippedStyle)
     end
+
+    -- Deduplicate all inventory item arrays
+    inventory.fruits = deduplicateArray(inventory.fruits)
+    inventory.swords = deduplicateArray(inventory.swords)
+    inventory.guns = deduplicateArray(inventory.guns)
+    inventory.styles = deduplicateArray(inventory.styles)
+    inventory.accessories = deduplicateArray(inventory.accessories)
 
     return inventory
 end
