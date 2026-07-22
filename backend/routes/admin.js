@@ -1,3 +1,6 @@
+// ══════════════════════════════════════════════════════════════
+// Admin Routes & Telemetry Inspector
+// ══════════════════════════════════════════════════════════════
 const express = require('express');
 const { protect } = require('../middleware/auth');
 const luaPayloadLogger = require('../utils/luaPayloadLogger');
