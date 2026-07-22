@@ -21,7 +21,7 @@ module.exports = {
   findUserById: (id) => store.users.find(u => u.id === id.toString()),
   findUserByApiKey: (apiKey) => store.users.find(u => u.apiKey === apiKey),
   findUserByDiscordId: (discordId) => store.users.find(u => u.discordId === discordId),
-  createUser: (username, email, password, googleId = null, discordId = null) => {
+  createUser: (username, email, password, googleId = null, discordId = null, avatar = null) => {
     const userId = Math.random().toString(36).substr(2, 9);
     const newUser = {
       id: userId,
@@ -32,6 +32,7 @@ module.exports = {
       role: 'user',
       googleId,
       discordId,
+      avatar,
       apiKey: 'forge_' + crypto.randomBytes(24).toString('hex'),
       createdAt: new Date(),
       save: async function() { return this; }

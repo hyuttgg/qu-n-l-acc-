@@ -61,6 +61,7 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
           email: user.email,
           role: user.role,
           apiKey: user.apiKey,
+          avatar: user.avatar || null,
         },
       });
     }
@@ -100,6 +101,7 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
         email: user.email,
         role: user.role,
         apiKey: user.apiKey,
+        avatar: user.avatar || null,
       },
     });
   } catch (error) {
@@ -137,6 +139,7 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
           email: user.email,
           role: user.role,
           apiKey: user.apiKey,
+          avatar: user.avatar || null,
         },
       });
     }
@@ -171,6 +174,7 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
         email: user.email,
         role: user.role,
         apiKey: user.apiKey,
+        avatar: user.avatar || null,
       },
     });
   } catch (error) {
@@ -191,6 +195,7 @@ router.get('/me', protect, async (req, res) => {
         email: req.user.email,
         role: req.user.role,
         apiKey: req.user.apiKey,
+        avatar: req.user.avatar || null,
       },
     });
   } catch (error) {

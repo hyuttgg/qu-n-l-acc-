@@ -37,6 +37,10 @@ const UserSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
   },
+  avatar: {
+    type: String,
+    default: null,
+  },
   role: {
     type: String,
     enum: ['user', 'admin'],

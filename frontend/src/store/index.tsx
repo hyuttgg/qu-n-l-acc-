@@ -8,6 +8,7 @@ interface User {
   email: string;
   role: string;
   apiKey: string;
+  avatar?: string;
 }
 
 interface Account {

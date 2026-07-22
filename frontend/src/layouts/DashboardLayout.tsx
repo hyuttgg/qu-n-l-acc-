@@ -161,8 +161,19 @@ export const DashboardLayout: React.FC = () => {
         {/* Sidebar User Footer */}
         <div className="p-4 border-t border-slate-850 bg-slate-950/40 space-y-3">
           <div className="flex items-center gap-3 px-2">
-            <div className="w-10 h-10 rounded-full bg-gold/15 flex items-center justify-center text-gold border border-gold/30">
-              <UserIcon className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-full bg-gold/15 flex items-center justify-center text-gold border border-gold/30 overflow-hidden flex-shrink-0">
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.username}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <UserIcon className="w-5 h-5" />
+              )}
             </div>
             <div className="overflow-hidden">
               <h4 className="font-bold text-sm text-white truncate">{user?.username}</h4>

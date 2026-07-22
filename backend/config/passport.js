@@ -41,6 +41,22 @@ module.exports = function (passport) {
         const discordId = profile.id;
         const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
+        // Construct Discord Avatar CDN URL
+        let avatarUrl = null;
+        if (profile.avatar) {
+          const format = profile.avatar.startsWith('a_') ? 'gif' : 'png';
+          avatarUrl = `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.${format}`;
+        } else if (profile.discriminator && profile.discriminator !== '0') {
+          avatarUrl = `https://cdn.discordapp.com/embed/avatars/${parseInt(profile.discriminator) % 5}.png`;
+        } else {
+          try {
+            const defaultIndex = (BigInt(profile.id) >> 22n) % 6n;
+            avatarUrl = `https://cdn.discordapp.com/embed/avatars/${defaultIndex}.png`;
+          } catch (e) {
+            avatarUrl = 'https://cdn.discordapp.com/embed/avatars/0.png';
+          }
+        }
+
         try {
           // If DB connection is fallback/offline
           if (!global.dbConnected) {
@@ -49,6 +65,7 @@ module.exports = function (passport) {
               if (!user.discordId) {
                 user.discordId = discordId;
               }
+              user.avatar = avatarUrl;
               return done(null, user);
             }
 
@@ -57,7 +74,8 @@ module.exports = function (passport) {
               email || `${discordId}@discord.mock`,
               null,
               null,
-              discordId
+              discordId,
+              avatarUrl
             );
             return done(null, user);
           }
@@ -72,9 +90,17 @@ module.exports = function (passport) {
           }
 
           if (user) {
-            // Link discordId if user registered via email previously
+            // Link discordId if user registered via email previously and update avatar
+            let modified = false;
             if (!user.discordId) {
               user.discordId = discordId;
+              modified = true;
+            }
+            if (user.avatar !== avatarUrl) {
+              user.avatar = avatarUrl;
+              modified = true;
+            }
+            if (modified) {
               await user.save();
             }
             return done(null, user);
@@ -97,6 +123,7 @@ module.exports = function (passport) {
             username,
             email: email || `${discordId}@discord.auth`,
             discordId,
+            avatar: avatarUrl,
             creationIp: ip,
           });
 
@@ -125,6 +152,7 @@ module.exports = function (passport) {
 
         const username = profile.displayName || (profile.name ? profile.name.givenName : null) || email.split('@')[0];
         const googleId = profile.id;
+        const googleAvatarUrl = profile.photos && profile.photos[0] ? profile.photos[0].value : null;
         const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
         try {
@@ -132,10 +160,10 @@ module.exports = function (passport) {
             // In-memory mock store
             let user = mockStore.findUserByEmail(email);
             if (!user) {
-              user = mockStore.createUser(username, email, null);
-              user.googleId = googleId;
-            } else if (!user.googleId) {
-              user.googleId = googleId;
+              user = mockStore.createUser(username, email, null, googleId, null, googleAvatarUrl);
+            } else {
+              if (!user.googleId) user.googleId = googleId;
+              if (googleAvatarUrl) user.avatar = googleAvatarUrl;
             }
             return done(null, user);
           }
@@ -143,6 +171,10 @@ module.exports = function (passport) {
           // 1. Find user by googleId
           let user = await User.findOne({ googleId });
           if (user) {
+            if (googleAvatarUrl && user.avatar !== googleAvatarUrl) {
+              user.avatar = googleAvatarUrl;
+              await user.save();
+            }
             return done(null, user);
           }
 
@@ -150,6 +182,7 @@ module.exports = function (passport) {
           user = await User.findOne({ email });
           if (user) {
             user.googleId = googleId;
+            if (googleAvatarUrl) user.avatar = googleAvatarUrl;
             await user.save();
             return done(null, user);
           }
@@ -159,6 +192,7 @@ module.exports = function (passport) {
             username,
             email,
             googleId,
+            avatar: googleAvatarUrl,
             creationIp: ip,
           });
 
