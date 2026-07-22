@@ -112,7 +112,8 @@ local FIGHTING_STYLES = {
     ["Combat"] = true, ["Dark Step"] = true, ["Death Step"] = true,
     ["Electric"] = true, ["Electro"] = true, ["Electric Claw"] = true, ["Water Kung Fu"] = true,
     ["Sharkman Karate"] = true, ["Dragon Breath"] = true, ["Dragon Talon"] = true,
-    ["Superhuman"] = true, ["Godhuman"] = true, ["Sanguine Art"] = true
+    ["Superhuman"] = true, ["Godhuman"] = true, ["Sanguine Art"] = true,
+    ["Black Leg"] = true, ["Fishman Karate"] = true, ["Dragon Claw"] = true
 }
 
 -- Helper to identify if a tool is a fighting style (melee)
@@ -125,10 +126,62 @@ local function isFightingStyle(item)
     local toolType = item:GetAttribute("Type") or toolTip or ""
     if toolType == "Melee" or toolType == "Style" then return true end
     if item:FindFirstChild("Melee") or item:FindFirstChild("Combat") then return true end
-    if string_find(name, "Style", 1, true) or string_find(name, "Step", 1, true) or string_find(name, "Karate", 1, true) or string_find(name, "Kung Fu", 1, true) or string_find(name, "Talon", 1, true) or string_find(name, "Breath", 1, true) or string_find(name, "Human", 1, true) or string_find(name, "Art", 1, true) or string_find(name, "Electric", 1, true) or string_find(name, "Combat", 1, true) then
+    local lowerName = name:lower()
+    if string_find(lowerName, "style", 1, true) or string_find(lowerName, "step", 1, true) or string_find(lowerName, "karate", 1, true) or string_find(lowerName, "kung fu", 1, true) or string_find(lowerName, "talon", 1, true) or string_find(lowerName, "breath", 1, true) or string_find(lowerName, "human", 1, true) or string_find(lowerName, "art", 1, true) or string_find(lowerName, "electric", 1, true) or string_find(lowerName, "combat", 1, true) or string_find(lowerName, "claw", 1, true) or string_find(lowerName, "leg", 1, true) or string_find(lowerName, "fishman", 1, true) or string_find(lowerName, "melee", 1, true) then
         return true
     end
     return false
+end
+
+-- Helper to identify if a tool/name is a Sword
+local function isSwordItem(name, toolType)
+    if toolType == "Sword" then return true end
+    local lowerName = (name or ""):lower()
+    return string_find(lowerName, "sword", 1, true)
+        or string_find(lowerName, "katana", 1, true)
+        or string_find(lowerName, "blade", 1, true)
+        or string_find(lowerName, "scythe", 1, true)
+        or string_find(lowerName, "trident", 1, true)
+        or string_find(lowerName, "saber", 1, true)
+        or string_find(lowerName, "anchor", 1, true)
+        or string_find(lowerName, "yama", 1, true)
+        or string_find(lowerName, "tushita", 1, true)
+        or string_find(lowerName, "rengoku", 1, true)
+        or string_find(lowerName, "canvander", 1, true)
+        or string_find(lowerName, "bisento", 1, true)
+        or string_find(lowerName, "shisui", 1, true)
+        or string_find(lowerName, "wando", 1, true)
+        or string_find(lowerName, "saishi", 1, true)
+        or string_find(lowerName, "dagger", 1, true)
+        or string_find(lowerName, "pole", 1, true)
+        or string_find(lowerName, "cane", 1, true)
+        or string_find(lowerName, "mace", 1, true)
+        or string_find(lowerName, "lamp", 1, true)
+        or string_find(lowerName, "cutlass", 1, true)
+        or string_find(lowerName, "pipe", 1, true)
+        or string_find(lowerName, "yoru", 1, true)
+        or string_find(lowerName, "cdk", 1, true)
+        or string_find(lowerName, "ttk", 1, true)
+end
+
+-- Helper to identify if a tool/name is a Gun
+local function isGunItem(name, toolType)
+    if toolType == "Gun" then return true end
+    local lowerName = (name or ""):lower()
+    return string_find(lowerName, "gun", 1, true)
+        or string_find(lowerName, "guitar", 1, true)
+        or string_find(lowerName, "rifle", 1, true)
+        or string_find(lowerName, "revolver", 1, true)
+        or string_find(lowerName, "slingshot", 1, true)
+        or string_find(lowerName, "bow", 1, true)
+        or string_find(lowerName, "kabucha", 1, true)
+        or string_find(lowerName, "cannon", 1, true)
+        or string_find(lowerName, "flintlock", 1, true)
+        or string_find(lowerName, "musket", 1, true)
+        or string_find(lowerName, "bazooka", 1, true)
+        or string_find(lowerName, "blaster", 1, true)
+        or string_find(lowerName, "shotgun", 1, true)
+        or string_find(lowerName, "crossbow", 1, true)
 end
 
 -- Deduplicate table array entries
@@ -178,7 +231,9 @@ local bfAccessories = {
     ["Shark Tooth Necklace"] = true, ["Swan Glasses"] = true, ["Swordsman Hat"] = true,
     ["T-Rex Skull"] = true, ["Terror Jaw"] = true, ["Tomoe Ring"] = true,
     ["Top Hat"] = true, ["Usoap's Hat"] = true, ["Valkyrie Helm"] = true,
-    ["Warrior Helmet"] = true, ["Zebra Cap"] = true, ["Bandanna"] = true
+    ["Warrior Helmet"] = true, ["Zebra Cap"] = true, ["Bandanna"] = true,
+    ["Holiday Cape"] = true, ["Cupid Coat"] = true, ["Elf Hat"] = true, ["Santa Hat"] = true,
+    ["Green Bandanna"] = true, ["Red Bandanna"] = true, ["Black Bandanna"] = true
 }
 
 local function isBFAccessory(itemOrName)
@@ -220,9 +275,9 @@ local function scanInventory()
             
             if toolType == "Blox Fruit" or string_find(name, "Fruit", 1, true) then
                 table_insert(inventory.fruits, name)
-            elseif toolType == "Sword" or string_find(name, "Katana", 1, true) or string_find(name, "Blade", 1, true) or string_find(name, "Scythe", 1, true) or string_find(name, "Trident", 1, true) or string_find(name, "Saber", 1, true) or string_find(name, "Anchor", 1, true) or string_find(name, "Yama", 1, true) or string_find(name, "Tushita", 1, true) or string_find(name, "Rengoku", 1, true) or string_find(name, "Canvander", 1, true) or string_find(name, "Bisento", 1, true) or string_find(name, "Shisui", 1, true) or string_find(name, "Wando", 1, true) or string_find(name, "Saishi", 1, true) or string_find(name, "Dagger", 1, true) or string_find(name, "Pole", 1, true) then
+            elseif isSwordItem(name, toolType) then
                 table_insert(inventory.swords, name)
-            elseif toolType == "Gun" or string_find(name, "Guitar", 1, true) or string_find(name, "Rifle", 1, true) or string_find(name, "Revolver", 1, true) or string_find(name, "Slingshot", 1, true) or string_find(name, "Bow", 1, true) or string_find(name, "Kabucha", 1, true) or string_find(name, "Cannon", 1, true) or string_find(name, "Flintlock", 1, true) or string_find(name, "Musket", 1, true) then
+            elseif isGunItem(name, toolType) then
                 table_insert(inventory.guns, name)
             elseif toolType == "Melee" or isFightingStyle(item) then
                 table_insert(inventory.styles, name)
