@@ -132,8 +132,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (currentToken) {
         try {
-          const res = await api.get('/auth/me');
-          if (res.success) {
+          const res = await api.get('/auth/me', { Authorization: `Bearer ${currentToken}` });
+          if (res.success && res.user) {
             setUser(res.user);
           } else {
             logout();
@@ -358,8 +358,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       localStorage.setItem('token', tokenValue);
       setToken(tokenValue);
-      const res = await api.get('/auth/me');
-      if (res.success) {
+      const res = await api.get('/auth/me', { Authorization: `Bearer ${tokenValue}` });
+      if (res.success && res.user) {
         setUser(res.user);
         return { success: true };
       } else {

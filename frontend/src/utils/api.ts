@@ -12,10 +12,10 @@ export const getHeaders = () => {
 };
 
 export const api = {
-  get: async (endpoint: string) => {
+  get: async (endpoint: string, customHeaders?: any) => {
     const res = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: { ...getHeaders(), ...customHeaders },
     });
     return res.json();
   },

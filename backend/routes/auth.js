@@ -16,7 +16,8 @@ const router = express.Router();
 
 // Helper to sign JWT
 const getSignedJwtToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'super_secret_key', {
+  const userIdStr = id ? id.toString() : id;
+  return jwt.sign({ id: userIdStr }, process.env.JWT_SECRET || 'super_secret_key', {
     expiresIn: '7d',
   });
 };
@@ -377,7 +378,8 @@ router.get('/google/callback', (req, res, next) => {
     
     // Successful authentication, redirect to frontend with JWT token
     const token = getSignedJwtToken(user._id || user.id);
-    res.redirect(getRedirectUrl(`/login?token=${token}`));
+    authEmitter.emit('login.success', { user, req });
+    res.redirect(getRedirectUrl(`/oauth-success?token=${token}`));
   })(req, res, next);
 });
 
