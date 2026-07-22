@@ -19,7 +19,12 @@ import {
   Crosshair,
   Sparkles,
   X,
-  Search
+  Search,
+  Lock,
+  ShieldAlert,
+  Key,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 interface LuaLogEntry {
@@ -53,7 +58,7 @@ interface LuaLogEntry {
 export const AdminLuaInspector: React.FC = () => {
   const { user, token } = useApp();
   const [logs, setLogs] = useState<LuaLogEntry[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedLog, setSelectedLog] = useState<LuaLogEntry | null>(null);
   const [activeTab, setActiveTab] = useState<'raw' | 'inventory' | 'equipped'>('raw');
@@ -61,8 +66,49 @@ export const AdminLuaInspector: React.FC = () => {
   const [isLive, setIsLive] = useState<boolean>(true);
   const [simulating, setSimulating] = useState<boolean>(false);
 
+  // Lock Screen States
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(
+    sessionStorage.getItem('admin_passcode') === 'khanh2007nw'
+  );
+  const [passcode, setPasscode] = useState<string>('');
+  const [passcodeError, setPasscodeError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+
+  // Handle Passcode Unlock
+  const handleUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passcode) return;
+
+    setVerifying(true);
+    setPasscodeError(null);
+
+    try {
+      const res = await api.post('/admin/verify-passcode', { passcode });
+      if (res.success) {
+        sessionStorage.setItem('admin_passcode', passcode);
+        setIsUnlocked(true);
+        fetchLogs();
+      } else {
+        setPasscodeError('Access Denied: Invalid Master Admin Passcode');
+      }
+    } catch (err: any) {
+      setPasscodeError(err.message || 'Verification failed');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // Lock screen manually
+  const handleLock = () => {
+    sessionStorage.removeItem('admin_passcode');
+    setIsUnlocked(false);
+    setPasscode('');
+  };
+
   // Fetch initial logs
   const fetchLogs = async () => {
+    if (!sessionStorage.getItem('admin_passcode')) return;
     try {
       setLoading(true);
       const res = await api.get('/admin/lua-logs');
@@ -77,12 +123,14 @@ export const AdminLuaInspector: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchLogs();
-  }, []);
+    if (isUnlocked) {
+      fetchLogs();
+    }
+  }, [isUnlocked]);
 
   // Listen to realtime socket updates
   useEffect(() => {
-    if (!token || !user || !isLive) return;
+    if (!token || !user || !isLive || !isUnlocked) return;
 
     const socketUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim().replace(/\/+$/, '');
     const socket: Socket = io(socketUrl, {
@@ -101,7 +149,7 @@ export const AdminLuaInspector: React.FC = () => {
     return () => {
       socket.disconnect();
     };
-  }, [token, user, isLive]);
+  }, [token, user, isLive, isUnlocked]);
 
   // Clear logs
   const handleClearLogs = async () => {
@@ -151,6 +199,68 @@ export const AdminLuaInspector: React.FC = () => {
       JSON.stringify(log.rawPayload).toLowerCase().includes(q)
     );
   });
+
+  // Render Lock Screen if not unlocked
+  if (!isUnlocked) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-4">
+        <div className="glass-panel p-8 max-w-md w-full border border-gold/30 shadow-2xl shadow-gold/10 rounded-2xl space-y-6 text-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 text-gold/5 pointer-events-none">
+            <Lock className="w-48 h-48 -mr-16 -mt-16" />
+          </div>
+
+          <div className="w-16 h-16 bg-gold/10 border border-gold/30 rounded-2xl flex items-center justify-center mx-auto text-gold relative z-10">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+
+          <div className="relative z-10">
+            <h2 className="text-2xl font-black text-white glow-text-gold">ADMIN SECURITY GATEWAY</h2>
+            <p className="text-slate-400 text-xs mt-2">
+              Restricted Module. Only authorized Master Admins can access 100% Raw Lua Telemetry.
+            </p>
+          </div>
+
+          <form onSubmit={handleUnlock} className="space-y-4 relative z-10">
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={passcode}
+                onChange={(e) => {
+                  setPasscode(e.target.value);
+                  setPasscodeError(null);
+                }}
+                placeholder="Enter Master Admin Passcode..."
+                className="w-full bg-slate-950 border border-slate-800 focus:border-gold rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none transition-all pr-10"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3.5 text-slate-500 hover:text-slate-300"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {passcodeError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs font-bold flex items-center justify-center gap-2">
+                <Lock className="w-4 h-4" /> {passcodeError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={verifying || !passcode}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-gold via-amber-400 to-amber-500 text-black font-extrabold text-sm hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-gold/20 disabled:opacity-50"
+            >
+              {verifying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
+              {verifying ? 'Verifying Passcode...' : 'Unlock Lua Inspector'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -206,6 +316,13 @@ export const AdminLuaInspector: React.FC = () => {
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-400" /> Clear Logs
           </button>
+
+          <button
+            onClick={handleLock}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition-all"
+          >
+            <Lock className="w-3.5 h-3.5" /> Lock
+          </button>
         </div>
       </div>
 
@@ -245,8 +362,8 @@ export const AdminLuaInspector: React.FC = () => {
             <Shield className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block">Executor Security</span>
-            <span className="text-xl font-black text-white">100% Encrypted</span>
+            <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block">Passcode Verified</span>
+            <span className="text-xl font-black text-emerald-400">kh***nw</span>
           </div>
         </div>
 

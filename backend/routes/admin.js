@@ -2,12 +2,39 @@ const express = require('express');
 const { protect } = require('../middleware/auth');
 const luaPayloadLogger = require('../utils/luaPayloadLogger');
 
-const router = express.Router();
+const MASTER_ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || 'khanh2007nw';
+
+// Middleware to verify passcode header for admin routes
+const requireAdminPasscode = (req, res, next) => {
+  const providedCode = req.headers['x-admin-passcode'] || req.query.passcode;
+  if (providedCode === MASTER_ADMIN_PASSCODE) {
+    return next();
+  }
+  return res.status(403).json({ success: false, message: 'Forbidden: Valid Master Admin Passcode required' });
+};
+
+// @desc    Verify admin passcode for restricted Inspector module
+// @route   POST /api/admin/verify-passcode
+// @access  Private
+router.post('/verify-passcode', protect, (req, res) => {
+  const { passcode } = req.body;
+  if (passcode === MASTER_ADMIN_PASSCODE) {
+    return res.status(200).json({
+      success: true,
+      message: 'Admin passcode verified successfully',
+      adminToken: 'admin_unlocked_token_khanh2007nw'
+    });
+  }
+  return res.status(401).json({
+    success: false,
+    message: 'Invalid Master Admin Passcode. Access Denied.'
+  });
+});
 
 // @desc    Get recent raw Lua payloads for Admin Inspection
 // @route   GET /api/admin/lua-logs
-// @access  Private (Admin / Authenticated)
-router.get('/lua-logs', protect, (req, res) => {
+// @access  Private (Admin / Authenticated with Passcode)
+router.get('/lua-logs', protect, requireAdminPasscode, (req, res) => {
   try {
     const logs = luaPayloadLogger.getPayloadLogs();
     return res.status(200).json({
@@ -23,7 +50,7 @@ router.get('/lua-logs', protect, (req, res) => {
 // @desc    Clear Lua raw payloads log buffer
 // @route   DELETE /api/admin/lua-logs
 // @access  Private (Admin / Authenticated)
-router.delete('/lua-logs', protect, (req, res) => {
+router.delete('/lua-logs', protect, requireAdminPasscode, (req, res) => {
   try {
     luaPayloadLogger.clearPayloadLogs();
     return res.status(200).json({
@@ -37,8 +64,8 @@ router.delete('/lua-logs', protect, (req, res) => {
 
 // @desc    Simulate receiving a test Lua payload (for Admin UI testing)
 // @route   POST /api/admin/simulate-lua-payload
-// @access  Private (Admin / Authenticated)
-router.post('/simulate-lua-payload', protect, (req, res) => {
+// @access  Private (Admin / Authenticated with Passcode)
+router.post('/simulate-lua-payload', protect, requireAdminPasscode, (req, res) => {
   try {
     const samplePayload = {
       username: req.body.username || 'Roblox_Legend_Pro',

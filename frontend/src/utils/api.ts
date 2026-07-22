@@ -3,9 +3,11 @@ const BASE_URL = `${rawApiUrl}/api`;
 
 export const getHeaders = () => {
   const token = localStorage.getItem('token');
+  const adminPasscode = sessionStorage.getItem('admin_passcode');
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(adminPasscode ? { 'x-admin-passcode': adminPasscode } : {}),
   };
 };
 
