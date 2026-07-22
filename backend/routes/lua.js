@@ -142,7 +142,7 @@ router.get('/load', async (req, res) => {
     const host = req.get('host');
     const serverUrl = `${protocol}://${host}`;
     scriptContent = scriptContent.replace(
-      '_G.OceanForgeServerUrl = "https://quan-ly-acc-viet-nam.onrender.com"',
+      /_G\.OceanForgeServerUrl\s*=\s*"[^"]*"/,
       `_G.OceanForgeServerUrl = "${serverUrl}"`
     );
 
