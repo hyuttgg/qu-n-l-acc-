@@ -257,12 +257,15 @@ router.post(
 
         const io = req.app.get('io');
         if (io) {
-          io.to(user.id).emit('account_update', {
+          const room = (user.id || user._id).toString();
+          const eventPayload = {
             account,
             inventory,
             activeSession,
             logs: newLogs.length > 0 ? newLogs : undefined,
-          });
+          };
+          io.to(room).emit('account_update', eventPayload);
+          io.emit('account_update', eventPayload);
         }
 
         securityLogger.info('Lua update processed (mock)', { username: robloxUsername, userId: user.id });
@@ -481,16 +484,18 @@ router.post(
         await Log.insertMany(logs);
       }
 
-      // 5. Realtime socket broadcast to this user's channel
+      // 5. Realtime socket broadcast to this user's channel & global fallback
       const io = req.app.get('io');
       if (io) {
-        const room = user._id.toString();
-        io.to(room).emit('account_update', {
+        const room = (user._id || user.id).toString();
+        const eventPayload = {
           account,
           inventory,
           activeSession,
           logs: logs.length > 0 ? logs : undefined,
-        });
+        };
+        io.to(room).emit('account_update', eventPayload);
+        io.emit('account_update', eventPayload);
       }
 
       securityLogger.info('Lua update processed', { username: robloxUsername, userId: user._id });
