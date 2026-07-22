@@ -57,7 +57,7 @@ module.exports = {
       fragments: 0,
       sea: 1,
       race: 'Human',
-      equipped: { fruit: 'None', fruitMastery: 0, sword: 'None', gun: 'None', fightingStyle: 'Combat' },
+      equipped: { fruit: 'None', fruitMastery: 0, sword: 'None', gun: 'None', fightingStyle: 'Combat', accessory: 'None' },
       status: 'offline',
       location: 'Starter Island',
       playtime: 0,

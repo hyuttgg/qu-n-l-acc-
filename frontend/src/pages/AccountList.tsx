@@ -5,12 +5,13 @@ import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity, F
 // Image resolver helper for item assets served statically from the frontend public folder
 const resolveItemImage = (category: string, name: string) => {
   if (!name || name === 'None') return '';
-  let normalizedName = name.trim().replace(/\s+/g, '_');
+  const firstName = name.split(',')[0].trim();
+  let normalizedName = firstName.replace(/\s+/g, '_');
   let folder = '';
   
   if (category === 'swords' || category === 'weapons') folder = 'kiếm';
   else if (category === 'guns') folder = 'súng';
-  else if (category === 'styles') folder = 'võ';
+  else if (category === 'styles' || category === 'melee') folder = 'võ';
   else if (category === 'accessories') folder = 'phụ kiên';
   else if (category === 'materials') {
     folder = 'nguyên liệu võ godhuamn';
@@ -24,10 +25,7 @@ const resolveItemImage = (category: string, name: string) => {
   }
   else if (category === 'fruits') {
     folder = 'trái acc quỷ';
-    // Clean Blox Fruits suffix/prefix: e.g. "Dough-Dough" -> "Dough", "Physical Dough" -> "Dough"
-    let cleanName = name.trim().split('-')[0];
-    cleanName = cleanName.replace(/Physical\s+/i, '').replace(/\s*Fruit/i, '').trim();
-    // Re-assemble to match "Name_Fruit" style
+    let cleanName = firstName.split('-')[0].replace(/Physical\s+/i, '').replace(/\s*Fruit/i, '').trim();
     normalizedName = `${cleanName.replace(/\s+/g, '_')}_Fruit`;
   }
 

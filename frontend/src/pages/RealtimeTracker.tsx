@@ -5,16 +5,17 @@ import { Compass, Zap, Target, ShieldAlert, Swords, Shield, Sparkles, Activity, 
 // Image resolver helper for item assets
 const resolveItemImage = (category: string, name: string) => {
   if (!name || name === 'None') return '';
-  let normalizedName = name.trim().replace(/\s+/g, '_');
+  const firstName = name.split(',')[0].trim();
+  let normalizedName = firstName.replace(/\s+/g, '_');
   let folder = '';
   
-  if (category === 'swords') folder = 'kiếm';
+  if (category === 'swords' || category === 'weapons') folder = 'kiếm';
   else if (category === 'guns') folder = 'súng';
   else if (category === 'styles' || category === 'melee') folder = 'võ';
   else if (category === 'accessories') folder = 'phụ kiên';
   else if (category === 'fruits') {
     folder = 'trái acc quỷ';
-    let cleanName = name.trim().split('-')[0].replace(/Physical\s+/i, '').replace(/\s*Fruit/i, '').trim();
+    let cleanName = firstName.split('-')[0].replace(/Physical\s+/i, '').replace(/\s*Fruit/i, '').trim();
     normalizedName = `${cleanName.replace(/\s+/g, '_')}_Fruit`;
   }
 

@@ -173,18 +173,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       newSocket.on('account_update', (data: { account: Account; inventory: Inventory; activeSession: Session | null; logs?: Log[] }) => {
         console.log('Realtime Account Update:', data);
         
-        const matchesAccount = (a: Account, b: Account) => {
-          if (!a || !b) return false;
-          const aId = a._id || (a as any).id;
-          const bId = b._id || (b as any).id;
-          if (aId && bId && aId.toString() === bId.toString()) return true;
-          if (a.robloxUsername && b.robloxUsername && a.robloxUsername.toLowerCase() === b.robloxUsername.toLowerCase()) return true;
-          return false;
-        };
-
         // 1. Update accounts list dynamically
         setAccounts((prev) => {
-          const index = prev.findIndex((acc) => matchesAccount(acc, data.account));
+          const index = prev.findIndex((acc) => acc._id === data.account._id);
           if (index !== -1) {
             const updated = [...prev];
             updated[index] = data.account;
@@ -195,7 +186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // 2. Update active detail view if open
         setSelectedAccountDetails((prev) => {
-          if (prev && matchesAccount(prev.account, data.account)) {
+          if (prev && prev.account._id === data.account._id) {
             return {
               account: data.account,
               inventory: data.inventory,

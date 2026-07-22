@@ -151,8 +151,7 @@ io.use((socket, next) => {
 
   try {
     const decoded = jwt.verify(token, securityConfig.jwt.secret);
-    const uid = decoded.id || decoded.userId;
-    socket.userId = uid ? uid.toString() : null;
+    socket.userId = decoded.id;
     next();
   } catch (err) {
     securityLogger.warn('Socket JWT verification failed', {
@@ -184,12 +183,9 @@ io.on('connection', async (socket) => {
   }
 
   socket.on('join_room', (userId) => {
-    // Join room if match or if socket user is authenticated
-    if (socket.userId) {
-      socket.join(socket.userId);
-    }
-    if (userId) {
-      socket.join(userId.toString());
+    // Only allow joining own room (prevents room snooping)
+    if (userId && userId === socket.userId) {
+      socket.join(userId);
     }
   });
 

@@ -118,7 +118,7 @@ router.get('/load', async (req, res) => {
     // Dynamically fetch the Lua client sender script from GitHub raw URL with local fallback
     let scriptContent = '';
     try {
-      const response = await axios.get('https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender.lua', { timeout: 5000 });
+      const response = await axios.get('https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender%20copy.lua', { timeout: 5000 });
       scriptContent = response.data;
     } catch (fetchErr) {
       console.warn('Failed to fetch Lua client script from GitHub, falling back to local file:', fetchErr.message);
@@ -257,15 +257,12 @@ router.post(
 
         const io = req.app.get('io');
         if (io) {
-          const room = (user.id || user._id).toString();
-          const eventPayload = {
+          io.to(user.id).emit('account_update', {
             account,
             inventory,
             activeSession,
             logs: newLogs.length > 0 ? newLogs : undefined,
-          };
-          io.to(room).emit('account_update', eventPayload);
-          io.emit('account_update', eventPayload);
+          });
         }
 
         securityLogger.info('Lua update processed (mock)', { username: robloxUsername, userId: user.id });
@@ -333,10 +330,11 @@ router.post(
       account.playtime = payload.playtime || account.playtime;
       account.lastSeen = Date.now();
       account.equipped = nextEquipped;
+      account.markModified('equipped');
 
-      // Throttle DB save: save if stats changed, if it is new, or if more than 30 seconds passed
+      // Always save account when stats or equipment changes or if > 15 seconds passed
       const timeSinceLastSeen = Date.now() - new Date(oldLastSeen).getTime();
-      const shouldSaveAccount = statsChanged || timeSinceLastSeen > 30 * 1000;
+      const shouldSaveAccount = statsChanged || timeSinceLastSeen > 15 * 1000;
       if (shouldSaveAccount) {
         await account.save();
       }
@@ -364,7 +362,7 @@ router.post(
           const oldEndTime = activeSession.endTime;
           activeSession.endTime = Date.now();
           activeSession.duration = Math.floor((activeSession.endTime - activeSession.startTime) / 1000);
-          
+
           // Throttle session updates in DB to once every 60 seconds
           const timeSinceLastSessionUpdate = oldEndTime ? (Date.now() - new Date(oldEndTime).getTime()) : Infinity;
           if (timeSinceLastSessionUpdate > 60 * 1000) {
@@ -484,18 +482,16 @@ router.post(
         await Log.insertMany(logs);
       }
 
-      // 5. Realtime socket broadcast to this user's channel & global fallback
+      // 5. Realtime socket broadcast to this user's channel
       const io = req.app.get('io');
       if (io) {
-        const room = (user._id || user.id).toString();
-        const eventPayload = {
+        const room = user._id.toString();
+        io.to(room).emit('account_update', {
           account,
           inventory,
           activeSession,
           logs: logs.length > 0 ? logs : undefined,
-        };
-        io.to(room).emit('account_update', eventPayload);
-        io.emit('account_update', eventPayload);
+        });
       }
 
       securityLogger.info('Lua update processed', { username: robloxUsername, userId: user._id });

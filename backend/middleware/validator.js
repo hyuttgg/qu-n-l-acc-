@@ -64,19 +64,19 @@ const inventorySchema = z.object({
 }).optional();
 
 const luaUpdateSchema = z.object({
-  username: z.string().min(1).max(50).optional(),
-  roblox_username: z.string().min(1).max(50).optional(),
-  level: z.number().int().min(1).max(3000).optional(),
-  beli: z.number().int().nonnegative().optional(),
-  fragments: z.number().int().nonnegative().optional(),
-  sea: z.number().int().min(1).max(10).optional(),
-  race: z.string().max(30).optional(),
-  status: z.enum(['idle', 'grinding', 'leveling', 'done', 'frozen', 'error', 'offline']).optional(),
-  location: z.string().max(100).optional(),
-  playtime: z.number().int().nonnegative().optional(),
+  username: z.string().optional(),
+  roblox_username: z.string().optional(),
+  level: z.number().optional(),
+  beli: z.number().optional(),
+  fragments: z.number().optional(),
+  sea: z.number().optional(),
+  race: z.string().optional(),
+  status: z.string().optional(),
+  location: z.string().optional(),
+  playtime: z.number().optional(),
   fruit_equipped: z.string().optional(),
   fruit: z.string().optional(),
-  fruit_mastery: z.number().int().nonnegative().optional(),
+  fruit_mastery: z.number().optional(),
   sword: z.string().optional(),
   gun: z.string().optional(),
   fighting_style: z.string().optional(),
@@ -85,11 +85,11 @@ const luaUpdateSchema = z.object({
   guns: z.array(z.string()).optional(),
   styles: z.array(z.string()).optional(),
   accessories: z.array(z.string()).optional(),
-  materials: z.array(z.union([z.string(), materialSchema])).optional(),
+  materials: z.array(z.any()).optional(),
   inventory_fruits: z.array(z.string()).optional(),
   fruits: z.array(z.string()).optional(),
-  inventory: inventorySchema,
-}).refine(
+  inventory: z.any().optional(),
+}).passthrough().refine(
   data => data.username || data.roblox_username,
   { message: 'Either username or roblox_username is required' }
 );
