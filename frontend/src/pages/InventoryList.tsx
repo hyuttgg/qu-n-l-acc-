@@ -75,7 +75,7 @@ const ItemImage: React.FC<ItemImageProps> = ({
 };
 
 export const InventoryList: React.FC = () => {
-  const { fetchAccounts } = useApp();
+  const { accounts, fetchAccounts } = useApp();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<'fruits' | 'swords' | 'guns' | 'styles' | 'accessories' | 'materials'>('fruits');
   const [searchTerm, setSearchTerm] = useState('');
@@ -99,32 +99,27 @@ export const InventoryList: React.FC = () => {
 
   useEffect(() => {
     const loadInventories = async () => {
-      setLoading(true);
-      await fetchAccounts();
-      
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`${BACKEND_URL}/api/accounts`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const accountsData = await res.json();
-        
-        if (accountsData.success) {
-          const invList = await Promise.all(
-            accountsData.data.map(async (acc: any) => {
-              const resInv = await fetch(`${BACKEND_URL}/api/inventory/${acc._id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-              });
-              const invData = await resInv.json();
-              return {
-                accountName: acc.robloxUsername,
-                accountId: acc._id,
-                inventory: invData.data || { fruits: [], weapons: [], guns: [], styles: [], accessories: [], materials: [] }
-              };
-            })
-          );
-          setInventories(invList);
+        if (!token || accounts.length === 0) {
+          setLoading(false);
+          return;
         }
+
+        const invList = await Promise.all(
+          accounts.map(async (acc: any) => {
+            const resInv = await fetch(`${BACKEND_URL}/api/inventory/${acc._id}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            const invData = await resInv.json();
+            return {
+              accountName: acc.robloxUsername,
+              accountId: acc._id,
+              inventory: invData.data || { fruits: [], weapons: [], guns: [], styles: [], accessories: [], materials: [] }
+            };
+          })
+        );
+        setInventories(invList);
       } catch (err) {
         console.error('Error fetching batch inventories', err);
       } finally {
@@ -132,7 +127,7 @@ export const InventoryList: React.FC = () => {
       }
     };
     loadInventories();
-  }, []);
+  }, [accounts]);
 
   // Aggregate items across all account inventories
   const getAggregatedItems = () => {
