@@ -31,7 +31,7 @@ module.exports = cors({
   allowedHeaders: [
     'Content-Type', 'Authorization',
     'x-api-key', 'x-signature', 'x-timestamp', 'x-nonce',
-    'x-device-id', 'x-csrf-token'
+    'x-device-id', 'x-csrf-token', 'x-admin-passcode'
   ],
   credentials: true,
   optionsSuccessStatus: 200
