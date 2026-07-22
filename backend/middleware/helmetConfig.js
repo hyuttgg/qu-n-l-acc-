@@ -27,19 +27,19 @@ module.exports = helmet({
   contentSecurityPolicy: {
     useDefaults: true,
     directives: {
-      "default-src": ["'self'"],
-      "font-src": ["'self'", "https://fonts.gstatic.com"],
+      "default-src": ["'self'", "*"],
+      "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
       "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      "img-src": ["'self'", "data:", "blob:"],
-      "frame-ancestors": allowedFrameAncestors,
-      "connect-src": ["'self'", "ws:", "wss:", "http://localhost:5000", ...allowedOrigins, frontendUrl].filter(Boolean),
+      "img-src": ["'self'", "data:", "blob:", "http:", "https:"],
+      "frame-ancestors": ["*"],
+      "connect-src": ["'self'", "ws:", "wss:", "http:", "https:", "http://localhost:5000", ...allowedOrigins, frontendUrl].filter(Boolean),
     },
   },
   crossOriginEmbedderPolicy: false,
   noSniff: true,
   frameguard: false,
-  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  hsts: false, // Disabled strict HSTS header to prevent SSL blocking on mobile browsers if HTTP is used
   hidePoweredBy: true,
-  referrerPolicy: { policy: 'same-origin' },
+  referrerPolicy: { policy: 'no-referrer-when-downgrade' },
 });
