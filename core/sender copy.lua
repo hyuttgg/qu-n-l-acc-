@@ -107,6 +107,7 @@ local function getIslandName()
 end
 
 -- Fighting style lookup table for O(1) performance
+-- Fighting style lookup table for O(1) performance
 local FIGHTING_STYLES = {
     ["Combat"] = true, ["Dark Step"] = true, ["Death Step"] = true,
     ["Electric"] = true, ["Electro"] = true, ["Electric Claw"] = true, ["Water Kung Fu"] = true,

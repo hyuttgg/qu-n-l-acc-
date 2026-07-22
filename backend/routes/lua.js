@@ -123,7 +123,10 @@ router.get('/load', async (req, res) => {
       scriptContent = response.data;
     } catch (fetchErr) {
       console.warn('Failed to fetch Lua client script from GitHub, falling back to local file:', fetchErr.message);
-      const scriptPath = path.join(__dirname, '../../core/sender.lua');
+      let scriptPath = path.join(__dirname, '../../core/sender.lua');
+      if (!fs.existsSync(scriptPath)) {
+        scriptPath = path.join(__dirname, '../../core/sender copy.lua');
+      }
       if (!fs.existsSync(scriptPath)) {
         res.setHeader('Content-Type', 'text/plain');
         return res.send('-- Error: Lua client script file not found on server.');
