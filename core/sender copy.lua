@@ -107,7 +107,6 @@ local function getIslandName()
 end
 
 -- Fighting style lookup table for O(1) performance
--- Fighting style lookup table for O(1) performance
 local FIGHTING_STYLES = {
     ["Combat"] = true, ["Dark Step"] = true, ["Death Step"] = true,
     ["Electric"] = true, ["Electro"] = true, ["Electric Claw"] = true, ["Water Kung Fu"] = true,
@@ -120,10 +119,12 @@ local function isFightingStyle(item)
     if not item or not item:IsA("Tool") then return false end
     local name = item.Name
     if FIGHTING_STYLES[name] then return true end
-    local toolType = item:GetAttribute("Type") or item:GetAttribute("ToolTip") or ""
+    local toolTip = ""
+    pcall(function() toolTip = item.ToolTip end)
+    local toolType = item:GetAttribute("Type") or toolTip or ""
     if toolType == "Melee" or toolType == "Style" then return true end
     if item:FindFirstChild("Melee") or item:FindFirstChild("Combat") then return true end
-    if string_find(name, "Style", 1, true) or string_find(name, "Step", 1, true) or string_find(name, "Karate", 1, true) or string_find(name, "Kung Fu", 1, true) or string_find(name, "Talon", 1, true) or string_find(name, "Breath", 1, true) or string_find(name, "Human", 1, true) or string_find(name, "Art", 1, true) then
+    if string_find(name, "Style", 1, true) or string_find(name, "Step", 1, true) or string_find(name, "Karate", 1, true) or string_find(name, "Kung Fu", 1, true) or string_find(name, "Talon", 1, true) or string_find(name, "Breath", 1, true) or string_find(name, "Human", 1, true) or string_find(name, "Art", 1, true) or string_find(name, "Electric", 1, true) or string_find(name, "Combat", 1, true) then
         return true
     end
     return false
@@ -211,16 +212,18 @@ local function scanInventory()
     
     local function parseItem(item)
         if item:IsA("Tool") then
-            local toolType = item:GetAttribute("Type") or ""
             local name = item.Name
+            local toolTip = ""
+            pcall(function() toolTip = item.ToolTip end)
+            local toolType = item:GetAttribute("Type") or toolTip or ""
             
-            if string_find(name, "Fruit", 1, true) then
+            if toolType == "Blox Fruit" or string_find(name, "Fruit", 1, true) then
                 table_insert(inventory.fruits, name)
-            elseif toolType == "Sword" or string_find(name, "Katana", 1, true) or string_find(name, "Blade", 1, true) or string_find(name, "Scythe", 1, true) or string_find(name, "Trident", 1, true) or string_find(name, "Saber", 1, true) or string_find(name, "Anchor", 1, true) then
+            elseif toolType == "Sword" or string_find(name, "Katana", 1, true) or string_find(name, "Blade", 1, true) or string_find(name, "Scythe", 1, true) or string_find(name, "Trident", 1, true) or string_find(name, "Saber", 1, true) or string_find(name, "Anchor", 1, true) or string_find(name, "Yama", 1, true) or string_find(name, "Tushita", 1, true) or string_find(name, "Rengoku", 1, true) or string_find(name, "Canvander", 1, true) or string_find(name, "Bisento", 1, true) or string_find(name, "Shisui", 1, true) or string_find(name, "Wando", 1, true) or string_find(name, "Saishi", 1, true) or string_find(name, "Dagger", 1, true) or string_find(name, "Pole", 1, true) then
                 table_insert(inventory.swords, name)
-            elseif toolType == "Gun" or string_find(name, "Guitar", 1, true) or string_find(name, "Rifle", 1, true) or string_find(name, "Revolver", 1, true) or string_find(name, "Slingshot", 1, true) or string_find(name, "Bow", 1, true) then
+            elseif toolType == "Gun" or string_find(name, "Guitar", 1, true) or string_find(name, "Rifle", 1, true) or string_find(name, "Revolver", 1, true) or string_find(name, "Slingshot", 1, true) or string_find(name, "Bow", 1, true) or string_find(name, "Kabucha", 1, true) or string_find(name, "Cannon", 1, true) or string_find(name, "Flintlock", 1, true) or string_find(name, "Musket", 1, true) then
                 table_insert(inventory.guns, name)
-            elseif isFightingStyle(item) then
+            elseif toolType == "Melee" or isFightingStyle(item) then
                 table_insert(inventory.styles, name)
             end
         elseif item:IsA("Accessory") then
@@ -356,13 +359,18 @@ local function getEquippedDetails(inv)
     local function checkItem(item)
         if item:IsA("Tool") then
             local name = item.Name
-            local toolType = item:GetAttribute("Type") or ""
-            if string_find(name, "Fruit", 1, true) then
+            local toolTip = ""
+            pcall(function() toolTip = item.ToolTip end)
+            local toolType = item:GetAttribute("Type") or toolTip or ""
+            
+            if toolType == "Blox Fruit" or string_find(name, "Fruit", 1, true) then
                 details.fruit = name
-            elseif toolType == "Sword" or string_find(name, "Katana", 1, true) or string_find(name, "Blade", 1, true) or string_find(name, "Scythe", 1, true) or string_find(name, "Trident", 1, true) or string_find(name, "Saber", 1, true) or string_find(name, "Anchor", 1, true) then
+            elseif toolType == "Sword" or string_find(name, "Katana", 1, true) or string_find(name, "Blade", 1, true) or string_find(name, "Scythe", 1, true) or string_find(name, "Trident", 1, true) or string_find(name, "Saber", 1, true) or string_find(name, "Anchor", 1, true) or string_find(name, "Yama", 1, true) or string_find(name, "Tushita", 1, true) or string_find(name, "Rengoku", 1, true) or string_find(name, "Canvander", 1, true) or string_find(name, "Bisento", 1, true) or string_find(name, "Shisui", 1, true) or string_find(name, "Wando", 1, true) or string_find(name, "Saishi", 1, true) or string_find(name, "Dagger", 1, true) or string_find(name, "Pole", 1, true) then
                 details.sword = name
-            elseif toolType == "Gun" or string_find(name, "Guitar", 1, true) or string_find(name, "Rifle", 1, true) or string_find(name, "Revolver", 1, true) or string_find(name, "Slingshot", 1, true) or string_find(name, "Bow", 1, true) then
+            elseif toolType == "Gun" or string_find(name, "Guitar", 1, true) or string_find(name, "Rifle", 1, true) or string_find(name, "Revolver", 1, true) or string_find(name, "Slingshot", 1, true) or string_find(name, "Bow", 1, true) or string_find(name, "Kabucha", 1, true) or string_find(name, "Cannon", 1, true) or string_find(name, "Flintlock", 1, true) or string_find(name, "Musket", 1, true) then
                 details.gun = name
+            elseif toolType == "Melee" or isFightingStyle(item) then
+                details.fightingStyle = name
             end
         end
     end
