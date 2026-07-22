@@ -367,7 +367,32 @@ router.post(
       const timeSinceLastSeen = Date.now() - new Date(oldLastSeen).getTime();
       const shouldSaveAccount = statsChanged || timeSinceLastSeen > 15 * 1000;
       if (shouldSaveAccount) {
-        await account.save();
+        try {
+          await account.save();
+        } catch (versionErr) {
+          if (versionErr.name === 'VersionError') {
+            await Account.findOneAndUpdate(
+              { _id: account._id },
+              {
+                $set: {
+                  level: account.level,
+                  beli: account.beli,
+                  fragments: account.fragments,
+                  sea: account.sea,
+                  race: account.race,
+                  status: account.status,
+                  location: account.location,
+                  playtime: account.playtime,
+                  lastSeen: Date.now(),
+                  equipped: nextEquipped
+                }
+              },
+              { new: true }
+            );
+          } else {
+            throw versionErr;
+          }
+        }
       }
 
       // 2. Handle Session Tracking
@@ -380,7 +405,16 @@ router.post(
           activeSession.online = false;
           activeSession.endTime = Date.now();
           activeSession.duration = Math.floor((activeSession.endTime - activeSession.startTime) / 1000);
-          await activeSession.save();
+          try {
+            await activeSession.save();
+          } catch (versionErr) {
+            if (versionErr.name === 'VersionError') {
+              await Session.findOneAndUpdate(
+                { _id: activeSession._id },
+                { $set: { online: false, endTime: activeSession.endTime, duration: activeSession.duration } }
+              );
+            }
+          }
 
           // Open new session
           activeSession = await Session.create({
@@ -397,7 +431,16 @@ router.post(
           // Throttle session updates in DB to once every 60 seconds
           const timeSinceLastSessionUpdate = oldEndTime ? (Date.now() - new Date(oldEndTime).getTime()) : Infinity;
           if (timeSinceLastSessionUpdate > 60 * 1000) {
-            await activeSession.save();
+            try {
+              await activeSession.save();
+            } catch (versionErr) {
+              if (versionErr.name === 'VersionError') {
+                await Session.findOneAndUpdate(
+                  { _id: activeSession._id },
+                  { $set: { endTime: activeSession.endTime, duration: activeSession.duration } }
+                );
+              }
+            }
           }
         }
       } else {
@@ -469,7 +512,29 @@ router.post(
 
       // Only save if it actually changed or is a new record
       if (inventoryChanged) {
-        await inventory.save();
+        try {
+          await inventory.save();
+        } catch (versionErr) {
+          if (versionErr.name === 'VersionError') {
+            await Inventory.findOneAndUpdate(
+              { accountId: account._id },
+              {
+                $set: {
+                  fruits: nextFruits,
+                  weapons: nextWeapons,
+                  guns: nextGuns,
+                  styles: nextStyles,
+                  accessories: nextAccessories,
+                  materials: nextMaterials,
+                  lastUpdated: Date.now()
+                }
+              },
+              { upsert: true, new: true }
+            );
+          } else {
+            throw versionErr;
+          }
+        }
       }
 
       // 4. Generate Logs for changes
