@@ -150,7 +150,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Setup Socket Connection for Realtime Tracking
   useEffect(() => {
     if (user && token) {
-      const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const socketUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim().replace(/\/+$/, '');
       const newSocket = io(socketUrl, {
         auth: {
           token

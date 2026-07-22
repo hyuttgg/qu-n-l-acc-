@@ -41,7 +41,7 @@ const runTest = async () => {
   const password = 'testpassword123';
   
   console.log(`Registering test user: ${username} (${email})...`);
-  const registerResult = await post('/api/auth/register', {}, { username, email, password });
+  const registerResult = await post('/api/auth/register', {}, { username, email, password, captcha: 'mock_captcha_token' });
   
   if (!registerResult.success) {
     console.error('Registration failed:', registerResult);

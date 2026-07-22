@@ -124,7 +124,15 @@ const io = socketIo(server, {
   cors: {
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      if (securityConfig.cors.allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      const cleanOriginStr = origin.trim().replace(/[\r\n\t]/g, '');
+      const isAllowed = 
+        securityConfig.cors.allowedOrigins.some(allowed => cleanOriginStr.startsWith(allowed)) ||
+        cleanOriginStr.endsWith('.vercel.app') ||
+        cleanOriginStr.includes('manageblox.io.vn') ||
+        cleanOriginStr.includes('localhost') ||
+        cleanOriginStr.includes('127.0.0.1');
+
+      if (isAllowed) {
         return callback(null, true);
       }
       callback(new Error('Not allowed by CORS'));

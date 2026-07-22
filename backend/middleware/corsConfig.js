@@ -12,7 +12,15 @@ module.exports = cors({
     // Allow requests with no origin (Lua HttpService, mobile apps, curl)
     if (!origin) return callback(null, true);
 
-    if (config.cors.allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+    const cleanOriginStr = origin.trim().replace(/[\r\n\t]/g, '');
+    const isAllowed = 
+      config.cors.allowedOrigins.some(allowed => cleanOriginStr.startsWith(allowed)) ||
+      cleanOriginStr.endsWith('.vercel.app') ||
+      cleanOriginStr.includes('manageblox.io.vn') ||
+      cleanOriginStr.includes('localhost') ||
+      cleanOriginStr.includes('127.0.0.1');
+
+    if (isAllowed) {
       return callback(null, true);
     } else {
       console.warn(`[CORS] Blocked origin: "${origin}"`);
