@@ -41,7 +41,7 @@ export const AnalyticsDashboard: React.FC = () => {
     return `${hours}h ${remMins}m`;
   };
 
-  const COLORS = ['#d4af37', '#5bc0be', '#3a506b', '#ff4757', '#ffa502', '#2ed573', '#1e90ff'];
+  const COLORS = ['#f59e0b', '#10b981', '#ec4899', '#06b6d4', '#8b5cf6', '#3b82f6', '#ef4444', '#eab308'];
 
   // Default values
   const levelProgress = analytics?.levelProgress || [];
@@ -52,6 +52,8 @@ export const AnalyticsDashboard: React.FC = () => {
     avgSessionDuration: 0,
     longestSessionDuration: 0,
   };
+
+  const totalFruits = fruitsData.reduce((acc, curr) => acc + (curr.value || 0), 0);
 
   return (
     <div className="space-y-8">
@@ -132,7 +134,10 @@ export const AnalyticsDashboard: React.FC = () => {
                   labelStyle={{ color: '#fff' }}
                   formatter={(val: any) => formatBeli(Number(val))}
                 />
-                <Legend wrapperStyle={{ color: '#64748b', fontSize: '12px' }} />
+                <Legend
+                  wrapperStyle={{ fontSize: '12px' }}
+                  formatter={(value: string) => <span className="text-slate-300 font-semibold ml-1">{value}</span>}
+                />
                 <Bar dataKey="beli" name="Beli" fill="#10b981" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="fragments" name="Fragments" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -167,24 +172,37 @@ export const AnalyticsDashboard: React.FC = () => {
         {/* Graph 4: Devil Fruits Collected */}
         <div className="glass-panel p-6 flex flex-col justify-between">
           <h3 className="text-lg font-bold text-white mb-4">Devil Fruits Inventory Share</h3>
-          <div className="h-[220px] flex justify-center items-center relative">
+          <div className="h-[240px] flex justify-center items-center relative">
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-6">
+              <span className="text-2xl font-black text-white">{totalFruits}</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Fruits</span>
+            </div>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={fruitsData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
+                  innerRadius={55}
+                  outerRadius={78}
+                  paddingAngle={4}
                   dataKey="value"
                 >
                   {fruitsData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#0b1329', border: '1px solid #1e2541' }} itemStyle={{ color: '#fff' }} />
-                <Legend layout="horizontal" verticalAlign="bottom" wrapperStyle={{ fontSize: '11px' }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0b1329', border: '1px solid #1e2541', borderRadius: '0.75rem' }}
+                  itemStyle={{ color: '#fff', fontWeight: 600 }}
+                  formatter={(value: any, name: any) => [`${value} quả`, name]}
+                />
+                <Legend
+                  layout="horizontal"
+                  verticalAlign="bottom"
+                  wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
+                  formatter={(value: string) => <span className="text-slate-300 font-semibold ml-1">{value}</span>}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>

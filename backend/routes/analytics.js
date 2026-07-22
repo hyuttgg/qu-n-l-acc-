@@ -174,7 +174,7 @@ router.get('/overview', protect, async (req, res) => {
     let totalFruitsCount = 0;
 
     inventories.forEach((inv) => {
-      inv.fruits.forEach((fruit) => {
+      (inv.fruits || []).forEach((fruit) => {
         fruitCounts[fruit] = (fruitCounts[fruit] || 0) + 1;
         totalFruitsCount++;
       });
