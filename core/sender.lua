@@ -13,7 +13,7 @@ local tick, os_date = tick, os.date
 
 -- Configuration
 _G.OceanForgeApiKey = "" -- Optionally paste your API key here
-_G.OceanForgeServerUrl = "https://quan-ly-acc-viet-nam.onrender.com" -- Change to your hosted backend URL if deployed
+_G.OceanForgeServerUrl = "https://api.manageblox.io.vn" -- Change to your hosted backend URL if deployed
 _G.OceanForgeHeartbeatInterval = 15 -- Heartbeat in seconds
 
 -- Services

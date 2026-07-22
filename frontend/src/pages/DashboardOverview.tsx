@@ -20,7 +20,7 @@ export const DashboardOverview: React.FC = () => {
   const [scriptCopied, setScriptCopied] = React.useState(false);
   const [isCopying, setIsCopying] = React.useState(false);
 
-  const BACKEND_URL = import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com';
+  const BACKEND_URL = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
   const displayLoaderScript = `loadstring(game:HttpGet("${BACKEND_URL}/api/lua/load?token=..."))()`;
 
   const obfuscateToLuaEscapes = (str: string) => {
