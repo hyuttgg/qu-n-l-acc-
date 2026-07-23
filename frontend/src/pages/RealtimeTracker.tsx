@@ -2,26 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useApp } from '../store';
 import { Compass, Zap, Target, ShieldAlert, Swords, Shield, Sparkles, Activity, CheckCircle2, History, ChevronRight } from 'lucide-react';
 
-// Image resolver helper for item assets
-const resolveItemImage = (category: string, name: string) => {
-  if (!name || name === 'None') return '';
-  const firstName = name.split(',')[0].trim();
-  let normalizedName = firstName.replace(/\s+/g, '_');
-  let folder = '';
-  
-  if (category === 'swords' || category === 'weapons') folder = 'kiếm';
-  else if (category === 'guns') folder = 'súng';
-  else if (category === 'styles' || category === 'melee') folder = 'võ';
-  else if (category === 'accessories') folder = 'phụ kiên';
-  else if (category === 'fruits') {
-    folder = 'trái acc quỷ';
-    let cleanName = firstName.split('-')[0].replace(/Physical\s+/i, '').replace(/\s*Fruit/i, '').trim();
-    normalizedName = `${cleanName.replace(/\s+/g, '_')}_Fruit`;
-  }
-
-  if (!folder) return '';
-  return `/ảnh/${folder}/${normalizedName}.webp`;
-};
+import { resolveItemImage } from '../utils/itemImageResolver';
 
 interface EquipmentCardProps {
   title: string;

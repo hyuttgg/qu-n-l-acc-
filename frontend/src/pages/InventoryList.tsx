@@ -5,36 +5,7 @@ import { ShoppingBag, Search, Sparkles, Swords, Zap, Crown, Box } from 'lucide-r
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-// Image resolver helper for item assets served statically from the frontend public folder
-const resolveItemImage = (category: string, name: string) => {
-  if (!name || name === 'None') return '';
-  const firstName = name.split(',')[0].trim();
-  let normalizedName = firstName.replace(/\s+/g, '_');
-  let folder = '';
-  
-  if (category === 'swords' || category === 'weapons') folder = 'kiếm';
-  else if (category === 'guns') folder = 'súng';
-  else if (category === 'styles' || category === 'melee') folder = 'võ';
-  else if (category === 'accessories') folder = 'phụ kiên';
-  else if (category === 'materials') {
-    folder = 'nguyên liệu võ godhuamn';
-    const noUnderscoreMaterials = [
-      'Angel_Wings', 'Demonic_Wisp', 'Dragon_Scale', 'Fish_Tail', 
-      'Mini_Tusk', 'Radioactive_Material', 'Vampire_Fang', 'Yeti_Fur'
-    ];
-    if (noUnderscoreMaterials.includes(normalizedName)) {
-      normalizedName = normalizedName.replace(/_/g, '');
-    }
-  }
-  else if (category === 'fruits') {
-    folder = 'trái acc quỷ';
-    let cleanName = firstName.split('-')[0].replace(/Physical\s+/i, '').replace(/\s*Fruit/i, '').trim();
-    normalizedName = `${cleanName.replace(/\s+/g, '_')}_Fruit`;
-  }
-
-  if (!folder) return '';
-  return `/ảnh/${folder}/${normalizedName}.webp`;
-};
+import { resolveItemImage } from '../utils/itemImageResolver';
 
 interface ItemImageProps {
   category: string;
