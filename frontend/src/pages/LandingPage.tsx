@@ -1,8 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, Activity, Sparkles, Compass, Trophy } from 'lucide-react';
-
 export const LandingPage: React.FC = () => {
+
   return (
     <div className="deepsea-bg min-h-screen relative flex flex-col justify-between overflow-hidden">
       {/* Wave overlays */}
@@ -114,6 +114,8 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
       </main>
+
+
 
       {/* Footer Features Info */}
       <footer className="relative z-10 max-w-7xl mx-auto w-full px-6 py-12 border-t border-slate-850">

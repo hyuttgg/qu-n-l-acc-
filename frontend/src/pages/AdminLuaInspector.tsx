@@ -135,6 +135,7 @@ export const AdminLuaInspector: React.FC = () => {
     const socketUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim().replace(/\/+$/, '');
     const socket: Socket = io(socketUrl, {
       auth: { token },
+      transports: ['websocket', 'polling'],
       reconnection: true,
     });
 

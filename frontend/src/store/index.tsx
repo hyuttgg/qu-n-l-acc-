@@ -166,6 +166,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         auth: {
           token
         },
+        transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
@@ -208,7 +209,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return prev;
         });
 
-        // 3. Increment analytics dashboard metrics and trigger re-fetch for fresh charts
+        // 3. Increment analytics dashboard metrics dynamically in React state
         setAnalytics((prev) => {
           if (!prev) return null;
           const currentAccounts = accountsRef.current;
@@ -226,15 +227,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           };
         });
-
-        fetchAnalytics();
       });
 
       return () => {
         newSocket.disconnect();
       };
     }
-  }, [user, token, fetchAnalytics]);
+  }, [user, token]);
 
   const login = useCallback(async (email: string, password: string, captcha?: string) => {
     try {
