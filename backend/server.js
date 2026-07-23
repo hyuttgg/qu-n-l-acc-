@@ -60,6 +60,17 @@ app.use('/api/images', express.static(imagesPath, { maxAge: '1d', etag: true }))
 console.log(`Static asset folder mapped: serving "/api/images" with 24h caching from "${imagesPath}"`);
 
 // ══════════════════════════════════════
+// HEALTH CHECK ROUTES (for UptimeRobot / Keep-Alive)
+// ══════════════════════════════════════
+app.get('/', (req, res) => {
+  res.status(200).json({ success: true, message: 'Server is active' });
+});
+
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ success: true, status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// ══════════════════════════════════════
 // API ROUTES
 // ══════════════════════════════════════
 app.use('/api/auth', require('./routes/auth'));
