@@ -31,6 +31,49 @@ export const resolveItemImage = (category: string, name: string): string => {
     else if (meleeLower.includes('combat')) normalizedName = 'Combat';
   } else if (catLower === 'accessories' || catLower === 'phụ kiện') {
     folder = 'phụ kiên';
+    const accLower = firstName.toLowerCase().replace(/[\s_\-'’%27\(\)]+/g, '');
+
+    if (accLower.includes('warrior') || accLower.includes('corrida')) normalizedName = 'Warrior_Helmet';
+    else if (accLower.includes('valkyrie')) normalizedName = 'Valkyrie_Helm';
+    else if (accLower.includes('palescarf') || accLower.includes('scarf')) normalizedName = 'Pale_Scarf';
+    else if (accLower.includes('darkcoat')) normalizedName = 'Dark_Coat';
+    else if (accLower.includes('pinkcoat')) normalizedName = 'Pink_Coat';
+    else if (accLower.includes('blackspikey') || accLower.includes('blackspiky')) normalizedName = 'Black_Spikey_Coat';
+    else if (accLower.includes('bluespikey') || accLower.includes('bluespiky')) normalizedName = 'Blue_Spikey_Coat';
+    else if (accLower.includes('redspikey') || accLower.includes('redspiky')) normalizedName = 'Red_Spikey_Coat';
+    else if (accLower.includes('coat')) normalizedName = 'Coat_29';
+    else if (accLower.includes('blackcape')) normalizedName = 'Black_Cape';
+    else if (accLower.includes('huntercape') || accLower.includes('hunter')) normalizedName = 'Hunter_Cape_29';
+    else if (accLower.includes('bandanna') || accLower.includes('bandana')) normalizedName = 'Bandanna_29';
+    else if (accLower.includes('bearears') || accLower.includes('bear')) normalizedName = 'Bear_Ears';
+    else if (accLower.includes('choppa')) normalizedName = 'Choppa';
+    else if (accLower.includes('coolshades') || accLower.includes('shades')) normalizedName = 'Cool_Shades';
+    else if (accLower.includes('dinohood') || accLower.includes('dino')) normalizedName = 'Dino_Hood';
+    else if (accLower.includes('dojobelt') || accLower.includes('belt')) normalizedName = 'Dojo_Belt_29';
+    else if (accLower.includes('feathered')) normalizedName = 'Feathered_Visage';
+    else if (accLower.includes('ghoul')) normalizedName = 'Ghoul_Mask';
+    else if (accLower.includes('goldensunhat') || accLower.includes('sunhat')) normalizedName = 'Golden_Sunhat';
+    else if (accLower.includes('holycrown')) normalizedName = 'Holy_Crown';
+    else if (accLower.includes('jawshield')) normalizedName = 'Jaw_Shield';
+    else if (accLower.includes('kitsunemask')) normalizedName = 'Kitsune_Mask';
+    else if (accLower.includes('kitsuneribbon')) normalizedName = 'Kitsune_Ribbon';
+    else if (accLower === 'lei') normalizedName = 'Lei';
+    else if (accLower.includes('leviathancrown')) normalizedName = 'Leviathan_Crown';
+    else if (accLower.includes('leviathanshield')) normalizedName = 'Leviathan_Shield';
+    else if (accLower.includes('marinecap')) normalizedName = 'Marine_Cap';
+    else if (accLower.includes('musketeer')) normalizedName = 'Musketeer_Hat';
+    else if (accLower.includes('pilot')) normalizedName = 'Pilot_Helmet';
+    else if (accLower.includes('prettyhelmet')) normalizedName = 'Pretty_Helmet';
+    else if (accLower.includes('sharktooth') || accLower.includes('shark')) normalizedName = 'Shark_Tooth_Necklace';
+    else if (accLower.includes('swanglasses') || accLower.includes('swanglass')) normalizedName = 'Swan_Glasses';
+    else if (accLower.includes('swordsman')) normalizedName = 'Swordsman_Hat';
+    else if (accLower.includes('trex')) normalizedName = 'T-Rex_Skull';
+    else if (accLower.includes('terrorjaw') || accLower.includes('terror')) normalizedName = 'Terror_Jaw';
+    else if (accLower.includes('tomoering') || accLower.includes('tomoe')) normalizedName = 'Tomoe_Ring';
+    else if (accLower.includes('tophat')) normalizedName = 'Top_Hat';
+    else if (accLower.includes('usoap') || accLower.includes('usopp')) normalizedName = 'Usop_Hat';
+    else if (accLower.includes('zebracap') || accLower.includes('zebra')) normalizedName = 'Zebra_Cap';
+    else if (accLower.includes('hunten')) normalizedName = 'hunten.99';
   } else if (catLower === 'materials' || catLower === 'nguyên liệu') {
     folder = 'nguyên liệu võ godhuamn';
     const noUnderscoreMaterials = [
