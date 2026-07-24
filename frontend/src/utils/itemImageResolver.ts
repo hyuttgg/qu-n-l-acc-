@@ -76,12 +76,25 @@ export const resolveItemImage = (category: string, name: string): string => {
     else if (accLower.includes('hunten')) normalizedName = 'hunten.99';
   } else if (catLower === 'materials' || catLower === 'nguyên liệu') {
     folder = 'nguyên liệu võ godhuamn';
-    const noUnderscoreMaterials = [
-      'Angel_Wings', 'Demonic_Wisp', 'Dragon_Scale', 'Fish_Tail', 
-      'Mini_Tusk', 'Radioactive_Material', 'Vampire_Fang', 'Yeti_Fur'
-    ];
-    if (noUnderscoreMaterials.includes(normalizedName)) {
-      normalizedName = normalizedName.replace(/_/g, '');
+    const matLower = firstName.toLowerCase().replace(/[\s_\-'’%27\(\)]+/g, '');
+
+    if (matLower.includes('angelwing')) normalizedName = 'AngelWings';
+    else if (matLower.includes('demonicwisp')) normalizedName = 'DemonicWisp';
+    else if (matLower.includes('dragonscale')) normalizedName = 'DragonScale';
+    else if (matLower.includes('fishtail')) normalizedName = 'FishTail';
+    else if (matLower.includes('minitusk')) normalizedName = 'MiniTusk';
+    else if (matLower.includes('radioactivematerial') || matLower.includes('radioactive')) normalizedName = 'RadioactiveMaterial';
+    else if (matLower.includes('vampirefang')) normalizedName = 'VampireFang';
+    else if (matLower.includes('yetifur')) normalizedName = 'YetiFur';
+    else if (matLower.includes('foolsgold') || matLower.includes('fool')) normalizedName = 'Fools_Gold';
+    else {
+      const noUnderscoreMaterials = [
+        'Angel_Wings', 'Demonic_Wisp', 'Dragon_Scale', 'Fish_Tail', 
+        'Mini_Tusk', 'Radioactive_Material', 'Vampire_Fang', 'Yeti_Fur'
+      ];
+      if (noUnderscoreMaterials.includes(normalizedName)) {
+        normalizedName = normalizedName.replace(/_/g, '');
+      }
     }
   } else if (catLower === 'fruits' || catLower === 'trái ác quỷ') {
     folder = 'trái acc quỷ';
