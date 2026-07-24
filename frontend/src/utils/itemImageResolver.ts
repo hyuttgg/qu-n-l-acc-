@@ -78,24 +78,54 @@ export const resolveItemImage = (category: string, name: string): string => {
     folder = 'nguyên liệu võ godhuamn';
     const matLower = firstName.toLowerCase().replace(/[\s_\-'’%27\(\)]+/g, '');
 
-    if (matLower.includes('angelwing')) normalizedName = 'AngelWings';
-    else if (matLower.includes('demonicwisp')) normalizedName = 'DemonicWisp';
+    if (matLower.includes('alucard')) normalizedName = 'Alucard_Fragment';
+    else if (matLower.includes('angelwing') || matLower.includes('angel')) normalizedName = 'AngelWings';
+    else if (matLower.includes('azure')) normalizedName = 'Azure_Ember';
+    else if (matLower.includes('blaze')) normalizedName = 'Blaze_Ember';
+    else if (matLower.includes('blueicicle') || matLower.includes('icicle')) normalizedName = 'Blue_Icicle_Berry';
+    else if (matLower === 'bones' || matLower === 'bone') normalizedName = 'Bones';
+    else if (matLower.includes('cocoa')) normalizedName = 'Conjured_Cocoa';
+    else if (matLower.includes('darkfragment')) normalizedName = 'Dark_Fragment';
+    else if (matLower.includes('demonicwisp') || matLower.includes('demonic')) normalizedName = 'DemonicWisp';
+    else if (matLower.includes('dinosaur')) normalizedName = 'Dinosaur_Bones';
+    else if (matLower.includes('dragonegg')) normalizedName = 'Dragon_Egg';
     else if (matLower.includes('dragonscale')) normalizedName = 'DragonScale';
-    else if (matLower.includes('fishtail')) normalizedName = 'FishTail';
-    else if (matLower.includes('minitusk')) normalizedName = 'MiniTusk';
-    else if (matLower.includes('radioactivematerial') || matLower.includes('radioactive')) normalizedName = 'RadioactiveMaterial';
-    else if (matLower.includes('vampirefang')) normalizedName = 'VampireFang';
-    else if (matLower.includes('yetifur')) normalizedName = 'YetiFur';
+    else if (matLower.includes('ectoplasm')) normalizedName = 'Ectoplasm';
+    else if (matLower.includes('electricwing')) normalizedName = 'Electric_Wing';
+    else if (matLower.includes('firefeather')) normalizedName = 'Fire_Feather';
+    else if (matLower.includes('fireflower')) normalizedName = 'Fire_Flower';
+    else if (matLower.includes('fishtail') || matLower.includes('fish')) normalizedName = 'FishTail';
     else if (matLower.includes('foolsgold') || matLower.includes('fool')) normalizedName = 'Fools_Gold';
-    else {
-      const noUnderscoreMaterials = [
-        'Angel_Wings', 'Demonic_Wisp', 'Dragon_Scale', 'Fish_Tail', 
-        'Mini_Tusk', 'Radioactive_Material', 'Vampire_Fang', 'Yeti_Fur'
-      ];
-      if (noUnderscoreMaterials.includes(normalizedName)) {
-        normalizedName = normalizedName.replace(/_/g, '');
-      }
-    }
+    else if (matLower.includes('greentoad') || matLower.includes('toad')) normalizedName = 'Green_Toad_Berry';
+    else if (matLower.includes('gunpowder')) normalizedName = 'Gunpowder';
+    else if (matLower.includes('leather')) normalizedName = 'Leather';
+    else if (matLower.includes('leviathanheart')) normalizedName = 'Leviathan_Heart';
+    else if (matLower.includes('leviathanscale')) normalizedName = 'Leviathan_Scale';
+    else if (matLower.includes('magmaore') || matLower.includes('magma')) normalizedName = 'Magma_Ore';
+    else if (matLower.includes('meteorite')) normalizedName = 'Meteorite';
+    else if (matLower.includes('minitusk') || matLower.includes('tusk')) normalizedName = 'MiniTusk';
+    else if (matLower.includes('mirrorfractal') || matLower.includes('mirror')) normalizedName = 'Mirror_Fractal';
+    else if (matLower.includes('monstermagnet')) normalizedName = 'Monster_Magnet';
+    else if (matLower.includes('moonstone')) normalizedName = 'Moonstone';
+    else if (matLower.includes('mutanttooth')) normalizedName = 'Mutant_Tooth';
+    else if (matLower.includes('mysticdroplet') || matLower.includes('mystic')) normalizedName = 'Mystic_Droplet';
+    else if (matLower.includes('nightmare')) normalizedName = 'Nightmare_Catcher';
+    else if (matLower.includes('orangeberry')) normalizedName = 'Orange_Berry';
+    else if (matLower.includes('pinkpig') || matLower.includes('pig')) normalizedName = 'Pink_Pig_Berry';
+    else if (matLower.includes('purplejelly') || matLower.includes('jelly')) normalizedName = 'Purple_Jelly_Berry';
+    else if (matLower.includes('radioactive')) normalizedName = 'RadioactiveMaterial';
+    else if (matLower.includes('redcherry') || matLower.includes('cherry')) normalizedName = 'Red_Cherry_Berry';
+    else if (matLower.includes('scrapmetal') || matLower.includes('scrap')) normalizedName = 'Scrap_Metal';
+    else if (matLower.includes('sharktooth')) normalizedName = 'Shark_Tooth';
+    else if (matLower.includes('simulation')) normalizedName = 'Simulation_Data';
+    else if (matLower.includes('terroreyes')) normalizedName = 'Terror_Eyes';
+    else if (matLower.includes('vampirefang') || matLower.includes('vampire')) normalizedName = 'VampireFang';
+    else if (matLower.includes('volcanicmagnet')) normalizedName = 'Volcanic_Magnet';
+    else if (matLower.includes('voltcapsule') || matLower.includes('volt')) normalizedName = 'Volt_Capsule';
+    else if (matLower.includes('whitecloud')) normalizedName = 'White_Cloud_Berry';
+    else if (matLower.includes('woodenplank') || matLower.includes('plank')) normalizedName = 'Wooden_Plank';
+    else if (matLower.includes('yellowstar')) normalizedName = 'Yellow_Star_Berry';
+    else if (matLower.includes('yetifur') || matLower.includes('yeti')) normalizedName = 'YetiFur';
   } else if (catLower === 'fruits' || catLower === 'trái ác quỷ') {
     folder = 'trái acc quỷ';
     let cleanName = firstName.split('-')[0].replace(/Physical\s+/i, '').replace(/\s*Fruit/i, '').trim();
