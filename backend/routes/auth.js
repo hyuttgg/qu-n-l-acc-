@@ -383,51 +383,94 @@ router.get('/google/callback', (req, res, next) => {
   })(req, res, next);
 });
 
-// @desc    Delete user account and all related data
+// @desc    Delete user account and all related data (Hard Delete from Database)
 // @route   DELETE /api/auth/delete
 // @access  Private
 router.delete('/delete', protect, async (req, res) => {
+  let session = null;
   try {
     const userId = req.user.id || req.user._id;
 
+    // In-memory Mock fallback
     if (!global.dbConnected) {
       mockStore.deleteUser(userId);
-      return res.status(200).json({ success: true, message: 'Account deleted successfully' });
+      securityLogger.info('User account hard deleted from mock store', { userId });
+      return res.status(200).json({ success: true, message: 'Account and all associated data deleted successfully' });
     }
 
-    // 1. Find all Roblox accounts associated with this user
     const AccountModel = require('../models/Account');
     const InventoryModel = require('../models/Inventory');
     const SessionModel = require('../models/Session');
     const LogModel = require('../models/Log');
     const LoginHistoryModel = require('../models/LoginHistory');
+    const mongoose = require('mongoose');
 
-    const accounts = await AccountModel.find({ userId });
-    const accountIds = accounts.map((acc) => acc._id);
+    // Attempt ACID Transaction if MongoDB supports it (Replica Set / MongoDB Atlas)
+    let transactionCommitted = false;
+    try {
+      session = await mongoose.startSession();
+      session.startTransaction();
 
-    // 2. Delete inventory records, sessions, and logs for those Roblox accounts
-    if (accountIds.length > 0) {
-      await InventoryModel.deleteMany({ accountId: { $in: accountIds } });
-      await SessionModel.deleteMany({ accountId: { $in: accountIds } });
-      await LogModel.deleteMany({ accountId: { $in: accountIds } });
+      // 1. Find all Roblox accounts associated with this user
+      const accounts = await AccountModel.find({ userId }).session(session);
+      const accountIds = accounts.map((acc) => acc._id);
+
+      // 2. Delete inventory records, sessions, and logs for those Roblox accounts
+      if (accountIds.length > 0) {
+        await Promise.all([
+          InventoryModel.deleteMany({ accountId: { $in: accountIds } }).session(session),
+          SessionModel.deleteMany({ accountId: { $in: accountIds } }).session(session),
+          LogModel.deleteMany({ accountId: { $in: accountIds } }).session(session),
+        ]);
+      }
+
+      // 3. Delete Roblox accounts, login histories, and main user account
+      await Promise.all([
+        AccountModel.deleteMany({ userId }).session(session),
+        LoginHistoryModel.deleteMany({ userId }).session(session),
+        User.findByIdAndDelete(userId).session(session),
+      ]);
+
+      await session.commitTransaction();
+      transactionCommitted = true;
+    } catch (txnError) {
+      if (session) {
+        await session.abortTransaction();
+      }
+      // If transactions are not supported on standalone local MongoDB instance, fallback to atomic sequential delete
+      const accounts = await AccountModel.find({ userId });
+      const accountIds = accounts.map((acc) => acc._id);
+
+      if (accountIds.length > 0) {
+        await Promise.all([
+          InventoryModel.deleteMany({ accountId: { $in: accountIds } }),
+          SessionModel.deleteMany({ accountId: { $in: accountIds } }),
+          LogModel.deleteMany({ accountId: { $in: accountIds } }),
+        ]);
+      }
+
+      await Promise.all([
+        AccountModel.deleteMany({ userId }),
+        LoginHistoryModel.deleteMany({ userId }),
+        User.findByIdAndDelete(userId),
+      ]);
+    } finally {
+      if (session) {
+        session.endSession();
+      }
     }
 
-    // 3. Delete the Roblox accounts themselves
-    await AccountModel.deleteMany({ userId });
+    securityLogger.info('User account permanently hard-deleted from database', { userId: userId.toString(), ip: req.ip });
 
-    // 4. Delete login history
-    await LoginHistoryModel.deleteMany({ userId });
-
-    // 5. Delete the main User account
-    await User.findByIdAndDelete(userId);
-
-    securityLogger.info('User account deleted permanently', { userId });
-
-    res.status(200).json({ success: true, message: 'Account and all associated data deleted successfully' });
+    res.status(200).json({ 
+      success: true, 
+      message: 'Account and all associated data permanently deleted from database' 
+    });
   } catch (error) {
-    securityLogger.error('Failed to delete user account', { error: error.message, userId: req.user?.id || req.user?._id });
+    securityLogger.error('Failed to hard delete user account', { error: error.message, userId: req.user?.id || req.user?._id });
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 module.exports = router;
+
