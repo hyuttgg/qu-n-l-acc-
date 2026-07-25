@@ -1,31 +1,16 @@
 import React, { useState } from 'react';
 import { useApp } from '../store';
-import { Settings, Key, RefreshCw, Copy, Check, Mail, Lock, AlertCircle, CheckCircle, Trash2, Clock } from 'lucide-react';
+import { Settings, Key, RefreshCw, Copy, Check, Trash2, Clock } from 'lucide-react';
 import { api } from '../utils/api';
 
 export const SettingsPage: React.FC = () => {
-    const { user, regenerateApiKey, updateUser, logout } = useApp();
+  const { user, regenerateApiKey, logout } = useApp();
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
   const [isCopyingScript, setIsCopyingScript] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [tokenExpiry, setTokenExpiry] = useState<'24h' | '32h' | '72h'>('24h');
-
-  // Update Email state
-  const [newEmail, setNewEmail] = useState('');
-  const [emailPassword, setEmailPassword] = useState('');
-  const [emailLoading, setEmailLoading] = useState(false);
-  const [emailSuccess, setEmailSuccess] = useState('');
-  const [emailError, setEmailError] = useState('');
-
-  // Update Password state
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordSuccess, setPasswordSuccess] = useState('');
-  const [passwordError, setPasswordError] = useState('');
 
   const BACKEND_URL = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
   const displayLoaderScript = `loadstring(game:HttpGet("${BACKEND_URL}/api/lua/load?token=..."))()`;
@@ -105,77 +90,6 @@ export const SettingsPage: React.FC = () => {
       showToast(err.message || 'Đã xảy ra lỗi khi xóa tài khoản.', 'error');
     } finally {
       setDeleteLoading(false);
-    }
-  };
-  const handleUpdateEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setEmailError('');
-    setEmailSuccess('');
-    
-    if (!newEmail || !emailPassword) {
-      setEmailError('Vui lòng điền đầy đủ các trường.');
-      return;
-    }
-    
-    setEmailLoading(true);
-    try {
-      const res = await api.put('/auth/update-email', {
-        newEmail,
-        password: emailPassword
-      });
-      if (res.success && res.user) {
-        updateUser(res.user);
-        setEmailSuccess('Cập nhật Email thành công!');
-        setNewEmail('');
-        setEmailPassword('');
-      } else {
-        setEmailError(res.message || 'Cập nhật email thất bại.');
-      }
-    } catch (err: any) {
-      setEmailError(err.message || 'Đã xảy ra lỗi.');
-    } finally {
-      setEmailLoading(false);
-    }
-  };
-
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordError('');
-    setPasswordSuccess('');
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError('Vui lòng điền đầy đủ các trường.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('Mật khẩu mới không trùng khớp.');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setPasswordError('Mật khẩu mới phải có ít nhất 6 ký tự.');
-      return;
-    }
-
-    setPasswordLoading(true);
-    try {
-      const res = await api.put('/auth/update-password', {
-        currentPassword,
-        newPassword
-      });
-      if (res.success) {
-        setPasswordSuccess('Cập nhật mật khẩu thành công!');
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-      } else {
-        setPasswordError(res.message || 'Cập nhật mật khẩu thất bại.');
-      }
-    } catch (err: any) {
-      setPasswordError(err.message || 'Đã xảy ra lỗi.');
-    } finally {
-      setPasswordLoading(false);
     }
   };
 
