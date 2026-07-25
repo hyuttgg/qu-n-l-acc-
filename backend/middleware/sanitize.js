@@ -19,11 +19,13 @@ function escapeHTML(str) {
     .replace(/\//g, '&#x2F;');
 }
 
-function sanitizeItem(target) {
+const SENSITIVE_KEYS = new Set(['password', 'confirmpassword', 'token', 'code', 'authorization', 'secret', 'oldpassword', 'newpassword']);
+
+function sanitizeItem(target, parentKey = '') {
   if (target === null || target === undefined) return target;
 
   if (Array.isArray(target)) {
-    return target.map(item => sanitizeItem(item));
+    return target.map(item => sanitizeItem(item, parentKey));
   }
 
   if (typeof target === 'object') {
@@ -35,13 +37,17 @@ function sanitizeItem(target) {
           console.warn(`[Sanitize] Blocked suspicious key: "${key}"`);
           continue;
         }
-        clean[key] = sanitizeItem(target[key]);
+        clean[key] = sanitizeItem(target[key], key);
       }
     }
     return clean;
   }
 
   if (typeof target === 'string') {
+    // Preserve authentication credentials (passwords, tokens, OAuth codes) without HTML escaping
+    if (SENSITIVE_KEYS.has(parentKey.toLowerCase())) {
+      return target;
+    }
     return escapeHTML(target);
   }
 

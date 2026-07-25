@@ -13,13 +13,16 @@ const router = express.Router();
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
+    // Robust User ID extraction (handles Mongo ObjectId and String Mock fallback)
+    const userId = req.user._id || req.user.id;
+
     // In-memory Mock fallback
     if (!global.dbConnected) {
-      const mockAccs = mockStore.findAccountsByUserId(req.user.id || req.user._id);
+      const mockAccs = mockStore.findAccountsByUserId(userId);
       return res.status(200).json({ success: true, count: mockAccs.length, data: mockAccs });
     }
 
-    const accounts = await Account.find({ userId: req.user._id }).sort({ lastSeen: -1 });
+    const accounts = await Account.find({ userId }).sort({ lastSeen: -1 });
 
     // Update statuses dynamically (if lastSeen was > 1 min ago, mark as offline)
     const timeout = 60 * 1000; // 1 minute
@@ -35,34 +38,28 @@ router.get('/', protect, async (req, res) => {
       updatedAccounts.push(acc);
     }
 
-    // Perform database updates asynchronously (non-blocking)
+    // Perform database updates asynchronously (non-blocking) with error logging
     if (accountsToOffline.length > 0) {
-      (async () => {
-        try {
-          await Account.updateMany({ _id: { $in: accountsToOffline } }, { status: 'offline' });
-
-          const activeSessions = await Session.find({ accountId: { $in: accountsToOffline }, online: true });
-          if (activeSessions.length > 0) {
+      Account.updateMany({ _id: { $in: accountsToOffline } }, { status: 'offline' })
+        .then(() => Session.find({ accountId: { $in: accountsToOffline }, online: true }))
+        .then((activeSessions) => {
+          if (activeSessions && activeSessions.length > 0) {
             const bulkOps = activeSessions.map((session) => {
               const endTime = Date.now();
               const duration = Math.floor((endTime - session.startTime) / 1000);
               return {
                 updateOne: {
                   filter: { _id: session._id },
-                  update: {
-                    online: false,
-                    endTime,
-                    duration,
-                  },
+                  update: { online: false, endTime, duration },
                 },
               };
             });
-            await Session.bulkWrite(bulkOps);
+            return Session.bulkWrite(bulkOps);
           }
-        } catch (dbErr) {
-          console.error('[Background Status Update] Error:', dbErr);
-        }
-      })();
+        })
+        .catch((dbErr) => {
+          console.error('[Background Status Update] Managed Error:', dbErr.message);
+        });
     }
 
     res.status(200).json({ success: true, count: updatedAccounts.length, data: updatedAccounts });
