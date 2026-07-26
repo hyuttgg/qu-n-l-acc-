@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../store';
-import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity, FileText } from 'lucide-react';
+import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity, FileText, Copy, Check } from 'lucide-react';
 
 import { resolveItemImage } from '../utils/itemImageResolver';
 
@@ -50,6 +50,7 @@ export const AccountList: React.FC = () => {
   const [notesInput, setNotesInput] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+  const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAccounts();
@@ -187,6 +188,23 @@ export const AccountList: React.FC = () => {
                   <td className="py-4 font-bold text-white group-hover:text-gold transition-colors">
                     <div className="flex items-center gap-2">
                       {acc.robloxUsername}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          await navigator.clipboard.writeText(acc.robloxUsername);
+                          setCopiedAccountId(acc._id);
+                          showToast('Đã copy tên tài khoản!');
+                          setTimeout(() => setCopiedAccountId(null), 1500);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded bg-slate-900/60 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                        title="Copy Username"
+                      >
+                        {copiedAccountId === acc._id ? (
+                          <Check className="w-3 h-3 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                      </button>
                       {acc.notes && (
                         <span title={acc.notes} className="inline-flex items-center text-ocean-cyan hover:text-white cursor-help" onClick={(e) => e.stopPropagation()}>
                           <FileText className="w-3.5 h-3.5" />

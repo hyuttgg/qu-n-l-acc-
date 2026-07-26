@@ -19,6 +19,7 @@ export const DashboardOverview: React.FC = () => {
   const { analytics, fetchAnalytics, accounts, fetchAccounts, user } = useApp();
   const [scriptCopied, setScriptCopied] = React.useState(false);
   const [isCopying, setIsCopying] = React.useState(false);
+  const [copiedAccountId, setCopiedAccountId] = React.useState<string | null>(null);
 
   const BACKEND_URL = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
   const displayLoaderScript = `loadstring(game:HttpGet("${BACKEND_URL}/api/lua/load?token=..."))()`;
@@ -224,8 +225,28 @@ export const DashboardOverview: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-900">
                 {accounts.slice(0, 5).map((acc) => (
-                  <tr key={acc._id} className="hover:bg-slate-900/30 transition-colors">
-                    <td className="py-3 font-bold text-white">{acc.robloxUsername}</td>
+                  <tr key={acc._id} className="hover:bg-slate-900/30 transition-colors group">
+                    <td className="py-3 font-bold text-white">
+                      <div className="flex items-center gap-2">
+                        <span>{acc.robloxUsername}</span>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await navigator.clipboard.writeText(acc.robloxUsername);
+                            setCopiedAccountId(acc._id);
+                            setTimeout(() => setCopiedAccountId(null), 1500);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded bg-slate-900/60 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                          title="Copy Username"
+                        >
+                          {copiedAccountId === acc._id ? (
+                            <Check className="w-3 h-3 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
+                    </td>
                     <td className="py-3 text-slate-300 font-semibold">{acc.level} / 2800</td>
                     <td className="py-3 text-emerald-400 font-mono">{formatBeli(acc.beli)}</td>
                     <td className="py-3 text-purple-400 font-mono">{formatBeli(acc.fragments)}</td>
