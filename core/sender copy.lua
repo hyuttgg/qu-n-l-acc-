@@ -309,8 +309,8 @@ local function scanInventory(skipRemotes)
         end
     end
 
-    -- Only invoke server remotes when skipRemotes is not true (e.g. during periodic sendStats)
-    if not skipRemotes then
+    -- Only invoke server remotes if explicitly enabled via _G.OceanForgeEnableRemotes == true (default false to prevent interference with farm scripts)
+    if _G.OceanForgeEnableRemotes == true and not skipRemotes then
         local scannedViaRemote = false
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         local CommF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
