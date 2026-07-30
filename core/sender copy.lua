@@ -21,7 +21,7 @@ local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
-local LocalPlayer = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer              
 while not LocalPlayer do
     task.wait(0.1)
     LocalPlayer = Players.LocalPlayer
@@ -256,7 +256,7 @@ local function isBFAccessory(itemOrName)
 end
 
 -- Scan Character Inventory, Backpack, and Equipment details
-local function scanInventory()
+local function scanInventory(skipRemotes)
     local inventory = {
         fruits = {},
         swords = {},
@@ -309,62 +309,67 @@ local function scanInventory()
         end
     end
 
-    local scannedViaRemote = false
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local CommF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
-    
-    if CommF then
-        -- Try invoking Blox Fruits getInventory remote
-        local success, items = pcall(function()
-            return CommF:InvokeServer("getInventory")
-        end)
-        if success and type(items) == "table" then
-            scannedViaRemote = true
-            for _, item in ipairs(items) do
-                if type(item) == "table" and item.Name then
-                    local itemType = item.Type or ""
-                    if itemType == "Sword" then
-                        table_insert(inventory.swords, item.Name)
-                    elseif itemType == "Gun" then
-                        table_insert(inventory.guns, item.Name)
-                    elseif itemType == "Wear" or itemType == "Accessory" then
-                        table_insert(inventory.accessories, item.Name)
-                    elseif itemType == "Material" then
-                        local quantity = item.Count or item.Quantity or item.Value or 1
-                        if not materialsMap[item.Name] then
-                            materialsMap[item.Name] = quantity
-                            table_insert(inventory.materials, {
-                                name = item.Name,
-                                quantity = quantity
-                            })
+    -- Only invoke server remotes when skipRemotes is not true (e.g. during periodic sendStats)
+    if not skipRemotes then
+        local scannedViaRemote = false
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local CommF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+        
+        if CommF then
+            -- Try invoking Blox Fruits getInventory remote
+            local success, items = pcall(function()
+                return CommF:InvokeServer("getInventory")
+            end)
+            if success and type(items) == "table" then
+                scannedViaRemote = true
+                for _, item in ipairs(items) do
+                    if type(item) == "table" and item.Name then
+                        local itemType = item.Type or ""
+                        if itemType == "Sword" then
+                            table_insert(inventory.swords, item.Name)
+                        elseif itemType == "Gun" then
+                            table_insert(inventory.guns, item.Name)
+                        elseif itemType == "Wear" or itemType == "Accessory" then
+                            table_insert(inventory.accessories, item.Name)
+                        elseif itemType == "Material" then
+                            local quantity = item.Count or item.Quantity or item.Value or 1
+                            if not materialsMap[item.Name] then
+                                materialsMap[item.Name] = quantity
+                                table_insert(inventory.materials, {
+                                    name = item.Name,
+                                    quantity = quantity
+                                })
+                            end
+                        elseif itemType == "Blox Fruit" or itemType == "Fruit" then
+                            table_insert(inventory.fruits, item.Name)
+                        elseif itemType == "Melee" or itemType == "Style" or FIGHTING_STYLES[item.Name] or isFightingStyle(item) then
+                            table_insert(inventory.styles, item.Name)
                         end
-                    elseif itemType == "Blox Fruit" or itemType == "Fruit" then
-                        table_insert(inventory.fruits, item.Name)
-                    elseif itemType == "Melee" or itemType == "Style" or FIGHTING_STYLES[item.Name] or isFightingStyle(item) then
-                        table_insert(inventory.styles, item.Name)
                     end
                 end
             end
-        end
 
-        -- Try invoking Blox Fruits getInventoryFruits remote for treasure chest storage
-        local successFruits, storedFruits = pcall(function()
-            return CommF:InvokeServer("getInventoryFruits")
-        end)
-        if successFruits and type(storedFruits) == "table" then
-            for k, v in pairs(storedFruits) do
-                if type(v) == "table" then
-                    local name = v.Name or v.name or (type(k) == "string" and k)
-                    local qty = v.Count or v.Quantity or v.Value or 1
-                    if name then
-                        table_insert(inventory.fruits, name .. " (x" .. tostring(qty) .. ")")
+            task.wait(0.05)
+
+            -- Try invoking Blox Fruits getInventoryFruits remote for treasure chest storage
+            local successFruits, storedFruits = pcall(function()
+                return CommF:InvokeServer("getInventoryFruits")
+            end)
+            if successFruits and type(storedFruits) == "table" then
+                for k, v in pairs(storedFruits) do
+                    if type(v) == "table" then
+                        local name = v.Name or v.name or (type(k) == "string" and k)
+                        local qty = v.Count or v.Quantity or v.Value or 1
+                        if name then
+                            table_insert(inventory.fruits, name .. " (x" .. tostring(qty) .. ")")
+                        end
+                    elseif type(v) == "number" and type(k) == "string" then
+                        if v > 0 then
+                            table_insert(inventory.fruits, k .. " (x" .. tostring(v) .. ")")
+                        end
+                    elseif type(v) == "string" then
+                        table_insert(inventory.fruits, v)
                     end
-                elseif type(v) == "number" and type(k) == "string" then
-                    if v > 0 then
-                        table_insert(inventory.fruits, k .. " (x" .. tostring(v) .. ")")
-                    end
-                elseif type(v) == "string" then
-                    table_insert(inventory.fruits, v)
                 end
             end
         end
@@ -855,7 +860,7 @@ local function startHeartbeatScheduler()
     task.spawn(function()
         local lastEquippedHash = ""
         while heartbeatLoopActive do
-            local inv = scanInventory()
+            local inv = scanInventory(true) -- skipRemotes = true: zero remote calls in fast loop
             local currentDetails = getEquippedDetails(inv)
             local currentHash = tostring(currentDetails.fightingStyle) .. "|" .. tostring(currentDetails.sword) .. "|" .. tostring(currentDetails.gun) .. "|" .. tostring(currentDetails.accessory)
             
@@ -877,7 +882,7 @@ local function startHeartbeatScheduler()
             else
                 lastEquippedHash = currentHash
             end
-            task.wait(1)
+            task.wait(2)
         end
     end)
 

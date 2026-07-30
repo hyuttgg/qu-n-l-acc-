@@ -32,6 +32,65 @@ if _G.OceanForgeCleanup then
     pcall(_G.OceanForgeCleanup)
 end
 
+-- Automatic Ultra FPS Booster & Performance Optimizer Engine
+local function optimizeFPS()
+    task.spawn(function()
+        pcall(function()
+            -- Set local rendering quality level to lowest for maximum FPS
+            pcall(function()
+                settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+            end)
+
+            -- Optimize Lighting & Post Processing
+            local LightingService = game:GetService("Lighting")
+            LightingService.GlobalShadows = false
+            LightingService.FogEnd = 9e9
+            LightingService.ShadowSoftness = 0
+            LightingService.Brightness = 1
+            LightingService.EnvironmentDiffuseScale = 0
+            LightingService.EnvironmentSpecularScale = 0
+
+            -- Xóa Sky và các hiệu ứng post-processing
+            for _, effect in ipairs(LightingService:GetChildren()) do
+                if effect:IsA("PostEffect") or effect:IsA("SunRaysEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("BloomEffect") or effect:IsA("DepthOfFieldEffect") or effect:IsA("BlurEffect") or effect:IsA("Atmosphere") or effect:IsA("Sky") then
+                    pcall(function() effect:Destroy() end)
+                end
+            end
+
+            -- Optimize Terrain (Nước trong suốt, tắt sóng & cỏ)
+            local terrain = workspace:FindFirstChildOfClass("Terrain")
+            if terrain then
+                terrain.WaterWaveSize = 0
+                terrain.WaterWaveSpeed = 0
+                terrain.WaterReflectance = 0
+                terrain.WaterTransparency = 1
+                pcall(function() terrain.Decoration = false end)
+            end
+
+            -- Tắt hiệu ứng Particle/Trail và bóng mà không xoá Part (tránh làm hỏng mob/farm script)
+            for _, inst in ipairs(workspace:GetDescendants()) do
+                pcall(function()
+                    if inst:IsA("ParticleEmitter") or inst:IsA("Trail") or inst:IsA("Beam") or inst:IsA("Smoke") or inst:IsA("Fire") or inst:IsA("Sparkles") then
+                        inst.Enabled = false
+                    elseif inst:IsA("BasePart") then
+                        inst.CastShadow = false
+                        inst.Reflectance = 0
+                    end
+                end)
+            end
+
+            -- Giới hạn FPS nếu Executor hỗ trợ setfpscap
+            if setfpscap then
+                pcall(setfpscap, 60)
+            end
+        end)
+    end)
+end
+
+-- Immediately activate FPS Boost when script executes
+optimizeFPS()
+
+
 -- Determine Current Sea based on Roblox Place ID, Workspace Map Islands, and Player Level
 local function getSea()
     local placeId = game.PlaceId
@@ -256,7 +315,7 @@ local function isBFAccessory(itemOrName)
 end
 
 -- Scan Character Inventory, Backpack, and Equipment details
-local function scanInventory()
+local function scanInventory(skipRemotes)
     local inventory = {
         fruits = {},
         swords = {},
@@ -309,62 +368,67 @@ local function scanInventory()
         end
     end
 
-    local scannedViaRemote = false
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local CommF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
-    
-    if CommF then
-        -- Try invoking Blox Fruits getInventory remote
-        local success, items = pcall(function()
-            return CommF:InvokeServer("getInventory")
-        end)
-        if success and type(items) == "table" then
-            scannedViaRemote = true
-            for _, item in ipairs(items) do
-                if type(item) == "table" and item.Name then
-                    local itemType = item.Type or ""
-                    if itemType == "Sword" then
-                        table_insert(inventory.swords, item.Name)
-                    elseif itemType == "Gun" then
-                        table_insert(inventory.guns, item.Name)
-                    elseif itemType == "Wear" or itemType == "Accessory" then
-                        table_insert(inventory.accessories, item.Name)
-                    elseif itemType == "Material" then
-                        local quantity = item.Count or item.Quantity or item.Value or 1
-                        if not materialsMap[item.Name] then
-                            materialsMap[item.Name] = quantity
-                            table_insert(inventory.materials, {
-                                name = item.Name,
-                                quantity = quantity
-                            })
+    -- Only invoke server remotes when skipRemotes is not true
+    if not skipRemotes then
+        local scannedViaRemote = false
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local CommF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+        
+        if CommF then
+            -- Try invoking Blox Fruits getInventory remote
+            local success, items = pcall(function()
+                return CommF:InvokeServer("getInventory")
+            end)
+            if success and type(items) == "table" then
+                scannedViaRemote = true
+                for _, item in ipairs(items) do
+                    if type(item) == "table" and item.Name then
+                        local itemType = item.Type or ""
+                        if itemType == "Sword" then
+                            table_insert(inventory.swords, item.Name)
+                        elseif itemType == "Gun" then
+                            table_insert(inventory.guns, item.Name)
+                        elseif itemType == "Wear" or itemType == "Accessory" then
+                            table_insert(inventory.accessories, item.Name)
+                        elseif itemType == "Material" then
+                            local quantity = item.Count or item.Quantity or item.Value or 1
+                            if not materialsMap[item.Name] then
+                                materialsMap[item.Name] = quantity
+                                table_insert(inventory.materials, {
+                                    name = item.Name,
+                                    quantity = quantity
+                                })
+                            end
+                        elseif itemType == "Blox Fruit" or itemType == "Fruit" then
+                            table_insert(inventory.fruits, item.Name)
+                        elseif itemType == "Melee" or itemType == "Style" or FIGHTING_STYLES[item.Name] or isFightingStyle(item) then
+                            table_insert(inventory.styles, item.Name)
                         end
-                    elseif itemType == "Blox Fruit" or itemType == "Fruit" then
-                        table_insert(inventory.fruits, item.Name)
-                    elseif itemType == "Melee" or itemType == "Style" or FIGHTING_STYLES[item.Name] or isFightingStyle(item) then
-                        table_insert(inventory.styles, item.Name)
                     end
                 end
             end
-        end
 
-        -- Try invoking Blox Fruits getInventoryFruits remote for treasure chest storage
-        local successFruits, storedFruits = pcall(function()
-            return CommF:InvokeServer("getInventoryFruits")
-        end)
-        if successFruits and type(storedFruits) == "table" then
-            for k, v in pairs(storedFruits) do
-                if type(v) == "table" then
-                    local name = v.Name or v.name or (type(k) == "string" and k)
-                    local qty = v.Count or v.Quantity or v.Value or 1
-                    if name then
-                        table_insert(inventory.fruits, name .. " (x" .. tostring(qty) .. ")")
+            task.wait(0.05)
+
+            -- Try invoking Blox Fruits getInventoryFruits remote for treasure chest storage
+            local successFruits, storedFruits = pcall(function()
+                return CommF:InvokeServer("getInventoryFruits")
+            end)
+            if successFruits and type(storedFruits) == "table" then
+                for k, v in pairs(storedFruits) do
+                    if type(v) == "table" then
+                        local name = v.Name or v.name or (type(k) == "string" and k)
+                        local qty = v.Count or v.Quantity or v.Value or 1
+                        if name then
+                            table_insert(inventory.fruits, name .. " (x" .. tostring(qty) .. ")")
+                        end
+                    elseif type(v) == "number" and type(k) == "string" then
+                        if v > 0 then
+                            table_insert(inventory.fruits, k .. " (x" .. tostring(v) .. ")")
+                        end
+                    elseif type(v) == "string" then
+                        table_insert(inventory.fruits, v)
                     end
-                elseif type(v) == "number" and type(k) == "string" then
-                    if v > 0 then
-                        table_insert(inventory.fruits, k .. " (x" .. tostring(v) .. ")")
-                    end
-                elseif type(v) == "string" then
-                    table_insert(inventory.fruits, v)
                 end
             end
         end
@@ -648,10 +712,10 @@ LedCorner.CornerRadius = UDim.new(0, 4)
 LedCorner.Parent = LedIndicator
 
 local LedLabel = Instance.new("TextLabel")
-LedLabel.Size = UDim2.new(0.8, 0, 0, 15)
+LedLabel.Size = UDim2.new(0.85, 0, 0, 15)
 LedLabel.Position = UDim2.new(0.09, 0, 0.05, 0)
 LedLabel.BackgroundTransparency = 1
-LedLabel.Text = "STATUS: SYNCING REALTIME"
+LedLabel.Text = "STATUS: SYNCING REALTIME | ⚡ FPS BOOST: ACTIVE"
 LedLabel.TextColor3 = Color3.fromRGB(239, 68, 68) -- Neon Red
 LedLabel.Font = Enum.Font.GothamBold
 LedLabel.TextSize = 11
@@ -855,7 +919,7 @@ local function startHeartbeatScheduler()
     task.spawn(function()
         local lastEquippedHash = ""
         while heartbeatLoopActive do
-            local inv = scanInventory()
+            local inv = scanInventory(true) -- skipRemotes = true: zero remote calls in fast loop
             local currentDetails = getEquippedDetails(inv)
             local currentHash = tostring(currentDetails.fightingStyle) .. "|" .. tostring(currentDetails.sword) .. "|" .. tostring(currentDetails.gun) .. "|" .. tostring(currentDetails.accessory)
             
@@ -877,7 +941,7 @@ local function startHeartbeatScheduler()
             else
                 lastEquippedHash = currentHash
             end
-            task.wait(1)
+            task.wait(2)
         end
     end)
 
