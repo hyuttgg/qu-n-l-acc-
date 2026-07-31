@@ -233,7 +233,8 @@ local bfAccessories = {
     ["Top Hat"] = true, ["Usoap's Hat"] = true, ["Valkyrie Helm"] = true,
     ["Warrior Helmet"] = true, ["Zebra Cap"] = true, ["Bandanna"] = true,
     ["Holiday Cape"] = true, ["Cupid Coat"] = true, ["Elf Hat"] = true, ["Santa Hat"] = true,
-    ["Green Bandanna"] = true, ["Red Bandanna"] = true, ["Black Bandanna"] = true
+    ["Green Bandanna"] = true, ["Red Bandanna"] = true, ["Black Bandanna"] = true,
+    ["Banana"] = true, ["Bandana"] = true, ["Green Bandana"] = true, ["Red Bandana"] = true, ["Black Bandana"] = true
 }
 
 local function isBFAccessory(itemOrName)

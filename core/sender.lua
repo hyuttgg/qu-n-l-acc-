@@ -12,9 +12,10 @@ local pcall, warn, print = pcall, warn, print
 local tick, os_date = tick, os.date
 
 -- Configuration
-_G.OceanForgeApiKey = "" -- Optionally paste your API key here
-_G.OceanForgeServerUrl = "https://api.manageblox.io.vn" -- Change to your hosted backend URL if deployed
-_G.OceanForgeHeartbeatInterval = 15 -- Heartbeat in seconds
+_G.OceanForgeApiKey = _G.OceanForgeApiKey or "" -- Optionally paste your API key here
+_G.OceanForgeServerUrl = _G.OceanForgeServerUrl or "https://api.manageblox.io.vn" -- Change to your hosted backend URL if deployed
+_G.OceanForgeHeartbeatInterval = _G.OceanForgeHeartbeatInterval or 15 -- Heartbeat in seconds
+_G.OceanForgeEnableRemotes = _G.OceanForgeEnableRemotes or false -- Default false to prevent network remote conflicts with farm scripts (e.g. Banana Hub)
 
 -- Services
 local Players = game:GetService("Players")
@@ -73,8 +74,11 @@ local function optimizeFPS()
                     if inst:IsA("ParticleEmitter") or inst:IsA("Trail") or inst:IsA("Beam") or inst:IsA("Smoke") or inst:IsA("Fire") or inst:IsA("Sparkles") then
                         inst.Enabled = false
                     elseif inst:IsA("BasePart") then
-                        inst.CastShadow = false
-                        inst.Reflectance = 0
+                        local isMobOrChar = inst.Parent and (inst.Parent:FindFirstChildOfClass("Humanoid") or inst.Parent.Name == "Enemies" or inst.Parent.Parent == workspace:FindFirstChild("Enemies"))
+                        if not isMobOrChar then
+                            inst.CastShadow = false
+                            inst.Reflectance = 0
+                        end
                     end
                 end)
             end
@@ -292,7 +296,8 @@ local bfAccessories = {
     ["Top Hat"] = true, ["Usoap's Hat"] = true, ["Valkyrie Helm"] = true,
     ["Warrior Helmet"] = true, ["Zebra Cap"] = true, ["Bandanna"] = true,
     ["Holiday Cape"] = true, ["Cupid Coat"] = true, ["Elf Hat"] = true, ["Santa Hat"] = true,
-    ["Green Bandanna"] = true, ["Red Bandanna"] = true, ["Black Bandanna"] = true
+    ["Green Bandanna"] = true, ["Red Bandanna"] = true, ["Black Bandanna"] = true,
+    ["Banana"] = true, ["Bandana"] = true, ["Green Bandana"] = true, ["Red Bandana"] = true, ["Black Bandana"] = true
 }
 
 local function isBFAccessory(itemOrName)
@@ -331,8 +336,9 @@ local function scanInventory(skipRemotes)
             local toolTip = ""
             pcall(function() toolTip = item.ToolTip end)
             local toolType = item:GetAttribute("Type") or toolTip or ""
+            local lowerName = name:lower()
             
-            if toolType == "Blox Fruit" or string_find(name, "Fruit", 1, true) then
+            if toolType == "Blox Fruit" or string_find(lowerName, "fruit", 1, true) or name == "Banana" or name == "Apple" or name == "Pineapple" then
                 table_insert(inventory.fruits, name)
             elseif isSwordItem(name, toolType) then
                 table_insert(inventory.swords, name)
