@@ -1,0 +1,11 @@
+# Project place file
+/quản lý acc python.rbxlx
+
+# Roblox Studio lock files
+/*.rbxlx.lock
+/*.rbxl.lock
+
+node_modules/
+*.exe
+*.mp4
+*.webp
