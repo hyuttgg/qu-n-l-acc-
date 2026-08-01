@@ -50,6 +50,14 @@ const materialsEqual = (a, b) => {
   return sortedA.every((val, index) => val.name === sortedB[index].name && val.quantity === sortedB[index].quantity);
 };
 
+const securityConfig = require('../config/security.config');
+
+// Helper to escape string values safely for Lua string literals
+const escapeLuaString = (str) => {
+  if (typeof str !== 'string') return '';
+  return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+};
+
 // ══════════════════════════════════════════════════════════════
 // @desc    Serve Roblox Lua client script dynamically with configurations injected
 // @route   GET /api/lua/load
@@ -71,7 +79,7 @@ router.get('/load', async (req, res) => {
     if (token) {
       // Verify short-term token
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_key');
+        const decoded = jwt.verify(token, securityConfig.jwt.secret);
         if (decoded.purpose !== 'loader_token') {
           res.setHeader('Content-Type', 'text/plain');
           return res.send('-- Error: Invalid token purpose.');
@@ -93,7 +101,7 @@ router.get('/load', async (req, res) => {
         const sessionExpiresIn = decoded.expiresIn || '24h';
         finalApiKey = jwt.sign(
           { userId: user._id ? user._id.toString() : user.id.toString(), purpose: 'roblox_session' },
-          process.env.JWT_SECRET || 'super_secret_key',
+          securityConfig.jwt.secret,
           { expiresIn: sessionExpiresIn }
         );
       } catch (jwtErr) {
@@ -138,17 +146,17 @@ router.get('/load', async (req, res) => {
       scriptContent = fs.readFileSync(scriptPath, 'utf8');
     }
 
-    // Dynamic configuration injection
-    // Replace default API Key placeholder with user's verified key (permanent API key or Roblox session token)
+    // Dynamic configuration injection with safe string escaping
+    const safeApiKey = escapeLuaString(finalApiKey);
     scriptContent = scriptContent.replace(
-      '_G.OceanForgeApiKey = ""',
-      `_G.OceanForgeApiKey = "${finalApiKey}"`
+      /_G\.OceanForgeApiKey\s*=\s*"[^"]*"/,
+      `_G.OceanForgeApiKey = "${safeApiKey}"`
     );
 
     // Replace Server URL placeholder with the requesting host/domain URL
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.get('host');
-    const serverUrl = `${protocol}://${host}`;
+    const serverUrl = escapeLuaString(`${protocol}://${host}`);
     scriptContent = scriptContent.replace(
       /_G\.OceanForgeServerUrl\s*=\s*"[^"]*"/,
       `_G.OceanForgeServerUrl = "${serverUrl}"`

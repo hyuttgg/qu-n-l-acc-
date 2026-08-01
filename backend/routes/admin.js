@@ -5,17 +5,24 @@ const express = require('express');
 const { protect } = require('../middleware/auth');
 const luaPayloadLogger = require('../utils/luaPayloadLogger');
 
+const jwt = require('jsonwebtoken');
+const config = require('../config/security.config');
+
 const router = express.Router();
 
-const MASTER_ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || 'khanh2007nw';
+const getAdminPasscode = () => process.env.ADMIN_PASSCODE || securityConfig.adminPasscode;
 
-// Middleware to verify passcode header for admin routes
+// Middleware to verify passcode header or admin role for admin routes
 const requireAdminPasscode = (req, res, next) => {
-  const providedCode = req.headers['x-admin-passcode'] || req.query.passcode;
-  if (providedCode === MASTER_ADMIN_PASSCODE) {
+  if (req.user && req.user.role === 'admin') {
     return next();
   }
-  return res.status(403).json({ success: false, message: 'Forbidden: Valid Master Admin Passcode required' });
+  const providedCode = req.headers['x-admin-passcode'] || req.query.passcode;
+  const adminPasscode = process.env.ADMIN_PASSCODE;
+  if (adminPasscode && providedCode === adminPasscode) {
+    return next();
+  }
+  return res.status(403).json({ success: false, message: 'Forbidden: Valid Admin authorization required' });
 };
 
 // @desc    Verify admin passcode for restricted Inspector module
@@ -23,11 +30,19 @@ const requireAdminPasscode = (req, res, next) => {
 // @access  Private
 router.post('/verify-passcode', protect, (req, res) => {
   const { passcode } = req.body;
-  if (passcode === MASTER_ADMIN_PASSCODE) {
+  const adminPasscode = process.env.ADMIN_PASSCODE;
+  const isRoleAdmin = req.user && req.user.role === 'admin';
+
+  if (isRoleAdmin || (adminPasscode && passcode === adminPasscode)) {
+    const adminToken = jwt.sign(
+      { userId: (req.user._id || req.user.id).toString(), role: 'admin', purpose: 'admin_inspector' },
+      config.jwt.secret,
+      { expiresIn: '2h' }
+    );
     return res.status(200).json({
       success: true,
-      message: 'Admin passcode verified successfully',
-      adminToken: 'admin_unlocked_token_khanh2007nw'
+      message: 'Admin authorization verified successfully',
+      adminToken
     });
   }
   return res.status(401).json({

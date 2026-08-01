@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const mockStore = require('../utils/mockStore');
+const config = require('../config/security.config');
 
 // Protect routes for standard frontend users (JWT)
 exports.protect = async (req, res, next) => {
@@ -18,7 +19,7 @@ exports.protect = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_key');
+    const decoded = jwt.verify(token, config.jwt.secret);
     
     // In-memory fallback
     if (!global.dbConnected) {
@@ -51,7 +52,7 @@ exports.requireApiKey = async (req, res, next) => {
     // Check if the provided key is a JWT session token
     if (apiKey.startsWith('ey')) {
       try {
-        const decoded = jwt.verify(apiKey, process.env.JWT_SECRET || 'super_secret_key');
+        const decoded = jwt.verify(apiKey, config.jwt.secret);
         if (decoded.purpose === 'roblox_session') {
           let user;
           const userId = decoded.userId || decoded.id;

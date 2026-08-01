@@ -10,15 +10,20 @@ module.exports = {
   env: process.env.NODE_ENV || 'development',
 
   // ───── Database Encryption Keys (AES-256-GCM) ─────
-  // Ensure DATABASE_ENCRYPTION_KEY is exactly 32 bytes (256 bits) in production
   dbEncryption: {
-    key: process.env.DATABASE_ENCRYPTION_KEY || 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6', // Fallback for dev only!
+    key: process.env.DATABASE_ENCRYPTION_KEY || 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6',
     algorithm: 'aes-256-gcm',
   },
 
   // ───── JWT Configuration ─────
   jwt: {
-    secret: process.env.JWT_SECRET || 'super_secret_oceanforge_jwt_key_129847',
+    get secret() {
+      const secret = process.env.JWT_SECRET;
+      if (!secret && process.env.NODE_ENV === 'production') {
+        throw new Error('FATAL: JWT_SECRET environment variable is missing in production!');
+      }
+      return secret || 'super_secret_oceanforge_jwt_key_129847';
+    },
     accessTokenExpiry: '15m',  // short-lived access tokens
     refreshTokenExpiry: '7d',  // longer refresh window
   },

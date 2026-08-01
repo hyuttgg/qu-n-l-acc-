@@ -1,3 +1,9 @@
+# Environment Variables and Credentials
+.env
+.env.*
+!.env.example
+backend/.env
+
 # Project place file
 /quản lý acc python.rbxlx
 

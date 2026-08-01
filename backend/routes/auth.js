@@ -5,6 +5,7 @@ const passport = require('passport');
 const User = require('../models/User');
 const mockStore = require('../utils/mockStore');
 const { protect } = require('../middleware/auth');
+const securityConfig = require('../config/security.config');
 
 // ───── Security Middleware ─────
 const { authLimiter } = require('../middleware/rateLimiter');
@@ -17,7 +18,7 @@ const router = express.Router();
 // Helper to sign JWT
 const getSignedJwtToken = (id) => {
   const userIdStr = id ? id.toString() : id;
-  return jwt.sign({ id: userIdStr }, process.env.JWT_SECRET || 'super_secret_key', {
+  return jwt.sign({ id: userIdStr }, securityConfig.jwt.secret, {
     expiresIn: '7d',
   });
 };
@@ -216,7 +217,7 @@ router.post('/loader-token', protect, async (req, res) => {
 
     const token = jwt.sign(
       { userId: userId.toString(), purpose: 'loader_token', expiresIn: expiry },
-      process.env.JWT_SECRET || 'super_secret_key',
+      securityConfig.jwt.secret,
       { expiresIn: expiry }
     );
     res.status(200).json({ success: true, token, expiresIn: expiry });
