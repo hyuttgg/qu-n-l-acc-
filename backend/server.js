@@ -228,7 +228,7 @@ io.on('connection', async (socket) => {
         username: userObj.username,
         email: userObj.email || '',
         loginMethod,
-        ip,
+        ip: geo.ip || ip,
         os,
         browser,
         lat: geo.latitude,

@@ -20,33 +20,51 @@ let mockLocationIndex = 0;
  * Checks if an IP is a local loopback or private network address
  */
 function isLocalIp(ip) {
-  return (
-    ip === '::1' ||
-    ip === '127.0.0.1' ||
-    ip === '::ffff:127.0.0.1' ||
-    ip.startsWith('192.168.') ||
-    ip.startsWith('10.') ||
-    ip.startsWith('172.16.') ||
-    ip === 'Unknown'
-  );
+  if (!ip || typeof ip !== 'string') return true;
+  const cleanIp = ip.trim();
+  if (
+    cleanIp === '::1' ||
+    cleanIp === '127.0.0.1' ||
+    cleanIp === '::ffff:127.0.0.1' ||
+    cleanIp === 'Unknown' ||
+    cleanIp.startsWith('192.168.') ||
+    cleanIp.startsWith('10.')
+  ) {
+    return true;
+  }
+  // Check 172.16.x.x to 172.31.x.x (private IPv4 space)
+  const match172 = cleanIp.match(/^172\.(1[6-9]|2[0-9]|3[01])\./);
+  if (match172) return true;
+
+  return false;
 }
 
 /**
  * Resolves geolocation for a given IP address
  */
 async function lookupIp(ipAddress) {
-  let ip = ipAddress ? ipAddress.trim() : 'Unknown';
+  let ip = 'Unknown';
+
+  if (typeof ipAddress === 'string' && ipAddress.trim()) {
+    // x-forwarded-for can contain multiple comma-separated IPs: "client, proxy1, proxy2"
+    const rawIps = ipAddress.split(',').map(s => {
+      let cleaned = s.trim();
+      if (cleaned.startsWith('::ffff:')) {
+        cleaned = cleaned.substring(7);
+      }
+      return cleaned;
+    }).filter(Boolean);
+
+    // Find the first public IP, or fallback to the first IP in the list
+    const publicIp = rawIps.find(candidate => !isLocalIp(candidate));
+    ip = publicIp || rawIps[0] || 'Unknown';
+  }
 
   // Handle loopback/local IPs by rotating through mock Vietnamese coordinates
   if (isLocalIp(ip)) {
     const mockLoc = VIETNAM_MOCK_LOCATIONS[mockLocationIndex];
     mockLocationIndex = (mockLocationIndex + 1) % VIETNAM_MOCK_LOCATIONS.length;
-    return mockLoc;
-  }
-
-  // Handle IPv4 mapped IPv6 addresses (e.g. ::ffff:1.2.3.4)
-  if (ip.startsWith('::ffff:')) {
-    ip = ip.substring(7);
+    return { ...mockLoc, ip };
   }
 
   // 1. Try Cache Lookup (MongoDB or In-Memory)
