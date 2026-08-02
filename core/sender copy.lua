@@ -729,15 +729,11 @@ local lastSendTime = 0
 -- Main Ingestion Sync Function
 local function sendStats()
     lastSendTime = tick()
-    local dataFolder = LocalPlayer:FindFirstChild("Data")
-    if not dataFolder then
-        warn("OceanForge: Player Data folder not found. Retrying in next heartbeat.")
-        return
-    end
+    local dataFolder = LocalPlayer:FindFirstChild("Data") or LocalPlayer:FindFirstChild("Leaderstats") or LocalPlayer:FindFirstChild("leaderstats")
 
-    local level = dataFolder:FindFirstChild("Level") and dataFolder.Level.Value or 1
-    local beli = dataFolder:FindFirstChild("Beli") and dataFolder.Beli.Value or 0
-    local fragments = dataFolder:FindFirstChild("Fragments") and dataFolder.Fragments.Value or 0
+    local level = (dataFolder and dataFolder:FindFirstChild("Level")) and dataFolder.Level.Value or 1
+    local beli = (dataFolder and dataFolder:FindFirstChild("Beli")) and dataFolder.Beli.Value or 0
+    local fragments = (dataFolder and dataFolder:FindFirstChild("Fragments")) and dataFolder.Fragments.Value or 0
     
     local inventory = scanInventory()
     local equipped = getEquippedDetails(inventory)

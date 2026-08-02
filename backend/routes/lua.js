@@ -149,7 +149,7 @@ router.get('/load', async (req, res) => {
     // Dynamic configuration injection with safe string escaping
     const safeApiKey = escapeLuaString(finalApiKey);
     scriptContent = scriptContent.replace(
-      /_G\.OceanForgeApiKey\s*=\s*"[^"]*"/,
+      /_G\.OceanForgeApiKey\s*=\s*.*$/m,
       `_G.OceanForgeApiKey = "${safeApiKey}"`
     );
 
@@ -158,7 +158,7 @@ router.get('/load', async (req, res) => {
     const host = req.get('host');
     const serverUrl = escapeLuaString(`${protocol}://${host}`);
     scriptContent = scriptContent.replace(
-      /_G\.OceanForgeServerUrl\s*=\s*"[^"]*"/,
+      /_G\.OceanForgeServerUrl\s*=\s*.*$/m,
       `_G.OceanForgeServerUrl = "${serverUrl}"`
     );
 
