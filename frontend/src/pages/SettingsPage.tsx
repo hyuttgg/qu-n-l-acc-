@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../store';
-import { Settings, Key, RefreshCw, Copy, Check, Trash2, Clock, Eye, EyeOff } from 'lucide-react';
+import { Settings, Key, RefreshCw, Copy, Check, Trash2, Clock } from 'lucide-react';
 import { api } from '../utils/api';
 
 export const SettingsPage: React.FC = () => {
   const { user, regenerateApiKey, logout } = useApp();
-  const [copied, setCopied] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
   const [isCopyingScript, setIsCopyingScript] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -23,13 +20,7 @@ export const SettingsPage: React.FC = () => {
     }).join('');
   };
 
-  const handleCopyKey = () => {
-    if (user?.apiKey) {
-      navigator.clipboard.writeText(user.apiKey);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
+
 
   const handleCopyScript = async () => {
     if (isCopyingScript) return;
@@ -71,9 +62,7 @@ export const SettingsPage: React.FC = () => {
 
   const confirmRegenerateKey = async () => {
     setShowRegenModal(false);
-    setRegenerating(true);
     await regenerateApiKey();
-    setRegenerating(false);
     showToast('Đã làm mới API Key thành công!');
   };
 

@@ -16,15 +16,10 @@ import {
   User as UserIcon,
   Menu,
   X,
-  Copy,
-  Check,
-  Key,
   Activity,
   Globe,
   FileText,
-  Terminal,
-  Eye,
-  EyeOff
+  Terminal
 } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
@@ -32,16 +27,6 @@ export const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
-
-  const handleCopyKey = () => {
-    if (user?.apiKey) {
-      navigator.clipboard.writeText(user.apiKey);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
 
   const menuGroups: {
     title: string;
