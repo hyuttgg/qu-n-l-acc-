@@ -120,39 +120,7 @@ export const SettingsPage: React.FC = () => {
           </span>
         </div>
 
-        {/* API key display box */}
-        <div className="space-y-2">
-          <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">Your API Key</label>
-          <div className="flex items-center gap-3 bg-slate-950 p-4 rounded-xl border border-slate-900">
-            <span className="font-mono text-white text-xs select-all break-all flex-1 tracking-wider">
-              {showApiKey ? user?.apiKey : '••••••••••••••••••••••••••••••••••••••••••••••••'}
-            </span>
-            <div className="flex gap-2 flex-shrink-0">
-              <button
-                onClick={() => setShowApiKey(!showApiKey)}
-                className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition cursor-pointer"
-                title={showApiKey ? "Ẩn API Key" : "Hiện API Key"}
-              >
-                {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-              <button
-                onClick={handleCopyKey}
-                className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
-                title="Copy Key"
-              >
-                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-              </button>
-              <button
-                onClick={() => setShowRegenModal(true)}
-                disabled={regenerating}
-                className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-red-400 hover:text-white hover:bg-red-500/10 hover:border-red-500/20 transition"
-                title="Regenerate Key"
-              >
-                <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-          </div>
-        </div>
+
 
         {/* Roblox Loader Script */}
         <div className="space-y-3">
