@@ -22,7 +22,9 @@ import {
   Activity,
   Globe,
   FileText,
-  Terminal
+  Terminal,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
@@ -31,6 +33,7 @@ export const DashboardLayout: React.FC = () => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const handleCopyKey = () => {
     if (user?.apiKey) {
@@ -205,10 +208,19 @@ export const DashboardLayout: React.FC = () => {
             <div className="flex items-center gap-2 bg-slate-900 px-3.5 py-2 rounded-xl border border-slate-800 text-xs max-w-sm">
               <Key className="w-4 h-4 text-gold flex-shrink-0" />
               <span className="text-slate-400 font-medium">API Key:</span>
-              <span className="text-white font-mono truncate max-w-[150px]">{user?.apiKey}</span>
+              <span className="text-white font-mono truncate max-w-[150px]">
+                {showApiKey ? user?.apiKey : '••••••••••••••••'}
+              </span>
+              <button
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="text-slate-400 hover:text-white ml-1 flex-shrink-0 transition-colors cursor-pointer"
+                title={showApiKey ? "Ẩn API Key" : "Hiện API Key"}
+              >
+                {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
               <button
                 onClick={handleCopyKey}
-                className="text-slate-400 hover:text-gold ml-2 flex-shrink-0 transition-colors"
+                className="text-slate-400 hover:text-gold ml-1 flex-shrink-0 transition-colors cursor-pointer"
                 title="Copy API Key"
               >
                 {copied ? <Check className="w-4 h-4 text-emerald-400 animate-pulse" /> : <Copy className="w-4 h-4" />}

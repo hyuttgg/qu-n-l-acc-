@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useApp } from '../store';
-import { Settings, Key, RefreshCw, Copy, Check, Trash2, Clock } from 'lucide-react';
+import { Settings, Key, RefreshCw, Copy, Check, Trash2, Clock, Eye, EyeOff } from 'lucide-react';
 import { api } from '../utils/api';
 
 export const SettingsPage: React.FC = () => {
   const { user, regenerateApiKey, logout } = useApp();
   const [copied, setCopied] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
   const [isCopyingScript, setIsCopyingScript] = useState(false);
@@ -123,10 +124,17 @@ export const SettingsPage: React.FC = () => {
         <div className="space-y-2">
           <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">Your API Key</label>
           <div className="flex items-center gap-3 bg-slate-950 p-4 rounded-xl border border-slate-900">
-            <span className="font-mono text-white text-xs select-all break-all flex-1">
-              {user?.apiKey}
+            <span className="font-mono text-white text-xs select-all break-all flex-1 tracking-wider">
+              {showApiKey ? user?.apiKey : '••••••••••••••••••••••••••••••••••••••••••••••••'}
             </span>
             <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition cursor-pointer"
+                title={showApiKey ? "Ẩn API Key" : "Hiện API Key"}
+              >
+                {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
               <button
                 onClick={handleCopyKey}
                 className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
