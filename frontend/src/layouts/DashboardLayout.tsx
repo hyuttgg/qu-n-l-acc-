@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
-  const { user, logout } = useApp();
+  const { user, logout, accounts, analytics } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -225,9 +225,15 @@ export const DashboardLayout: React.FC = () => {
           <div className="flex items-center gap-4">
             <div className="text-right">
               <span className="text-slate-400 text-xs block font-bold uppercase tracking-wider">Server Status</span>
-              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" /> Realtime Active
-              </span>
+              {((accounts && accounts.some(a => a.status !== 'offline')) || (analytics?.summary?.onlineAccounts || 0) > 0) ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" /> Realtime Active
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-red-500">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> No Active Account
+                </span>
+              )}
             </div>
           </div>
         </header>
