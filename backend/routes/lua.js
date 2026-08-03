@@ -128,11 +128,14 @@ router.get('/load', async (req, res) => {
     // Dynamically fetch the Lua client sender script from GitHub raw URL with local fallback
     let scriptContent = '';
     try {
-      const response = await axios.get('https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender%20copy.lua', { timeout: 5000 });
+      const response = await axios.get('https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/khanhdev%20web%20dashboard.lua', { timeout: 5000 });
       scriptContent = response.data;
     } catch (fetchErr) {
       console.warn('Failed to fetch Lua client script from GitHub, falling back to local file:', fetchErr.message);
-      let scriptPath = path.join(__dirname, '../../core/sender copy.lua');
+      let scriptPath = path.join(__dirname, '../../khanhdev web dashboard.lua');
+      if (!fs.existsSync(scriptPath)) {
+        scriptPath = path.join(__dirname, '../../core/sender copy.lua');
+      }
       if (!fs.existsSync(scriptPath)) {
         scriptPath = path.join(__dirname, '../../core/sender.lua');
       }

@@ -330,11 +330,11 @@ export const DashboardOverview: React.FC = () => {
               <label className="block text-slate-400 text-[10px] uppercase font-extrabold tracking-wider">Direct GitHub Raw Link (Manual Key)</label>
               <div className="flex items-center gap-3 bg-slate-950 p-3 rounded-lg border border-slate-800">
                 <span className="font-mono text-slate-300 text-[10px] select-all break-all flex-1">
-                  {`_G.OceanForgeApiKey="${user?.apiKey || 'YOUR_API_KEY'}";loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender%20copy.lua"))()`}
+                  {`_G.OceanForgeApiKey="${user?.apiKey || 'YOUR_API_KEY'}";loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/khanhdev%20web%20dashboard.lua"))()`}
                 </span>
                 <button
                   onClick={async () => {
-                    const directText = `_G.OceanForgeApiKey="${user?.apiKey || 'YOUR_API_KEY'}";loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender%20copy.lua"))()`;
+                    const directText = `_G.OceanForgeApiKey="${user?.apiKey || 'YOUR_API_KEY'}";loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/khanhdev%20web%20dashboard.lua"))()`;
                     await navigator.clipboard.writeText(directText);
                     alert('Copied Direct GitHub Raw Script!');
                   }}

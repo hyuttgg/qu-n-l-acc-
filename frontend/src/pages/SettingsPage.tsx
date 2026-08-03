@@ -198,11 +198,11 @@ export const SettingsPage: React.FC = () => {
             </label>
             <div className="flex items-center gap-3 bg-slate-950 p-4 rounded-xl border border-slate-900">
               <span className="font-mono text-slate-300 text-xs select-all break-all flex-1">
-                {`_G.OceanForgeApiKey="${user?.apiKey || 'YOUR_API_KEY'}";loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender%20copy.lua"))()`}
+                {`_G.OceanForgeApiKey="${user?.apiKey || 'YOUR_API_KEY'}";loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/khanhdev%20web%20dashboard.lua"))()`}
               </span>
               <button
                 onClick={async () => {
-                  const directText = `_G.OceanForgeApiKey="${user?.apiKey || 'YOUR_API_KEY'}";loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender%20copy.lua"))()`;
+                  const directText = `_G.OceanForgeApiKey="${user?.apiKey || 'YOUR_API_KEY'}";loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/khanhdev%20web%20dashboard.lua"))()`;
                   await navigator.clipboard.writeText(directText);
                   showToast('Đã copy Direct GitHub Raw Script!');
                 }}
