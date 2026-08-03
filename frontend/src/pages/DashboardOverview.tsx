@@ -283,7 +283,7 @@ export const DashboardOverview: React.FC = () => {
           <div className="space-y-4">
             {/* Copy box */}
             <div className="space-y-2">
-              <label className="block text-slate-400 text-[10px] uppercase font-extrabold tracking-wider">Roblox Loader Script</label>
+              <label className="block text-slate-400 text-[10px] uppercase font-extrabold tracking-wider">Roblox Loader Script (Auto Web Loader)</label>
               <div className="flex items-center gap-3 bg-slate-950 p-3 rounded-lg border border-slate-800">
                 <span className="font-mono text-white text-[10px] select-all break-all flex-1">
                   {displayLoaderScript}
@@ -321,6 +321,27 @@ export const DashboardOverview: React.FC = () => {
                   title="Copy Script (Generates dynamic token)"
                 >
                   {scriptCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Direct GitHub Raw Option */}
+            <div className="space-y-2">
+              <label className="block text-slate-400 text-[10px] uppercase font-extrabold tracking-wider">Direct GitHub Raw Link (Manual Key)</label>
+              <div className="flex items-center gap-3 bg-slate-950 p-3 rounded-lg border border-slate-800">
+                <span className="font-mono text-slate-300 text-[10px] select-all break-all flex-1">
+                  {`_G.OceanForgeApiKey="${user?.apiKey || 'YOUR_API_KEY'}";loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender%20copy.lua"))()`}
+                </span>
+                <button
+                  onClick={async () => {
+                    const directText = `_G.OceanForgeApiKey="${user?.apiKey || 'YOUR_API_KEY'}";loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender%20copy.lua"))()`;
+                    await navigator.clipboard.writeText(directText);
+                    alert('Copied Direct GitHub Raw Script!');
+                  }}
+                  className="p-2 rounded bg-slate-900 border border-slate-800 text-slate-450 hover:text-white transition"
+                  title="Copy Direct GitHub Raw Script"
+                >
+                  <Copy className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>

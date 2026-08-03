@@ -190,6 +190,29 @@ export const SettingsPage: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Direct GitHub Raw Option */}
+          <div className="space-y-2 pt-2">
+            <label className="block text-slate-400 text-xs uppercase font-extrabold tracking-wider">
+              Direct GitHub Raw Link (Load trực tiếp từ GitHub)
+            </label>
+            <div className="flex items-center gap-3 bg-slate-950 p-4 rounded-xl border border-slate-900">
+              <span className="font-mono text-slate-300 text-xs select-all break-all flex-1">
+                {`_G.OceanForgeApiKey="${user?.apiKey || 'YOUR_API_KEY'}";loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender%20copy.lua"))()`}
+              </span>
+              <button
+                onClick={async () => {
+                  const directText = `_G.OceanForgeApiKey="${user?.apiKey || 'YOUR_API_KEY'}";loadstring(game:HttpGet("https://raw.githubusercontent.com/hyuttgg/qu-n-l-acc-/refs/heads/main/core/sender%20copy.lua"))()`;
+                  await navigator.clipboard.writeText(directText);
+                  showToast('Đã copy Direct GitHub Raw Script!');
+                }}
+                className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
+                title="Copy Direct GitHub Script"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Instructions */}
