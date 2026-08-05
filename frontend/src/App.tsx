@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './store';
 import { Compass } from 'lucide-react';
 import ClickSpark from './components/ClickSpark';
-import TargetCursor from './components/TargetCursor';
 
 // Lazy-loaded Pages for Optimal Bundle Size & Performance
 const LandingPage = lazy(() => import('./pages/LandingPage').then(m => ({ default: m.LandingPage })));
@@ -47,13 +46,6 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 export const App: React.FC = () => {
   return (
     <AppProvider>
-      <TargetCursor
-        targetSelector="button, a, .cursor-target, input, select"
-        spinDuration={2.5}
-        cursorColor="#EAB308"
-        cursorColorOnTarget="#06B6D4"
-        hideDefaultCursor={false}
-      />
       <ClickSpark sparkColor="#EAB308" sparkSize={12} sparkRadius={22} sparkCount={9} duration={450}>
         <BrowserRouter>
           <Suspense fallback={<PageFallback />}>
