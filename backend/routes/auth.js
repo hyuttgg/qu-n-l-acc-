@@ -392,11 +392,12 @@ router.get('/discord/callback', (req, res, next) => {
       if (err.message === 'ip_limit') {
         return res.redirect(getRedirectUrl(`/login?error=discord_ip_limit`));
       }
-      return res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
+      const reason = encodeURIComponent(err.message || 'authentication_failed');
+      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reason}`));
     }
     if (!user) {
       console.error('❌ Discord OAuth: User object not returned by strategy');
-      return res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
+      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=user_not_found`));
     }
 
     try {
@@ -408,7 +409,7 @@ router.get('/discord/callback', (req, res, next) => {
       res.redirect(getRedirectUrl(`/oauth-success?token=${token}`));
     } catch (error) {
       console.error('❌ Discord JWT Signing Error:', error);
-      res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
+      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=jwt_sign_error`));
     }
   })(req, res, next);
 });
