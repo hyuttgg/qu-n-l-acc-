@@ -12,7 +12,6 @@ const { authLimiter } = require('../middleware/rateLimiter');
 const { validate, registerSchema, loginSchema, updateEmailSchema, updatePasswordSchema } = require('../middleware/validator');
 const { securityLogger } = require('../middleware/logging');
 const authEmitter = require('../events/authEvents');
-
 const router = express.Router();
 
 // Helper to sign JWT
@@ -370,7 +369,13 @@ router.put('/password', protect, validate(updatePasswordSchema), async (req, res
 // @desc    Auth with Discord
 // @route   GET /api/auth/discord
 // @access  Public
-router.get('/discord', passport.authenticate('discord'));
+router.get('/discord', (req, res, next) => {
+  if (!process.env.DISCORD_CLIENT_ID || !process.env.DISCORD_CLIENT_SECRET) {
+    console.error('❌ DISCORD OAUTH ERROR: DISCORD_CLIENT_ID or DISCORD_CLIENT_SECRET missing in .env');
+    return res.redirect(getRedirectUrl('/login?error=discord_not_configured'));
+  }
+  passport.authenticate('discord')(req, res, next);
+});
 
 // @desc    Discord auth callback
 // @route   GET /api/auth/discord/callback
@@ -378,10 +383,11 @@ router.get('/discord', passport.authenticate('discord'));
 router.get('/discord/callback', (req, res, next) => {
   passport.authenticate('discord', { session: false }, (err, user, info) => {
     if (err) {
-      securityLogger.error('Discord OAuth callback error', { 
-        error: err.message, 
+      console.error('❌ Discord OAuth Callback Error:', err.message || err);
+      securityLogger.error('Discord OAuth callback error', {
+        error: err.message || String(err),
         stack: err.stack,
-        url: req.originalUrl 
+        url: req.originalUrl
       });
       if (err.message === 'ip_limit') {
         return res.redirect(getRedirectUrl(`/login?error=discord_ip_limit`));
@@ -389,17 +395,19 @@ router.get('/discord/callback', (req, res, next) => {
       return res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
     }
     if (!user) {
+      console.error('❌ Discord OAuth: User object not returned by strategy');
       return res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
     }
-    
+
     try {
       const token = getSignedJwtToken(user._id || user.id);
-      
+
       // Emit login success event to record history and send email notification
       authEmitter.emit('login.success', { user, req });
 
       res.redirect(getRedirectUrl(`/oauth-success?token=${token}`));
     } catch (error) {
+      console.error('❌ Discord JWT Signing Error:', error);
       res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
     }
   })(req, res, next);
@@ -416,17 +424,17 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
 router.get('/google/callback', (req, res, next) => {
   passport.authenticate('google', { session: false }, (err, user, info) => {
     if (err) {
-      securityLogger.error('Google OAuth callback error', { 
-        error: err.message, 
+      securityLogger.error('Google OAuth callback error', {
+        error: err.message,
         stack: err.stack,
-        url: req.originalUrl 
+        url: req.originalUrl
       });
       return res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
     }
     if (!user) {
       return res.redirect(getRedirectUrl(`/login?error=oauth_failed`));
     }
-    
+
     // Successful authentication, redirect to frontend with JWT token
     const token = getSignedJwtToken(user._id || user.id);
     authEmitter.emit('login.success', { user, req });
@@ -513,9 +521,9 @@ router.delete('/delete', protect, async (req, res) => {
 
     securityLogger.info('User account permanently hard-deleted from database', { userId: userId.toString(), ip: req.ip });
 
-    res.status(200).json({ 
-      success: true, 
-      message: 'Account and all associated data permanently deleted from database' 
+    res.status(200).json({
+      success: true,
+      message: 'Account and all associated data permanently deleted from database'
     });
   } catch (error) {
     securityLogger.error('Failed to hard delete user account', { error: error.message, userId: req.user?.id || req.user?._id });

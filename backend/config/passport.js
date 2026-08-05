@@ -10,12 +10,24 @@ module.exports = function (passport) {
     return val.toString().trim().replace(/[\r\n\t]/g, '');
   };
 
+  const getCleanCallback = (envVal, defaultPath) => {
+    let raw = cleanEnv(envVal);
+    if (!raw) {
+      const host = process.env.BACKEND_URL || 'http://localhost:5000';
+      return `${host.replace(/\/+$/, '')}${defaultPath}`;
+    }
+    if (!/^https?:\/\//i.test(raw)) {
+      raw = `https://${raw}`;
+    }
+    return raw;
+  };
+
   const discordClientId = cleanEnv(process.env.DISCORD_CLIENT_ID);
   const discordClientSecret = cleanEnv(process.env.DISCORD_CLIENT_SECRET);
-  const discordCallbackUrl = cleanEnv(process.env.DISCORD_CALLBACK_URL) || 'http://localhost:5000/auth/discord/callback';
+  const discordCallbackUrl = getCleanCallback(process.env.DISCORD_CALLBACK_URL, '/api/auth/discord/callback');
   const googleClientId = cleanEnv(process.env.GOOGLE_CLIENT_ID);
   const googleClientSecret = cleanEnv(process.env.GOOGLE_CLIENT_SECRET);
-  const googleCallbackUrl = cleanEnv(process.env.GOOGLE_CALLBACK_URL) || 'http://localhost:5000/api/auth/google/callback';
+  const googleCallbackUrl = getCleanCallback(process.env.GOOGLE_CALLBACK_URL, '/api/auth/google/callback');
 
   securityLogger.info('Passport initialization check', {
     discordClientId,
