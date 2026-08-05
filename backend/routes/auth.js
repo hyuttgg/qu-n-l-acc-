@@ -76,10 +76,13 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
       return res.status(400).json({ success: false, message: 'Username or Email already registered' });
     }
 
-    // IP Limit: Max 5 accounts per IP for standard registration
-    const registrationCountOnIp = await User.countDocuments({ creationIp: ip });
-    if (registrationCountOnIp >= 5) {
-      return res.status(400).json({ success: false, message: 'Địa chỉ IP của bạn đã đăng ký quá số lượng tài khoản cho phép (Tối đa 5).' });
+    // IP Limit: Max 5 accounts per IP for standard registration (exempt localhost for test/dev)
+    const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip?.includes('127.0.0.1');
+    if (!isLocalhost) {
+      const registrationCountOnIp = await User.countDocuments({ creationIp: ip });
+      if (registrationCountOnIp >= 5) {
+        return res.status(400).json({ success: false, message: 'Địa chỉ IP của bạn đã đăng ký quá số lượng tài khoản cho phép (Tối đa 5).' });
+      }
     }
 
     // Create user
@@ -189,16 +192,63 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
 // @access  Private
 router.get('/me', protect, async (req, res) => {
   try {
+    const user = req.user;
     res.status(200).json({
       success: true,
       user: {
-        id: req.user.id || req.user._id,
-        username: req.user.username,
-        email: req.user.email,
-        role: req.user.role,
-        apiKey: req.user.apiKey,
-        avatar: req.user.avatar || null,
+        id: user.id || user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role || 'Member',
+        apiKey: user.apiKey,
+        avatar: user.avatar || null,
+        discordId: user.discordId || null,
+        discriminator: user.discriminator || '0',
+        nickname: user.nickname || null,
+        userCode: user.userCode || null,
+        joinDate: user.joinDate || user.createdAt,
+        lastLogin: user.lastLogin || new Date(),
+        loginCount: user.loginCount || 1,
       },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Update user internal nickname
+// @route   PUT /api/auth/nickname
+// @access  Private
+router.put('/nickname', protect, async (req, res) => {
+  try {
+    const { nickname } = req.body;
+    if (!nickname || typeof nickname !== 'string' || nickname.trim().length < 2) {
+      return res.status(400).json({ success: false, message: 'Biệt danh phải chứa ít nhất 2 ký tự' });
+    }
+
+    const cleanNickname = nickname.trim();
+
+    if (!global.dbConnected) {
+      const user = mockStore.findUserById(req.user.id);
+      if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+      user.nickname = cleanNickname;
+      return res.status(200).json({ success: true, message: 'Cập nhật biệt danh thành công', nickname: cleanNickname });
+    }
+
+    const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const existing = await User.findOne({ nickname: new RegExp(`^${escapeRegex(cleanNickname)}$`, 'i') });
+    if (existing && existing._id.toString() !== req.user._id.toString()) {
+      return res.status(400).json({ success: false, message: 'Biệt danh này đã được người khác sử dụng' });
+    }
+
+    const user = await User.findById(req.user._id);
+    user.nickname = cleanNickname;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Cập nhật biệt danh thành công',
+      nickname: user.nickname,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -21,18 +21,36 @@ module.exports = {
   findUserById: (id) => store.users.find(u => u.id === id.toString()),
   findUserByApiKey: (apiKey) => store.users.find(u => u.apiKey === apiKey),
   findUserByDiscordId: (discordId) => store.users.find(u => u.discordId === discordId),
-  createUser: (username, email, password, googleId = null, discordId = null, avatar = null) => {
+  createUser: (username, email, password, googleId = null, discordId = null, avatar = null, discriminator = '0') => {
     const userId = Math.random().toString(36).substr(2, 9);
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let codePart1 = '', codePart2 = '';
+    for (let i = 0; i < 4; i++) {
+      codePart1 += chars.charAt(Math.floor(Math.random() * chars.length));
+      codePart2 += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const userCode = `USR-${codePart1}-${codePart2}`;
+
+    const prefixes = ['Shadow', 'Dark', 'Cyber', 'Ghost', 'Nova', 'Fire', 'Crystal', 'Night', 'Thunder', 'Silver'];
+    const suffixes = ['Fox', 'Wolf', 'Dragon', 'Tiger', 'Falcon', 'Phoenix', 'Lion', 'Blade', 'Storm', 'Hunter'];
+    const nickname = `${prefixes[Math.floor(Math.random() * prefixes.length)]}${suffixes[Math.floor(Math.random() * suffixes.length)]}`;
+
     const newUser = {
       id: userId,
       _id: userId, // compat
       username,
       email,
       password, // simple check
-      role: 'user',
+      role: 'Member',
       googleId,
       discordId,
+      discriminator,
       avatar,
+      nickname,
+      userCode,
+      joinDate: new Date(),
+      lastLogin: new Date(),
+      loginCount: 1,
       apiKey: 'forge_' + crypto.randomBytes(24).toString('hex'),
       createdAt: new Date(),
       save: async function() { return this; }

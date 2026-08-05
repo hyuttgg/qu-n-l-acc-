@@ -198,6 +198,24 @@ router.post(
       return res.status(400).json({ success: false, message: 'robloxUsername is required' });
     }
 
+    // 🛡️ Security Sentinel: Audit Telemetry Payload for Impossible Spikes / Tampering
+    const { auditTelemetryPayload, triggerAutoBanIfNecessary } = require('../utils/securitySentinel');
+    let existingAcc = null;
+    if (global.dbConnected && user) {
+      existingAcc = await Account.findOne({ userId: user._id || user.id, robloxUsername });
+    }
+    const violation = auditTelemetryPayload(payload, existingAcc);
+    if (violation) {
+      violation.username = robloxUsername;
+      violation.userCode = user?.userCode || user?.username;
+      violation.ip = req.ip || req.headers['x-forwarded-for'];
+      await triggerAutoBanIfNecessary(user?._id ? user._id.toString() : (user?.id || req.ip), violation);
+      return res.status(403).json({
+        success: false,
+        message: `⛔ TỰ ĐỘNG KHÓA VÀ HỦY GIAO DỊCH: Phát hiện hành vi gian lận [${violation.type}]`
+      });
+    }
+
     // Log raw Lua telemetry for Admin Inspection (100% exact JSON)
     luaPayloadLogger.addPayloadLog({
       userEmail: user?.email,

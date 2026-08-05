@@ -65,12 +65,33 @@ export const DashboardOverview: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* Header Title */}
-      <div>
-        <h1 className="text-3xl font-black text-white glow-text-cyan flex items-center gap-2">
-          <Compass className="w-8 h-8 text-gold" /> FLEET OVERVIEW
-        </h1>
-        <p className="text-slate-400 text-sm mt-1">Realtime aggregation across all active Roblox client endpoints</p>
+      {/* Header Title & User Identity Quick Badge */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-white glow-text-cyan flex items-center gap-2">
+            <Compass className="w-8 h-8 text-gold" /> FLEET OVERVIEW
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">Realtime aggregation across all active Roblox client endpoints</p>
+        </div>
+
+        {user && (
+          <div className="flex items-center gap-3 bg-slate-900/80 border border-slate-800 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg">
+            <img
+              src={user.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png'}
+              alt={user.username}
+              className="w-10 h-10 rounded-full border border-cyan-500/50 object-cover"
+            />
+            <div className="text-left">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white text-sm">{user.nickname || user.username}</span>
+                <span className="text-xs text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.2 rounded-full">
+                  {user.role || 'Member'}
+                </span>
+              </div>
+              <div className="text-xs font-mono text-cyan-400/90">{user.userCode || 'USR-0000-0000'}</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stats Cards Grid */}

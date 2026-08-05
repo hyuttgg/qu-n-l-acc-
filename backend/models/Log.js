@@ -9,7 +9,7 @@ const LogSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['level_up', 'item_drop', 'fruit_obtained', 'status_change', 'connection', 'error'],
+    enum: ['level_up', 'item_drop', 'fruit_obtained', 'status_change', 'connection', 'error', 'ROBLOX_LUA_SYNC'],
   },
   description: {
     type: String,

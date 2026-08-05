@@ -266,8 +266,10 @@ router.get('/overview', protect, async (req, res) => {
     // 3. Materials collected
     const materialCounts = {};
     inventories.forEach((inv) => {
-      inv.materials.forEach((mat) => {
-        materialCounts[mat.name] = (materialCounts[mat.name] || 0) + mat.quantity;
+      (inv.materials || []).forEach((mat) => {
+        if (mat && mat.name) {
+          materialCounts[mat.name] = (materialCounts[mat.name] || 0) + (mat.quantity || 1);
+        }
       });
     });
 

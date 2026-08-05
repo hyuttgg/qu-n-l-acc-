@@ -17,9 +17,10 @@ global.activeUserSessions = global.activeUserSessions || new Map();
  */
 router.get('/users', protect, async (req, res) => {
   try {
-    // 1. Gather all online users from the active socket sessions
+    // 1. Gather all online users from the active socket sessions (cloned snapshot)
     const onlineMap = new Map(); // userId -> activeSession object
-    for (const session of global.activeUserSessions.values()) {
+    const sessionsList = [...global.activeUserSessions.values()];
+    for (const session of sessionsList) {
       onlineMap.set(session.userId.toString(), {
         username: session.username,
         province: session.province,
@@ -126,8 +127,9 @@ router.get('/users', protect, async (req, res) => {
 router.get('/online', protect, async (req, res) => {
   try {
     const provinceCounts = {};
+    const sessionsList = [...global.activeUserSessions.values()];
 
-    for (const session of global.activeUserSessions.values()) {
+    for (const session of sessionsList) {
       const province = session.province || 'Unknown';
       provinceCounts[province] = (provinceCounts[province] || 0) + 1;
     }
@@ -157,7 +159,8 @@ router.get('/province/:province', protect, async (req, res) => {
 
     // 1. Gather all online users from the active socket sessions
     const onlineMap = new Map();
-    for (const session of global.activeUserSessions.values()) {
+    const sessionsList = [...global.activeUserSessions.values()];
+    for (const session of sessionsList) {
       onlineMap.set(session.userId.toString(), {
         username: session.username,
         province: session.province,

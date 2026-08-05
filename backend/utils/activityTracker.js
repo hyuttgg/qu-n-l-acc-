@@ -34,11 +34,13 @@ const startActivityTracker = (io) => {
           }
 
           // Emit real-time update via Socket.io to the user's private room
-          const userIdStr = account.userId.toString();
-          io.to(userIdStr).emit('account_update', {
-            account,
-            activeSession: activeSession || null
-          });
+          if (account.userId) {
+            const userIdStr = account.userId.toString();
+            io.to(userIdStr).emit('account_update', {
+              account,
+              activeSession: activeSession || null
+            });
+          }
         }
       } else {
         // 2. Mock Mode
@@ -60,11 +62,13 @@ const startActivityTracker = (io) => {
           }
 
           // Emit real-time update via Socket.io to the user's private room
-          const userIdStr = account.userId.toString();
-          io.to(userIdStr).emit('account_update', {
-            account,
-            activeSession: activeSession || null
-          });
+          if (account.userId) {
+            const userIdStr = account.userId.toString();
+            io.to(userIdStr).emit('account_update', {
+              account,
+              activeSession: activeSession || null
+            });
+          }
         }
       }
     } catch (error) {

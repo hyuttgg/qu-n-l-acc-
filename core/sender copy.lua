@@ -1115,22 +1115,29 @@ local function sendStats()
         end
     end
 
+    local apiKey = env.OceanForgeApiKey or _G.OceanForgeApiKey or ""
+
     local payload = {
+        apiKey = apiKey,
         username = LocalPlayer.Name,
+        robloxUsername = LocalPlayer.Name,
         level = level,
         beli = beli,
         fragments = fragments,
         race = getRace(),
         sea = getSea(),
+        fruit = equipped.fruit,
         fruit_equipped = equipped.fruit,
         fruit_mastery = equipped.fruitMastery,
         sword = equipped.sword,
         gun = equipped.gun,
+        fightingStyle = equipped.fightingStyle,
         fighting_style = equipped.fightingStyle,
         accessory_equipped = equipped.accessory or "None",
         status = status,
         location = getIslandName(),
         playtime = math.floor(workspace.DistributedGameTime),
+        device = "Roblox Client",
         inventory = inventory
     }
 
@@ -1155,8 +1162,7 @@ local function sendStats()
     task.spawn(function()
         LedIndicator.BackgroundColor3 = Color3.fromRGB(249, 115, 22) -- Orange syncing
         
-        local apiKey = env.OceanForgeApiKey or _G.OceanForgeApiKey or ""
-        local serverUrl = env.OceanForgeServerUrl or _G.OceanForgeServerUrl or "https://api.manageblox.io.vn"
+        local serverUrl = env.OceanForgeServerUrl or _G.OceanForgeServerUrl or "http://localhost:5000"
 
         if apiKey == "" or apiKey == "YOUR_API_KEY_HERE" then
             LedIndicator.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
@@ -1165,13 +1171,14 @@ local function sendStats()
             
             if lastConnectionStatus ~= false then
                 lastConnectionStatus = false
-                sendNotification("⚠️ CHƯA NHẬP API KEY", "Vui lòng nhập API Key để kết nối Dashboard Quản Lý Acc!", 7)
+                sendNotification("⚠️ CHƯA NHẬP API KEY", "Vui lòng gõ /apikey trên Discord để lấy Key cá nhân!", 7)
             end
             return
         end
 
+        -- Try syncing with Webhook Telemetry API first, fallback to /api/lua/update
         local successReq, response = pcall(requestLib, {
-            Url = serverUrl .. "/api/lua/update",
+            Url = serverUrl .. "/api/webhook/roblox",
             Method = "POST",
             Headers = {
                 ["Content-Type"] = "application/json",
@@ -1181,6 +1188,20 @@ local function sendStats()
         })
 
         local statusCode = response and (response.StatusCode or response.status or response.status_code)
+        if not (successReq and response and statusCode == 200) then
+            -- Fallback endpoint
+            successReq, response = pcall(requestLib, {
+                Url = serverUrl .. "/api/lua/update",
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json",
+                    ["x-api-key"] = apiKey
+                },
+                Body = jsonPayload
+            })
+            statusCode = response and (response.StatusCode or response.status or response.status_code)
+        end
+
         if successReq and response and statusCode == 200 then
             LedIndicator.BackgroundColor3 = Color3.fromRGB(34, 197, 94) -- Emerald Green Success
             LedLabel.Text = "STATUS: KẾT NỐI DASHBOARD ✅"

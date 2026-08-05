@@ -1,10 +1,10 @@
-require('dotenv').config({ override: true }); // Trigger nodemon restart
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env'), override: true });
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const path = require('path');
 const cookieParser = require('cookie-parser');
 
 // ───── Config ─────
@@ -82,6 +82,14 @@ app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/lua', require('./routes/lua'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/map', require('./routes/map'));
+app.use('/api/bot', require('./routes/botApi'));
+app.use('/api/webhook', require('./routes/webhook'));
+app.post('/api/discord/interactions', require('./routes/webhook').discordInteractions);
+
+// ══════════════════════════════════════
+// DEVOPS SELF-HEALING DASHBOARD API
+// ══════════════════════════════════════
+app.use('/api/devops', require('./routes/devops'));
 
 // ══════════════════════════════════════
 // API DOCUMENTATION (SWAGGER)
@@ -332,10 +340,132 @@ io.on('connection', async (socket) => {
 });
 
 // ══════════════════════════════════════
-// START SERVER
+// SELF-HEALING DEVOPS ENGINE
+// ══════════════════════════════════════
+const { startSelfHealingEngine, stopSelfHealingEngine } = require('./utils/selfHealingEngine');
+const { startHealthCheckDaemon, stopHealthCheckDaemon } = require('./utils/healthCheckDaemon');
+const { sendDevOpsAlert, SEVERITY } = require('./utils/devopsNotifier');
+
+// ══════════════════════════════════════
+// GLOBAL CRASH PROTECTION (Auto-Recovery)
+// ══════════════════════════════════════
+
+// Track crash frequency to detect crash loops
+const crashTimestamps = [];
+const CRASH_LOOP_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const CRASH_LOOP_THRESHOLD = 5;
+
+process.on('uncaughtException', async (err) => {
+  console.error('═══════════════════════════════════════');
+  console.error('🚨 UNCAUGHT EXCEPTION DETECTED');
+  console.error('═══════════════════════════════════════');
+  console.error(err);
+
+  // Track crash frequency
+  const now = Date.now();
+  crashTimestamps.push(now);
+  while (crashTimestamps.length > 0 && crashTimestamps[0] < now - CRASH_LOOP_WINDOW_MS) {
+    crashTimestamps.shift();
+  }
+
+  const isCrashLoop = crashTimestamps.length >= CRASH_LOOP_THRESHOLD;
+
+  try {
+    await sendDevOpsAlert({
+      severity: isCrashLoop ? SEVERITY.CRITICAL : SEVERITY.ERROR,
+      service: 'Node.js Process',
+      title: isCrashLoop ? 'CRASH LOOP DETECTED — Uncaught Exception' : 'Uncaught Exception Caught',
+      description: isCrashLoop
+        ? `${crashTimestamps.length} crashes trong ${CRASH_LOOP_WINDOW_MS / 60000} phút. Process có thể không ổn định.`
+        : 'Lỗi không được bắt đã xảy ra. Process vẫn tiếp tục chạy.',
+      action: isCrashLoop ? 'Cần can thiệp thủ công — crash loop' : 'Logged & continuing',
+      result: isCrashLoop ? '🔴 CRASH LOOP' : '⚠️ LOGGED',
+      errorStack: err.stack,
+    });
+  } catch (notifyErr) {
+    console.error('[CrashProtection] Failed to send Discord alert:', notifyErr.message);
+  }
+
+  // Don't exit — let PM2 handle restarts if truly fatal
+  // For non-fatal uncaught exceptions, we continue running
+});
+
+process.on('unhandledRejection', async (reason, promise) => {
+  console.error('═══════════════════════════════════════');
+  console.error('⚠️ UNHANDLED PROMISE REJECTION DETECTED');
+  console.error('═══════════════════════════════════════');
+  console.error('Reason:', reason);
+
+  try {
+    await sendDevOpsAlert({
+      severity: SEVERITY.WARNING,
+      service: 'Node.js Process',
+      title: 'Unhandled Promise Rejection',
+      description: 'Một Promise bị reject nhưng không có .catch() handler.',
+      action: 'Logged — không ảnh hưởng hoạt động server',
+      result: '⚠️ LOGGED',
+      errorStack: reason instanceof Error ? reason.stack : String(reason),
+    });
+  } catch (notifyErr) {
+    console.error('[CrashProtection] Failed to send Discord alert:', notifyErr.message);
+  }
+});
+
+// ══════════════════════════════════════
+// GRACEFUL SHUTDOWN
+// ══════════════════════════════════════
+async function gracefulShutdown(signal) {
+  console.log(`\n🛑 Received ${signal} — Initiating graceful shutdown...`);
+
+  try {
+    await sendDevOpsAlert({
+      severity: SEVERITY.WARNING,
+      service: 'Server',
+      title: `Server Shutting Down (${signal})`,
+      description: 'Server đang tắt an toàn. Tất cả connections sẽ được đóng.',
+      action: 'Graceful shutdown',
+      result: '🛑 SHUTTING DOWN',
+    });
+  } catch (e) { /* ignore */ }
+
+  stopSelfHealingEngine();
+  stopHealthCheckDaemon();
+
+  server.close(() => {
+    console.log('✅ HTTP server closed.');
+    process.exit(0);
+  });
+
+  // Force kill after 15 seconds
+  setTimeout(() => {
+    console.error('⚠️ Forced shutdown after 15s timeout');
+    process.exit(1);
+  }, 15000);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// ══════════════════════════════════════
+// START SERVER & DISCORD BOT RUNNER
 // ══════════════════════════════════════
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`OceanForge Server listening on port ${PORT}`);
   console.log(`Security layers active: Helmet, CORS whitelist, Rate Limiting, Sanitization, Socket JWT`);
+
+  // ── Start Self-Healing DevOps Engine ──
+  startSelfHealingEngine({ io, server });
+  startHealthCheckDaemon();
+  console.log('🛡️  Self-Healing DevOps Engine activated!');
+
+  // Auto-launch Discord Bot Client Listener
+  try {
+    const { fork } = require('child_process');
+    const botPath = path.join(__dirname, 'bot/runnerAxios.js');
+    fork(botPath, [], { stdio: 'inherit' });
+    console.log('🤖 Discord Bot Service automatically launched alongside Server!');
+  } catch (botErr) {
+    console.error('Failed to launch Discord Bot runner:', botErr.message);
+  }
 });

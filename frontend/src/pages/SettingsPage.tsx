@@ -2,13 +2,28 @@ import React, { useState } from 'react';
 import { useApp } from '../store';
 import { Settings, Key, RefreshCw, Copy, Check, Trash2, Clock } from 'lucide-react';
 import { api } from '../utils/api';
+import { UserCard } from '../components/UserCard';
 
 export const SettingsPage: React.FC = () => {
-  const { user, regenerateApiKey, logout } = useApp();
+  const { user, regenerateApiKey, logout, updateUser } = useApp();
   const [scriptCopied, setScriptCopied] = useState(false);
   const [isCopyingScript, setIsCopyingScript] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [tokenExpiry, setTokenExpiry] = useState<'24h' | '32h' | '72h'>('24h');
+
+  const handleUpdateNickname = async (newNickname: string): Promise<boolean> => {
+    try {
+      const res = await api.put('/auth/nickname', { nickname: newNickname });
+      if (res.success && user) {
+        updateUser({ ...user, nickname: newNickname });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error updating nickname:', err);
+      return false;
+    }
+  };
 
   const BACKEND_URL = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
   const displayLoaderScript = `loadstring(game:HttpGet("${BACKEND_URL}/api/lua/load?token=..."))()`;
@@ -93,6 +108,169 @@ export const SettingsPage: React.FC = () => {
         <p className="text-slate-400 text-sm mt-1">Configure credentials, security channels, and access tokens</p>
       </div>
 
+      {/* User Identity Card & Discord Link Form */}
+      {user && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+          <UserCard user={user} onUpdateNickname={handleUpdateNickname} />
+
+          {/* Discord Verification Box */}
+          <div className="glass-panel p-6 border border-cyan-500/20 space-y-4">
+            <div className="flex items-center gap-3 text-cyan-400">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center flex-shrink-0">
+                <span className="text-xl">🧬</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-base">Liên Kết Tài Khoản Discord</h3>
+                <p className="text-xs text-slate-400">Nhập mã xác thực từ lệnh <code className="text-cyan-300 font-mono">/link</code> trên Discord</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Ví dụ: 7F2X-K91P"
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-cyan-300 font-mono focus:outline-none focus:border-cyan-500/50 uppercase"
+                  maxLength={15}
+                  id="linkCodeInput"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const input = document.getElementById('linkCodeInput') as HTMLInputElement;
+                    const code = input?.value?.trim();
+                    if (!code) {
+                      showToast('Vui lòng nhập mã xác thực từ Discord', 'error');
+                      return;
+                    }
+                    try {
+                      const res = await api.post('/bot/link/confirm', { code });
+                      if (res.success) {
+                        showToast('✓ Đã liên kết tài khoản Discord thành công!');
+                        input.value = '';
+                        // Refresh profile
+                        const me = await api.get('/auth/me');
+                        if (me.success) updateUser(me.user);
+                      } else {
+                        showToast(res.message || 'Mã xác thực không hợp lệ', 'error');
+                      }
+                    } catch (err: any) {
+                      showToast(err.message || 'Lỗi khi kết nối tới máy chủ', 'error');
+                    }
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold text-xs shadow-lg shadow-cyan-500/20 transition cursor-pointer"
+                >
+                  Xác Nhận
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Mở Discord ➔ Vào kênh <span className="text-cyan-300 font-semibold">#🧬・liên-kết-tài-khoản</span> ➔ Gõ <code className="text-cyan-300 font-mono">/link</code> để lấy mã xác thực.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Broadcast Panel (Only visible to Owner / Admin / Developer) */}
+      {user && ['Owner', 'Admin', 'Developer'].includes(user.role || '') && (
+        <div className="glass-panel p-6 border border-purple-500/30 space-y-4">
+          <div className="flex justify-between items-center flex-wrap gap-2 border-b border-purple-500/20 pb-4">
+            <div className="flex items-center gap-3 text-purple-400">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
+                <span className="text-xl">🚀</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-base">Phát Thông Báo Nâng Cấp / Bảo Trì Tới Discord</h3>
+                <p className="text-xs text-slate-400">Tự động phát thẻ Embed tin nhắn cực đẹp tới kênh <code className="text-purple-300 font-mono">#🚀・cập-nhật-hệ-thống</code></p>
+              </div>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-extrabold uppercase">
+              👑 Admin Only
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5 font-medium">Loại Thông Báo</label>
+              <select
+                id="broadcastType"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
+              >
+                <option value="UPDATE">🚀 Cập Nhật Hệ Thống (Update)</option>
+                <option value="MAINTENANCE">🛠️ Bảo Trì Web Dashboard (Maintenance)</option>
+                <option value="ANNOUNCEMENT">📢 Thông Báo Chung (Announcement)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5 font-medium">Phiên Bản / Tiêu Đề</label>
+              <input
+                type="text"
+                id="broadcastVersion"
+                placeholder="Ví dụ: v2.5.0 hoặc Bảo trì Server"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
+                defaultValue="v2.5.0"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5 font-medium">Thời Gian Dự Kiến (Nếu bảo trì)</label>
+              <input
+                type="text"
+                id="broadcastDuration"
+                placeholder="Ví dụ: 30 phút"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
+                defaultValue="30 phút"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5 font-medium">Chi Tiết Nâng Cấp / Lý Do Bảo Trì</label>
+            <textarea
+              id="broadcastContent"
+              rows={3}
+              placeholder="Nhập chi tiết các tính năng mới được cập nhật hoặc lý do bảo trì..."
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-purple-500/50 font-mono"
+              defaultValue="• Tự động nâng cấp hệ thống Discord Bot Realtime.\n• Tối ưu tốc độ phản hồi lệnh Slash Commands.\n• Thêm kênh chào mừng thành viên mới và hệ thống phát thông báo."
+            />
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={async () => {
+                const typeEl = document.getElementById('broadcastType') as HTMLSelectElement;
+                const versionEl = document.getElementById('broadcastVersion') as HTMLInputElement;
+                const durationEl = document.getElementById('broadcastDuration') as HTMLInputElement;
+                const contentEl = document.getElementById('broadcastContent') as HTMLTextAreaElement;
+
+                try {
+                  const res = await api.post('/bot/broadcast', {
+                    type: typeEl.value,
+                    version: versionEl.value,
+                    duration: durationEl.value,
+                    content: contentEl.value,
+                    author: user.nickname || user.username
+                  });
+
+                  if (res.success) {
+                    showToast(`✓ ${res.message}`);
+                  } else {
+                    showToast(res.message || 'Lỗi gửi thông báo', 'error');
+                  }
+                } catch (err: any) {
+                  showToast(err.message || 'Lỗi kết nối máy chủ', 'error');
+                }
+              }}
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg shadow-purple-500/20 transition cursor-pointer flex items-center gap-2"
+            >
+              <span>🚀</span> Phát Thông Báo Tới Discord
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* API Key settings panel */}
       <div className="glass-panel p-6 border border-gold/10 space-y-6">
         <div className="flex justify-between items-start gap-4 flex-col sm:flex-row">
@@ -127,11 +305,10 @@ export const SettingsPage: React.FC = () => {
                     key={expiryOption}
                     type="button"
                     onClick={() => setTokenExpiry(expiryOption)}
-                    className={`px-3 py-1 rounded-lg text-xs font-extrabold transition cursor-pointer ${
-                      tokenExpiry === expiryOption
+                    className={`px-3 py-1 rounded-lg text-xs font-extrabold transition cursor-pointer ${tokenExpiry === expiryOption
                         ? 'bg-gold text-ocean-abyss shadow-md'
                         : 'text-slate-400 hover:text-white hover:bg-slate-900'
-                    }`}
+                      }`}
                   >
                     {expiryOption}
                   </button>
@@ -290,11 +467,10 @@ export const SettingsPage: React.FC = () => {
       {/* Glassmorphic Toast Notification */}
       {toastMsg && (
         <div className="fixed bottom-6 right-6 z-50 animate-bounce-in">
-          <div className={`px-5 py-3 rounded-xl border backdrop-blur-md shadow-2xl flex items-center gap-3 text-xs font-bold ${
-            toastMsg.type === 'success'
+          <div className={`px-5 py-3 rounded-xl border backdrop-blur-md shadow-2xl flex items-center gap-3 text-xs font-bold ${toastMsg.type === 'success'
               ? 'bg-emerald-950/80 border-emerald-500/30 text-emerald-300'
               : 'bg-red-950/80 border-red-500/30 text-red-300'
-          }`}>
+            }`}>
             <span className="w-2 h-2 rounded-full animate-ping bg-current" />
             <span>{toastMsg.text}</span>
           </div>

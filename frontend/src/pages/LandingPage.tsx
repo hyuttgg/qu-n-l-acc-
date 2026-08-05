@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, Activity, Sparkles, Compass, Trophy } from 'lucide-react';
+import DecryptedText from '../components/DecryptedText';
+
 export const LandingPage: React.FC = () => {
 
   return (
@@ -53,10 +55,27 @@ export const LandingPage: React.FC = () => {
         {/* Left Intro Panel */}
         <div className="flex-1 text-center lg:text-left space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-ocean-cyan/10 border border-ocean-cyan/30 text-ocean-cyan text-sm font-semibold">
-            <Sparkles className="w-4 h-4" /> The Ultimate Blox Fruits SaaS Panel
+            <Sparkles className="w-4 h-4" />{' '}
+            <DecryptedText
+              text="The Ultimate Blox Fruits SaaS Panel"
+              speed={40}
+              animateOn="view"
+              revealDirection="center"
+            />
           </div>
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight leading-none text-white">
-            Forge Your <span className="bg-gradient-to-r from-gold to-gold-light bg-clip-text text-transparent glow-text-gold">Grand Line</span> Fleet
+            Forge Your{' '}
+            <DecryptedText
+              text="Grand Line"
+              speed={70}
+              maxIterations={15}
+              sequential={true}
+              revealDirection="start"
+              className="bg-gradient-to-r from-gold via-gold-light to-gold bg-clip-text text-transparent glow-text-gold"
+              encryptedClassName="text-gold/50 font-mono opacity-80"
+              animateOn="view"
+            />{' '}
+            Fleet
           </h1>
           <p className="text-lg text-slate-300 max-w-xl mx-auto lg:mx-0">
             Monitor, track, and manage your Roblox characters in realtime. Auto-compile game logs, inventory structures, drop notifications, and level growth.

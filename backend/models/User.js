@@ -14,6 +14,8 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please add an email'],
     unique: true,
+    lowercase: true,
+    trim: true,
     match: [
       /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
       'Please add a valid email',
@@ -22,7 +24,9 @@ const UserSchema = new mongoose.Schema({
   password: {
     type: String,
     required: function() {
-      return !this.googleId && !this.discordId;
+      // Required only if creating a new non-OAuth user
+      if (this.isNew && !this.googleId && !this.discordId) return true;
+      return false;
     },
     minlength: 6,
     select: false,
@@ -37,14 +41,40 @@ const UserSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
   },
+  discriminator: {
+    type: String,
+    default: '0',
+  },
   avatar: {
     type: String,
     default: null,
   },
+  nickname: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  userCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
   role: {
     type: String,
-    enum: ['user', 'admin'],
-    default: 'user',
+    enum: ['Owner', 'Admin', 'Moderator', 'Developer', 'Premium', 'VIP', 'Member', 'Guest', 'user', 'admin'],
+    default: 'Member',
+  },
+  joinDate: {
+    type: Date,
+    default: Date.now,
+  },
+  lastLogin: {
+    type: Date,
+    default: Date.now,
+  },
+  loginCount: {
+    type: Number,
+    default: 1,
   },
   apiKey: {
     type: String,
@@ -73,10 +103,20 @@ UserSchema.pre('save', async function (next) {
 });
 
 // ───── Generate API key before saving if not present ─────
-UserSchema.pre('save', function (next) {
+UserSchema.pre('save', async function (next) {
   if (!this.apiKey) {
     this.apiKey = 'forge_' + crypto.randomBytes(24).toString('hex');
   }
+
+  // Generate User Code and Nickname if missing
+  const { generateUserCode, generateNickname } = require('../utils/identityGenerator');
+  if (!this.userCode) {
+    this.userCode = await generateUserCode();
+  }
+  if (!this.nickname) {
+    this.nickname = await generateNickname();
+  }
+
   next();
 });
 

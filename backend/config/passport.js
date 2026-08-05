@@ -58,14 +58,18 @@ module.exports = function (passport) {
         }
 
         try {
+          const { generateUserCode, generateNickname } = require('../utils/identityGenerator');
+          const discriminator = profile.discriminator || '0';
+
           // If DB connection is fallback/offline
           if (!global.dbConnected) {
             let user = mockStore.findUserByDiscordId(discordId) || (email ? mockStore.findUserByEmail(email) : null);
             if (user) {
-              if (!user.discordId) {
-                user.discordId = discordId;
-              }
+              if (!user.discordId) user.discordId = discordId;
               user.avatar = avatarUrl;
+              user.discriminator = discriminator;
+              user.lastLogin = new Date();
+              user.loginCount = (user.loginCount || 0) + 1;
               return done(null, user);
             }
 
@@ -75,7 +79,8 @@ module.exports = function (passport) {
               null,
               null,
               discordId,
-              avatarUrl
+              avatarUrl,
+              discriminator
             );
             return done(null, user);
           }
@@ -90,19 +95,21 @@ module.exports = function (passport) {
           }
 
           if (user) {
-            // Link discordId if user registered via email previously and update avatar
-            let modified = false;
-            if (!user.discordId) {
-              user.discordId = discordId;
-              modified = true;
+            // Update fields & metrics on login
+            if (!user.discordId) user.discordId = discordId;
+            user.avatar = avatarUrl;
+            user.discriminator = discriminator;
+            user.lastLogin = new Date();
+            user.loginCount = (user.loginCount || 0) + 1;
+
+            if (!user.userCode) {
+              user.userCode = await generateUserCode();
             }
-            if (user.avatar !== avatarUrl) {
-              user.avatar = avatarUrl;
-              modified = true;
+            if (!user.nickname) {
+              user.nickname = await generateNickname();
             }
-            if (modified) {
-              await user.save();
-            }
+
+            await user.save();
             return done(null, user);
           }
 
@@ -115,15 +122,25 @@ module.exports = function (passport) {
             return done(new Error('ip_limit'), null);
           }
 
-          // Create new user
+          // Create new user with full Identity metadata
           const cleanedName = displayName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
           const username = (cleanedName.length > 15 ? cleanedName.substring(0, 15) : cleanedName) + '_' + Math.random().toString(36).substring(2, 5);
+
+          const userCode = await generateUserCode();
+          const nickname = await generateNickname();
 
           user = await User.create({
             username,
             email: email || `${discordId}@discord.auth`,
             discordId,
+            discriminator,
             avatar: avatarUrl,
+            nickname,
+            userCode,
+            role: 'Member',
+            joinDate: new Date(),
+            lastLogin: new Date(),
+            loginCount: 1,
             creationIp: ip,
           });
 

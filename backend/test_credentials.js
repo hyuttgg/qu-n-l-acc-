@@ -43,7 +43,7 @@ const runTest = async () => {
   const password = 'testpassword123';
   
   console.log(`Registering test user: ${username} (${email})...`);
-  const registerResult = await request('POST', '/api/auth/register', {}, { username, email, password });
+  const registerResult = await request('POST', '/api/auth/register', {}, { username, email, password, captcha: 'mock_captcha_token' });
   
   if (!registerResult.success) {
     console.error('Registration failed:', registerResult);
@@ -56,8 +56,8 @@ const runTest = async () => {
   
   // 2. Try to update email with incorrect password
   console.log('\n1. Testing update-email with incorrect password...');
-  const badEmailRes = await request('PUT', '/api/auth/update-email', { 'Authorization': `Bearer ${token}` }, {
-    newEmail: `updated_${email}`,
+  const badEmailRes = await request('PUT', '/api/auth/email', { 'Authorization': `Bearer ${token}` }, {
+    email: `updated_${email}`,
     password: 'wrongpassword'
   });
   console.log('Response (Expected Failure):', badEmailRes);
@@ -70,13 +70,13 @@ const runTest = async () => {
   // 3. Try to update email with correct password
   console.log('\n2. Testing update-email with correct password...');
   const newEmailValue = `updated_${email}`;
-  const goodEmailRes = await request('PUT', '/api/auth/update-email', { 'Authorization': `Bearer ${token}` }, {
-    newEmail: newEmailValue,
+  const goodEmailRes = await request('PUT', '/api/auth/email', { 'Authorization': `Bearer ${token}` }, {
+    email: newEmailValue,
     password: password
   });
   console.log('Response (Expected Success):', goodEmailRes);
-  if (goodEmailRes.success && goodEmailRes.user.email === newEmailValue) {
-    console.log('Success: Email updated successfully to:', goodEmailRes.user.email);
+  if (goodEmailRes.success && goodEmailRes.email === newEmailValue) {
+    console.log('Success: Email updated successfully to:', goodEmailRes.email);
   } else {
     console.error('Error: Email update failed:', goodEmailRes);
   }
@@ -98,7 +98,7 @@ const runTest = async () => {
 
   // 6. Try to update password with incorrect current password
   console.log('\n5. Testing update-password with incorrect current password...');
-  const badPassRes = await request('PUT', '/api/auth/update-password', { 'Authorization': `Bearer ${newToken}` }, {
+  const badPassRes = await request('PUT', '/api/auth/password', { 'Authorization': `Bearer ${newToken}` }, {
     currentPassword: 'wrongpassword',
     newPassword: 'newpassword123'
   });
@@ -106,7 +106,7 @@ const runTest = async () => {
 
   // 7. Try to update password with correct current password
   console.log('\n6. Testing update-password with correct current password...');
-  const goodPassRes = await request('PUT', '/api/auth/update-password', { 'Authorization': `Bearer ${newToken}` }, {
+  const goodPassRes = await request('PUT', '/api/auth/password', { 'Authorization': `Bearer ${newToken}` }, {
     currentPassword: password,
     newPassword: 'newpassword123'
   });

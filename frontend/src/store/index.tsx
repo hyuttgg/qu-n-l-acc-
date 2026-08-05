@@ -9,6 +9,13 @@ interface User {
   role: string;
   apiKey: string;
   avatar?: string;
+  discriminator?: string;
+  nickname?: string;
+  userCode?: string;
+  joinDate?: string;
+  lastLogin?: string;
+  loginCount?: number;
+  discordId?: string;
 }
 
 interface Account {
