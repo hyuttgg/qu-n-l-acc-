@@ -51,7 +51,16 @@ module.exports = function (passport) {
         const email = profile.email || null;
         const displayName = profile.global_name || profile.username || 'DiscordUser';
         const discordId = profile.id;
-        const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        const rawIp = req.headers['x-forwarded-for'] || req.ip || req.socket.remoteAddress || '127.0.0.1';
+        const ip = rawIp.split(',')[0].trim();
+        const isLocalhostOrPrivate = 
+          ip === '127.0.0.1' || 
+          ip === '::1' || 
+          ip.includes('127.0.0.1') || 
+          ip.startsWith('192.168.') || 
+          ip.startsWith('10.') || 
+          ip.startsWith('172.16.') || 
+          ip.startsWith('172.31.');
 
         // Construct Discord Avatar CDN URL
         let avatarUrl = null;
@@ -98,10 +107,10 @@ module.exports = function (passport) {
           }
 
           // Database connected path
-          // Look up user by Discord ID or Email
+          // Look up user strictly by Discord ID first, or by valid non-empty Email
           let user = null;
-          if (email) {
-            user = await User.findOne({ $or: [{ discordId }, { email }] });
+          if (email && email.trim()) {
+            user = await User.findOne({ $or: [{ discordId }, { email: email.trim() }] });
           } else {
             user = await User.findOne({ discordId });
           }
@@ -125,13 +134,15 @@ module.exports = function (passport) {
             return done(null, user);
           }
 
-          // SECURITY CHECK: Multiple Discord accounts created on a single IP (limit to 3)
-          const discordCountOnIp = await User.countDocuments({
-            creationIp: ip,
-            discordId: { $exists: true }
-          });
-          if (discordCountOnIp >= 3) {
-            return done(new Error('ip_limit'), null);
+          // SECURITY CHECK: Multiple Discord accounts created on a single IP (exempt local/private IPs, max 10 for public IPs)
+          if (!isLocalhostOrPrivate) {
+            const discordCountOnIp = await User.countDocuments({
+              creationIp: ip,
+              discordId: { $exists: true }
+            });
+            if (discordCountOnIp >= 10) {
+              return done(new Error('ip_limit'), null);
+            }
           }
 
           // Create new user with full Identity metadata
