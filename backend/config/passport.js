@@ -19,6 +19,10 @@ module.exports = function (passport) {
     if (!/^https?:\/\//i.test(raw)) {
       raw = `https://${raw}`;
     }
+    // Guarantee /api prefix for Nginx proxy pass compatibility
+    if (!raw.includes('/api/') && raw.includes('/auth/')) {
+      raw = raw.replace('/auth/', '/api/auth/');
+    }
     return raw;
   };
 
