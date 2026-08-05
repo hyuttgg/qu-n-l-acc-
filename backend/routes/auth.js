@@ -365,6 +365,18 @@ router.put('/password', protect, validate(updatePasswordSchema), async (req, res
   }
 });
 
+// Helper to construct exact dynamic callback URL for OAuth strategies
+const getDynamicDiscordCallbackUrl = (req) => {
+  if (process.env.DISCORD_CALLBACK_URL && process.env.DISCORD_CALLBACK_URL.trim()) {
+    let url = process.env.DISCORD_CALLBACK_URL.trim();
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+    return url;
+  }
+  const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+  const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:5000';
+  const baseUrl = req.baseUrl || '/api/auth';
+  return `${proto}://${host}${baseUrl}/discord/callback`;
+};
 
 // @desc    Auth with Discord
 // @route   GET /api/auth/discord
@@ -374,14 +386,16 @@ router.get('/discord', (req, res, next) => {
     console.error('❌ DISCORD OAUTH ERROR: DISCORD_CLIENT_ID or DISCORD_CLIENT_SECRET missing in .env');
     return res.redirect(getRedirectUrl('/login?error=discord_not_configured'));
   }
-  passport.authenticate('discord')(req, res, next);
+  const callbackURL = getDynamicDiscordCallbackUrl(req);
+  passport.authenticate('discord', { callbackURL })(req, res, next);
 });
 
 // @desc    Discord auth callback
 // @route   GET /api/auth/discord/callback
 // @access  Public
 router.get('/discord/callback', (req, res, next) => {
-  passport.authenticate('discord', { session: false }, (err, user, info) => {
+  const callbackURL = getDynamicDiscordCallbackUrl(req);
+  passport.authenticate('discord', { callbackURL, session: false }, (err, user, info) => {
     if (err) {
       console.error('❌ Discord OAuth Callback Error:', err.message || err);
       securityLogger.error('Discord OAuth callback error', {
