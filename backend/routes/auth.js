@@ -365,11 +365,13 @@ router.put('/password', protect, validate(updatePasswordSchema), async (req, res
   }
 });
 
-// Helper to construct exact dynamic callback URL for OAuth strategies
 const getDynamicDiscordCallbackUrl = (req) => {
   if (process.env.DISCORD_CALLBACK_URL && process.env.DISCORD_CALLBACK_URL.trim()) {
     let url = process.env.DISCORD_CALLBACK_URL.trim();
     if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+    if (!url.includes('/api/') && url.includes('/auth/')) {
+      url = url.replace('/auth/', '/api/auth/');
+    }
     return url;
   }
   const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
@@ -397,16 +399,18 @@ router.get('/discord/callback', (req, res, next) => {
   const callbackURL = getDynamicDiscordCallbackUrl(req);
   passport.authenticate('discord', { callbackURL, session: false }, (err, user, info) => {
     if (err) {
-      console.error('❌ Discord OAuth Callback Error:', err.message || err);
+      const errorMsg = err.oauthError ? (typeof err.oauthError === 'string' ? err.oauthError : JSON.stringify(err.oauthError)) : (err.message || String(err));
+      console.error('❌ Discord OAuth Callback TokenError Details:', errorMsg);
       securityLogger.error('Discord OAuth callback error', {
-        error: err.message || String(err),
+        error: err.name || 'TokenError',
+        details: errorMsg,
         stack: err.stack,
         url: req.originalUrl
       });
       if (err.message === 'ip_limit') {
         return res.redirect(getRedirectUrl(`/login?error=discord_ip_limit`));
       }
-      const reason = encodeURIComponent(err.message || 'authentication_failed');
+      const reason = encodeURIComponent(errorMsg.length > 80 ? errorMsg.substring(0, 80) : errorMsg);
       return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reason}`));
     }
     if (!user) {
