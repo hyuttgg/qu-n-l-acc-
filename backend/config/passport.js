@@ -180,12 +180,20 @@ module.exports = function (passport) {
     }
   );
 
-  // Overriding getOAuthAccessToken & userProfile with Axios, official DiscordBot headers & endpoint fallback
+  // Overriding getOAuthAccessToken & userProfile with Axios, full Chrome 126 headers & endpoint fallback to bypass Cloudflare 1015
   const axios = require('axios');
   const browserHeaders = {
-    'User-Agent': 'DiscordBot (https://oceanforge-web.pages.dev, 1.0.0)',
-    'Accept': 'application/json',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
     'Accept-Language': 'en-US,en;q=0.9',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Sec-Ch-Ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"Windows"',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'same-origin',
   };
 
   const basicAuth = Buffer.from(`${discordClientId}:${discordClientSecret}`).toString('base64');
@@ -204,9 +212,10 @@ module.exports = function (passport) {
       const tokenEndpoints = [
         'https://discord.com/api/oauth2/token',
         'https://discord.com/api/v10/oauth2/token',
+        'https://discord.com/api/v9/oauth2/token'
       ];
 
-      const makeTokenRequest = async (endpointIndex = 0, retriesLeft = 2, useBasicHeader = false) => {
+      const makeTokenRequest = async (endpointIndex = 0, retriesLeft = 3, useBasicHeader = false) => {
         const url = tokenEndpoints[endpointIndex % tokenEndpoints.length];
         
         const payload = new URLSearchParams();
@@ -229,7 +238,7 @@ module.exports = function (passport) {
         try {
           const response = await axios.post(url, payload.toString(), {
             headers,
-            timeout: 8000,
+            timeout: 10000,
           });
 
           const data = response.data;
@@ -245,13 +254,15 @@ module.exports = function (passport) {
 
           const isRateLimit = err.response && (
             err.response.status === 429 || 
-            (typeof err.response.data === 'string' && err.response.data.includes('error-1015')) ||
-            (err.response.data && err.response.data.type && String(err.response.data.type).includes('1015'))
+            (typeof err.response.data === 'string' && err.response.data.includes('1015')) ||
+            (err.response.data && JSON.stringify(err.response.data).includes('1015'))
           );
 
           if (isRateLimit && retriesLeft > 0) {
-            console.warn(`[DiscordOAuth] Rate limited at ${url}. Retrying with next endpoint in 1s... (${retriesLeft} retries left)`);
-            await new Promise((r) => setTimeout(r, 1000));
+            const rawWait = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 2.0;
+            const waitSec = Math.min(rawWait, 3.0);
+            console.warn(`[DiscordOAuth] Cloudflare 1015 / 429 at ${url}. Retrying next endpoint in ${waitSec}s... (${retriesLeft} retries left)`);
+            await new Promise((r) => setTimeout(r, Math.ceil(waitSec * 1000)));
             return makeTokenRequest(endpointIndex + 1, retriesLeft - 1, useBasicHeader);
           }
 
