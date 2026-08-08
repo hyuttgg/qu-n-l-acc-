@@ -253,8 +253,7 @@ module.exports = function (passport) {
           return done(err, null);
         }
       }
-    )
-  );
+    );
 
   if (googleStrat._oauth2) {
     googleStrat._oauth2._customHeaders = {
