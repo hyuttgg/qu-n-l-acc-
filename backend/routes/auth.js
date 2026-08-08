@@ -24,9 +24,8 @@ const getSignedJwtToken = (id) => {
 
 // Helper to get safe redirect URL (bulletproofs against missing http/https protocols in env configs)
 const getRedirectUrl = (path = '') => {
-  let baseUrl = process.env.FRONTEND_URL || 'https://oceanforge-web.pages.dev';
-  baseUrl = baseUrl.trim();
-  if (baseUrl.includes('manageblox.io.vn')) {
+  let baseUrl = (process.env.FRONTEND_URL || '').trim();
+  if (!baseUrl || baseUrl.includes('manageblox.io.vn') || baseUrl.includes('vercel')) {
     baseUrl = 'https://oceanforge-web.pages.dev';
   }
   if (!/^https?:\/\//i.test(baseUrl)) {
