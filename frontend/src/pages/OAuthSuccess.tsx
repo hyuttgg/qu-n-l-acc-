@@ -14,6 +14,7 @@ export const OAuthSuccess: React.FC = () => {
     const code = searchParams.get('code');
 
     if (token) {
+      // Case 1: JWT token provided directly (from backend or edge function)
       oauthLogin(token).then((res: { success: boolean }) => {
         if (res.success) {
           navigate('/dashboard', { replace: true });
@@ -22,10 +23,11 @@ export const OAuthSuccess: React.FC = () => {
         }
       });
     } else if (code) {
-      // Direct browser code-to-token exchange (Bypasses Render datacenter IP Cloudflare 1015 blocks)
+      // Case 2: Discord code forwarded from backend - exchange via Cloudflare Edge Function
       const handleCodeExchange = async () => {
         try {
-          // Call Cloudflare Edge Function (/api/discord-token) to exchange code on Cloudflare Edge network (Trusted IPs)
+          // Call Cloudflare Pages Function to exchange code for access_token
+          // This runs on Cloudflare's edge network (trusted IPs, no 1015 block)
           const tokenRes = await fetch('/api/discord-token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -37,11 +39,20 @@ export const OAuthSuccess: React.FC = () => {
 
           const tokenData = await tokenRes.json();
           if (tokenData.access_token) {
+            // Send access_token to backend for user creation/login
             const loginRes = await api.post('/auth/discord/token-login', {
               access_token: tokenData.access_token,
             });
             if (loginRes.data && loginRes.data.token) {
               const res = await oauthLogin(loginRes.data.token);
+              if (res.success) {
+                navigate('/dashboard', { replace: true });
+                return;
+              }
+            }
+            // If loginRes has a token at top level (api wrapper)
+            if (loginRes.token) {
+              const res = await oauthLogin(loginRes.token);
               if (res.success) {
                 navigate('/dashboard', { replace: true });
                 return;
