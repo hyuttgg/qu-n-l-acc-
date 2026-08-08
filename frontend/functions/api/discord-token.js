@@ -10,23 +10,43 @@ export async function onRequestPost(context) {
       });
     }
 
-    const payload = new URLSearchParams();
-    payload.append('client_id', '1527320103476269076');
-    payload.append('client_secret', 'aUntdurcsEqbyhWSEInrSQh18KzFOxmR');
-    payload.append('grant_type', 'authorization_code');
-    payload.append('code', code);
-    payload.append('redirect_uri', redirect_uri || 'https://quan-ly-acc-viet-nam.onrender.com/api/auth/discord/callback');
+    const DISCORD_CLIENT_ID = context.env?.DISCORD_CLIENT_ID || '1527320103476269076';
+    const DISCORD_CLIENT_SECRET = context.env?.DISCORD_CLIENT_SECRET || 'aUntdurcsEqbyhWSEInrSQh18KzFOxmR';
+    const callbackUri = redirect_uri || 'https://oceanforge-web.pages.dev/api/auth/discord/callback';
 
-    const discordRes = await fetch('https://discord.com/api/v10/oauth2/token', {
+    // Attempt 1: Public Client mode
+    const publicPayload = new URLSearchParams();
+    publicPayload.append('client_id', DISCORD_CLIENT_ID);
+    publicPayload.append('grant_type', 'authorization_code');
+    publicPayload.append('code', code);
+    publicPayload.append('redirect_uri', callbackUri);
+
+    let discordRes = await fetch('https://discord.com/api/v10/oauth2/token', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'DiscordBot (https://oceanforge-web.pages.dev, 1.0.0)',
-      },
-      body: payload.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: publicPayload.toString(),
     });
 
-    const data = await discordRes.json();
+    let data = await discordRes.json();
+
+    // Attempt 2: Confidential Client fallback
+    if (data.error === 'invalid_client') {
+      const secretPayload = new URLSearchParams();
+      secretPayload.append('client_id', DISCORD_CLIENT_ID);
+      secretPayload.append('client_secret', DISCORD_CLIENT_SECRET);
+      secretPayload.append('grant_type', 'authorization_code');
+      secretPayload.append('code', code);
+      secretPayload.append('redirect_uri', callbackUri);
+
+      discordRes = await fetch('https://discord.com/api/v10/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: secretPayload.toString(),
+      });
+
+      data = await discordRes.json();
+    }
+
     return new Response(JSON.stringify(data), {
       status: discordRes.status,
       headers: {
