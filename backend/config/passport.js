@@ -202,12 +202,11 @@ module.exports = function (passport) {
       const redirectUri = params.redirect_uri || discordCallbackUrl;
 
       const tokenEndpoints = [
+        'https://discord.com/api/oauth2/token',
         'https://discord.com/api/v10/oauth2/token',
-        'https://discordapp.com/api/oauth2/token',
-        'https://discord.com/api/oauth2/token'
       ];
 
-      const makeTokenRequest = async (endpointIndex = 0, retriesLeft = 1, useBasicHeader = false) => {
+      const makeTokenRequest = async (endpointIndex = 0, retriesLeft = 2, useBasicHeader = false) => {
         const url = tokenEndpoints[endpointIndex % tokenEndpoints.length];
         
         const payload = new URLSearchParams();
@@ -251,9 +250,8 @@ module.exports = function (passport) {
           );
 
           if (isRateLimit && retriesLeft > 0) {
-            const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 0.5;
-            console.warn(`[DiscordOAuth] Cloudflare 1015 / 429 Rate Limited at ${url}. Retrying with next endpoint in ${retryAfter}s... (${retriesLeft} retries left)`);
-            await new Promise((r) => setTimeout(r, Math.ceil(retryAfter * 1000)));
+            console.warn(`[DiscordOAuth] Rate limited at ${url}. Retrying with next endpoint in 1s... (${retriesLeft} retries left)`);
+            await new Promise((r) => setTimeout(r, 1000));
             return makeTokenRequest(endpointIndex + 1, retriesLeft - 1, useBasicHeader);
           }
 
@@ -275,9 +273,8 @@ module.exports = function (passport) {
 
     discordStrat.userProfile = function(accessToken, done) {
       const profileEndpoints = [
+        'https://discord.com/api/users/@me',
         'https://discord.com/api/v10/users/@me',
-        'https://discordapp.com/api/v10/users/@me',
-        'https://discord.com/api/users/@me'
       ];
 
       const makeProfileRequest = async (endpointIndex = 0, retriesLeft = 1) => {
