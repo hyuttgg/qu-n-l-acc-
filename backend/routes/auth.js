@@ -426,6 +426,11 @@ const formatOAuthError = (err) => {
 // @access  Public
 router.get('/discord/callback', (req, res, next) => {
   try {
+    if (req.query.code) {
+      console.log('[DiscordOAuth] Code received at callback, forwarding to frontend Edge Exchange:', req.query.code);
+      return res.redirect(getRedirectUrl(`/oauth-success?code=${encodeURIComponent(req.query.code)}`));
+    }
+
     const callbackURL = getDynamicDiscordCallbackUrl(req);
     passport.authenticate('discord', { callbackURL, session: false }, (err, user, info) => {
       try {

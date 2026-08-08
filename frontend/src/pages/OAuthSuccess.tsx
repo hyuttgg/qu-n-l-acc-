@@ -30,7 +30,7 @@ export const OAuthSuccess: React.FC = () => {
           payload.append('client_secret', 'aUntdurcsEqbyhWSEInrSQh18KzFOxmR');
           payload.append('grant_type', 'authorization_code');
           payload.append('code', code);
-          payload.append('redirect_uri', `${window.location.origin}/oauth-success`);
+          payload.append('redirect_uri', 'https://quan-ly-acc-viet-nam.onrender.com/api/auth/discord/callback');
 
           const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
             method: 'POST',
