@@ -233,7 +233,7 @@ export const RealtimeTracker: React.FC = () => {
             <div className="lg:col-span-8 space-y-6">
               
               {/* Character Header Banner */}
-              <div className="glass-panel p-6 border-l-4 border-l-gold relative overflow-hidden">
+              <div className="glass-panel p-6 border-t-2 border-t-gold relative overflow-hidden">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-3">

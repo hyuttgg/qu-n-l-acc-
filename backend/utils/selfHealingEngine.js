@@ -42,6 +42,7 @@ const CONFIG = {
 
   // Circuit breaker: max consecutive failures before opening
   CIRCUIT_BREAKER_THRESHOLD: 5,
+  CIRCUIT_BREAKER_RESET_TIMEOUT_MS: 15 * 60 * 1000, // 15 minutes auto-reset cooldown
 
   // Max auto-restarts in a time window
   MAX_RESTARTS_IN_WINDOW: 5,
@@ -52,6 +53,9 @@ const CONFIG = {
   MEMORY_WARNING_MB: 512,      // RSS > 512MB → warning
   MEMORY_CRITICAL_MB: 1024,    // RSS > 1GB → critical
   MEMORY_EMERGENCY_MB: 1536,   // RSS > 1.5GB → emergency
+
+  // CPU threshold
+  CPU_CRITICAL_THRESHOLD: 85,  // CPU load > 85% → warning
 
   // Log file max size (100MB)
   LOG_MAX_SIZE_BYTES: 100 * 1024 * 1024,
@@ -125,7 +129,17 @@ class CircuitBreaker {
   }
 
   isOpen(service) {
-    return this.getState(service).isOpen;
+    const state = this.getState(service);
+    if (!state.isOpen) return false;
+
+    // Check if auto-reset cooldown has elapsed (15 minutes)
+    if (state.lastFailure && (Date.now() - new Date(state.lastFailure).getTime() > CONFIG.CIRCUIT_BREAKER_RESET_TIMEOUT_MS)) {
+      console.log(`[CircuitBreaker] Auto-resetting circuit breaker for ${service} after cooldown timeout`);
+      this.reset(service);
+      return false;
+    }
+
+    return true;
   }
 
   reset(service) {
@@ -516,6 +530,67 @@ async function checkSocketIO(io) {
 }
 
 // ═══════════════════════════════════════
+// HEALTH CHECK: CPU Usage
+// ═══════════════════════════════════════
+
+function getCpuTimes() {
+  const cpus = os.cpus();
+  let idle = 0;
+  let total = 0;
+  for (const cpu of cpus) {
+    for (const type in cpu.times) {
+      total += cpu.times[type];
+    }
+    idle += cpu.times.idle;
+  }
+  return { idle, total };
+}
+
+let lastCpuSnapshot = getCpuTimes();
+
+async function checkCPU() {
+  const service = 'CPU';
+  try {
+    const currentSnapshot = getCpuTimes();
+    const idleDiff = currentSnapshot.idle - lastCpuSnapshot.idle;
+    const totalDiff = currentSnapshot.total - lastCpuSnapshot.total;
+    lastCpuSnapshot = currentSnapshot;
+
+    const cpuUsagePercent = totalDiff > 0 
+      ? Math.round((1 - idleDiff / totalDiff) * 100)
+      : 0;
+
+    const result = {
+      service,
+      status: 'healthy',
+      cpuUsagePercent,
+      cores: os.cpus().length,
+    };
+
+    if (cpuUsagePercent >= CONFIG.CPU_CRITICAL_THRESHOLD) {
+      result.status = 'warning';
+      logIncident({ service, type: 'HIGH_CPU_LOAD', cpuUsagePercent });
+
+      if (shouldSendAlert('cpu-high-load')) {
+        await sendDevOpsAlert({
+          severity: SEVERITY.WARNING,
+          service,
+          title: `Tải CPU Cao (${cpuUsagePercent}%)`,
+          description: `Tải CPU trung bình đạt ${cpuUsagePercent}% (ngưỡng: ${CONFIG.CPU_CRITICAL_THRESHOLD}%).`,
+          action: 'Monitoring — đang theo dõi tiến trình hệ thống',
+          result: '⚠️ HIGH CPU',
+          metrics: { 'CPU Usage': `${cpuUsagePercent}%`, 'Cores': os.cpus().length },
+        });
+      }
+    }
+
+    return result;
+  } catch (err) {
+    return { service, status: 'error', error: err.message };
+  }
+}
+
+// ═══════════════════════════════════════
 // HEALTH CHECK: Disk Space
 // ═══════════════════════════════════════
 
@@ -559,6 +634,7 @@ async function runHealthCheck(io, port) {
     checkMongoDB(),
     checkMySQL(),
     checkMemory(),
+    checkCPU(),
     checkExpressHealth(port),
     checkLogFiles(),
     checkSocketIO(io),
@@ -575,7 +651,7 @@ async function runHealthCheck(io, port) {
     circuitBreakers: circuitBreaker.getAllStates(),
   };
 
-  const serviceNames = ['MongoDB', 'MySQL', 'Memory', 'Express', 'LogFiles', 'Socket.IO', 'System'];
+  const serviceNames = ['MongoDB', 'MySQL', 'Memory', 'CPU', 'Express', 'LogFiles', 'Socket.IO', 'System'];
 
   results.forEach((result, idx) => {
     const name = serviceNames[idx];
@@ -605,6 +681,44 @@ async function runHealthCheck(io, port) {
 }
 
 // ═══════════════════════════════════════
+// MANUAL AUTO-FIX TRIGGER
+// ═══════════════════════════════════════
+
+async function triggerAutoFixForService(serviceTarget) {
+  const serviceName = (serviceTarget || '').toString().toLowerCase();
+
+  if (serviceName.includes('mongo')) {
+    circuitBreaker.reset('MongoDB');
+    const res = await checkMongoDB();
+    return { service: 'MongoDB', action: 'manual_reconnect', result: res };
+  }
+
+  if (serviceName.includes('memory')) {
+    circuitBreaker.reset('Memory');
+    if (global.gc) global.gc();
+    if (global.activeUserSessions) global.activeUserSessions.clear();
+    const res = await checkMemory();
+    return { service: 'Memory', action: 'manual_gc_clear', result: res };
+  }
+
+  if (serviceName.includes('express')) {
+    circuitBreaker.reset('Express');
+    const port = process.env.PORT || 5000;
+    const res = await checkExpressHealth(port);
+    return { service: 'Express', action: 'manual_self_ping', result: res };
+  }
+
+  if (serviceName.includes('log')) {
+    const res = await checkLogFiles();
+    return { service: 'LogFiles', action: 'manual_log_rotation', result: res };
+  }
+
+  // Generic reset
+  circuitBreaker.reset(serviceTarget);
+  return { service: serviceTarget, action: 'reset_circuit_breaker', result: { status: 'circuit_reset' } };
+}
+
+// ═══════════════════════════════════════
 // ENGINE START / STOP
 // ═══════════════════════════════════════
 
@@ -615,9 +729,10 @@ function startSelfHealingEngine({ io, server }) {
   console.log('═══════════════════════════════════════════');
   console.log('🛡️  SELF-HEALING DEVOPS ENGINE STARTED');
   console.log(`   Health check interval: ${CONFIG.HEALTH_CHECK_INTERVAL_MS / 1000}s`);
-  console.log(`   Circuit breaker threshold: ${CONFIG.CIRCUIT_BREAKER_THRESHOLD} failures`);
+  console.log(`   Circuit breaker threshold: ${CONFIG.CIRCUIT_BREAKER_THRESHOLD} failures (auto-reset: ${CONFIG.CIRCUIT_BREAKER_RESET_TIMEOUT_MS / 60000}m)`);
   console.log(`   Max restarts: ${CONFIG.MAX_RESTARTS_IN_WINDOW} per ${CONFIG.RESTART_WINDOW_MS / 60000} min`);
   console.log(`   Memory thresholds (RSS): warning ${CONFIG.MEMORY_WARNING_MB}MB | critical ${CONFIG.MEMORY_CRITICAL_MB}MB | emergency ${CONFIG.MEMORY_EMERGENCY_MB}MB`);
+  console.log(`   CPU threshold: ${CONFIG.CPU_CRITICAL_THRESHOLD}%`);
   console.log(`   Mode: ${process.env.NODE_ENV || 'development'} — Discord alerts: ${process.env.NODE_ENV === 'production' ? 'ON' : 'OFF (dev mode)'}`);
   console.log(`   Alert cooldown: ${CONFIG.ALERT_COOLDOWN_MS / 60000} minutes per service`);
   console.log('═══════════════════════════════════════════');
@@ -667,6 +782,8 @@ module.exports = {
   startSelfHealingEngine,
   stopSelfHealingEngine,
   runHealthCheck,
+  checkCPU,
+  triggerAutoFixForService,
   getIncidentLog,
   getLastHealthCheckResult: () => lastHealthCheckResult,
   getCircuitBreakerStates: () => circuitBreaker.getAllStates(),

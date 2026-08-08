@@ -66,7 +66,7 @@ async function sendWelcomeGreeting(member) {
           },
           { 
             name: '🌐 3. Truy Cập Web Dashboard', 
-            value: '👉 Web chính thức: [manageblox.io.vn](https://manageblox.io.vn)', 
+            value: '👉 Web chính thức: [oceanforge-web.pages.dev](https://oceanforge-web.pages.dev)', 
             inline: false 
           }
         ],

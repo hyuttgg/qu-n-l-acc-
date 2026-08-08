@@ -41,6 +41,7 @@ const alertTimestamps = [];
 // Discord API setup
 const token = process.env.DISCORD_BOT_TOKEN;
 const guildId = process.env.DISCORD_GUILD_ID || '1323888389870718977';
+const webhookUrl = process.env.DISCORD_WEBHOOK_URL || process.env.DISCORD_DEVOPS_WEBHOOK || null;
 
 const discordApi = token ? axios.create({
   baseURL: 'https://discord.com/api/v10',
@@ -187,63 +188,80 @@ async function sendDevOpsAlert({
     return notification;
   }
 
-  // Send to Discord
-  if (!discordApi) return notification;
+  // Send to Discord (Bot API first, fallback to Webhook if Bot fails or missing)
+  if (!discordApi && !webhookUrl) return notification;
 
-  try {
-    const channelId = await getAlertChannelId();
-    if (!channelId) return notification;
+  // Build embed fields
+  const fields = [
+    { name: '🔧 Dịch Vụ', value: `\`${service}\``, inline: true },
+    { name: `${config.emoji} Mức Độ`, value: `\`${config.label}\``, inline: true },
+    { name: '📋 Kết Quả', value: `\`${result}\``, inline: true },
+    { name: '⚡ Hành Động Tự Sửa', value: `> ${action}`, inline: false },
+  ];
 
-    recordAlert();
+  if (description) {
+    fields.push({ name: '📝 Chi Tiết', value: description.substring(0, 1024), inline: false });
+  }
 
-    // Build embed fields
-    const fields = [
-      { name: '🔧 Dịch Vụ', value: `\`${service}\``, inline: true },
-      { name: `${config.emoji} Mức Độ`, value: `\`${config.label}\``, inline: true },
-      { name: '📋 Kết Quả', value: `\`${result}\``, inline: true },
-      { name: '⚡ Hành Động Tự Sửa', value: `> ${action}`, inline: false },
-    ];
-
-    if (description) {
-      fields.push({ name: '📝 Chi Tiết', value: description.substring(0, 1024), inline: false });
-    }
-
-    if (errorStack) {
-      fields.push({
-        name: '🐛 Error Stack',
-        value: `\`\`\`\n${errorStack.substring(0, 900)}\n\`\`\``,
-        inline: false,
-      });
-    }
-
-    if (metrics) {
-      const metricsStr = Object.entries(metrics)
-        .map(([k, v]) => `• **${k}**: \`${v}\``)
-        .join('\n');
-      fields.push({ name: '📊 Metrics', value: metricsStr.substring(0, 1024), inline: false });
-    }
-
-    // Ping @everyone only for CRITICAL
-    const pingContent = severity === SEVERITY.CRITICAL
-      ? '@everyone 🚨 **DEVOPS CRITICAL ALERT — CẦN CAN THIỆP NGAY!**'
-      : '';
-
-    await discordApi.post(`/channels/${channelId}/messages`, {
-      content: pingContent,
-      embeds: [{
-        title: `${config.emoji} ${title}`,
-        color: config.color,
-        author: { name: '🛡️ OCEANFORGE SELF-HEALING DEVOPS ENGINE' },
-        fields,
-        footer: {
-          text: `Incident ID: ${notification.id} • OceanForge DevOps Engine`,
-        },
-        timestamp,
-      }],
+  if (errorStack) {
+    fields.push({
+      name: '🐛 Error Stack',
+      value: `\`\`\`\n${errorStack.substring(0, 900)}\n\`\`\``,
+      inline: false,
     });
+  }
 
-  } catch (err) {
-    console.error('[DevOpsNotifier] Discord send failed:', err.message);
+  if (metrics) {
+    const metricsStr = Object.entries(metrics)
+      .map(([k, v]) => `• **${k}**: \`${v}\``)
+      .join('\n');
+    fields.push({ name: '📊 Metrics', value: metricsStr.substring(0, 1024), inline: false });
+  }
+
+  // Ping @everyone only for CRITICAL
+  const pingContent = severity === SEVERITY.CRITICAL
+    ? '@everyone 🚨 **DEVOPS CRITICAL ALERT — CẦN CAN THIỆP NGAY!**'
+    : '';
+
+  const embedPayload = {
+    content: pingContent,
+    embeds: [{
+      title: `${config.emoji} ${title}`,
+      color: config.color,
+      author: { name: '🛡️ OCEANFORGE SELF-HEALING DEVOPS ENGINE' },
+      fields,
+      footer: {
+        text: `Incident ID: ${notification.id} • OceanForge DevOps Engine`,
+      },
+      timestamp,
+    }],
+  };
+
+  let sentSuccessfully = false;
+
+  // 1. Try Bot API first
+  if (discordApi) {
+    try {
+      const channelId = await getAlertChannelId();
+      if (channelId) {
+        recordAlert();
+        await discordApi.post(`/channels/${channelId}/messages`, embedPayload);
+        sentSuccessfully = true;
+      }
+    } catch (err) {
+      console.error('[DevOpsNotifier] Discord Bot API send failed:', err.message);
+    }
+  }
+
+  // 2. Fallback to Webhook if Bot API failed or wasn't configured
+  if (!sentSuccessfully && webhookUrl) {
+    try {
+      recordAlert();
+      await axios.post(webhookUrl, embedPayload, { timeout: 10000 });
+      console.log('[DevOpsNotifier] Alert delivered via Discord Webhook fallback');
+    } catch (webhookErr) {
+      console.error('[DevOpsNotifier] Discord Webhook fallback failed:', webhookErr.message);
+    }
   }
 
   return notification;
@@ -252,6 +270,53 @@ async function sendDevOpsAlert({
 // ═══════════════════════════════════════
 // CONVENIENCE METHODS
 // ═══════════════════════════════════════
+
+async function notifyCritical(service, title, description, errorStack = null) {
+  return sendDevOpsAlert({
+    severity: SEVERITY.CRITICAL,
+    service,
+    title,
+    description,
+    action: 'Cần can thiệp thủ công ngay lập tức',
+    result: '🚨 CRITICAL',
+    errorStack,
+  });
+}
+
+async function notifyError(service, title, description, errorStack = null) {
+  return sendDevOpsAlert({
+    severity: SEVERITY.ERROR,
+    service,
+    title,
+    description,
+    action: 'Auto-fix thất bại hoặc cần kiểm tra',
+    result: '❌ ERROR',
+    errorStack,
+  });
+}
+
+async function notifyWarning(service, title, description, metrics = null) {
+  return sendDevOpsAlert({
+    severity: SEVERITY.WARNING,
+    service,
+    title,
+    description,
+    action: 'Đang theo dõi tự động',
+    result: '⚠️ WARNING',
+    metrics,
+  });
+}
+
+async function notifyInfo(service, title, description, action = 'N/A') {
+  return sendDevOpsAlert({
+    severity: SEVERITY.INFO,
+    service,
+    title,
+    description,
+    action,
+    result: '✅ INFO',
+  });
+}
 
 async function notifyAutoFixSuccess(service, title, action) {
   return sendDevOpsAlert({
@@ -330,6 +395,10 @@ async function notifyDeploymentResult({ success, commitHash, branch, error, roll
 module.exports = {
   SEVERITY,
   sendDevOpsAlert,
+  notifyCritical,
+  notifyError,
+  notifyWarning,
+  notifyInfo,
   notifyAutoFixSuccess,
   notifyAutoFixAttempt,
   notifyAutoFixFailed,

@@ -10,6 +10,7 @@ require('dotenv').config();
 const { handleBotCommand } = require('./index');
 const publishBotCommandsChannelIntros = require('./sendBotCommandsChannelIntros');
 const enforceStrictReadOnlyPermissions = require('./setExactChannelPermissions');
+const { notifyInfo, notifyWarning, notifyError } = require('../utils/devopsNotifier');
 
 const token = process.env.DISCORD_BOT_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID || '1527320103476269076';
@@ -31,6 +32,8 @@ let sequence = null;
 let sessionId = null;
 let heartbeatInterval = null;
 let hasPublishedIntros = false;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_DELAY_MS = 60000;
 const channelNameCache = new Map();
 
 /**
@@ -60,12 +63,12 @@ function buildEmbedResponse(commandName, options, res) {
     description = res.apiKey 
       ? `🔑 **Mã API Key của bạn:**\n\`\`\`${res.apiKey}\`\`\`\n` +
         `📜 **Đoạn Code Lua tự động dán vào Executor (Fluxus/Synapse/Delta/Wave):**\n` +
-        `\`\`\`lua\ngetgenv().OceanForgeApiKey = "${res.apiKey}"\ngetgenv().OceanForgeServerUrl = "${res.serverUrl || 'https://api.manageblox.io.vn'}"\nloadstring(game:HttpGet("${res.serverUrl || 'https://api.manageblox.io.vn'}/api/templates/lua"))()\n\`\`\``
+        `\`\`\`lua\ngetgenv().OceanForgeApiKey = "${res.apiKey}"\ngetgenv().OceanForgeServerUrl = "${res.serverUrl || 'https://quan-ly-acc-viet-nam.onrender.com'}"\nloadstring(game:HttpGet("${res.serverUrl || 'https://quan-ly-acc-viet-nam.onrender.com'}/api/templates/lua"))()\n\`\`\``
       : `> ⚠️ ${res.message}`;
     fields = [
       { name: '🟢 Trạng Thái', value: `\`${res.status || 'Active'}\``, inline: true },
       { name: '🆔 User Code', value: `\`${res.userCode || 'USR-DISCORD'}\``, inline: true },
-      { name: '🌐 Server URL', value: `\`${res.serverUrl || 'https://api.manageblox.io.vn'}\``, inline: true },
+      { name: '🌐 Server URL', value: `\`${res.serverUrl || 'https://quan-ly-acc-viet-nam.onrender.com'}\``, inline: true },
     ];
   } else if (commandName === 'createkey') {
     title = '🔑 TẠO MỚI API KEY THÀNH CÔNG';
@@ -73,7 +76,7 @@ function buildEmbedResponse(commandName, options, res) {
     description = res.apiKey 
       ? `🔑 **API Key Mới Của Bạn:**\n\`\`\`${res.apiKey}\`\`\`\n` +
         `📜 **Đoạn Code Lua tự động dán vào Executor:**\n` +
-        `\`\`\`lua\ngetgenv().OceanForgeApiKey = "${res.apiKey}"\ngetgenv().OceanForgeServerUrl = "${res.serverUrl || 'https://api.manageblox.io.vn'}"\nloadstring(game:HttpGet("${res.serverUrl || 'https://api.manageblox.io.vn'}/api/templates/lua"))()\n\`\`\``
+        `\`\`\`lua\ngetgenv().OceanForgeApiKey = "${res.apiKey}"\ngetgenv().OceanForgeServerUrl = "${res.serverUrl || 'https://quan-ly-acc-viet-nam.onrender.com'}"\nloadstring(game:HttpGet("${res.serverUrl || 'https://quan-ly-acc-viet-nam.onrender.com'}/api/templates/lua"))()\n\`\`\``
       : `> ⚠️ ${res.message}`;
   } else if (commandName === 'deletekey') {
     title = '🗑️ XÓA API KEY THÀNH CÔNG';
@@ -252,8 +255,17 @@ function connectGateway() {
         case 0: { // Dispatch Event
           if (t === 'READY') {
             sessionId = d.session_id;
+            reconnectAttempts = 0; // Reset reconnect attempts on success
             console.log(`🤖 DISCORD BOT LIVE! Username: ${d.user.username}#${d.user.discriminator} (ID: ${d.user.id})`);
             console.log('✨ Sẵn sàng lắng nghe Slash Commands & Text Messages!');
+
+            // Send notification to DevOps Notifier
+            notifyInfo(
+              'DiscordBotRunner',
+              'Discord Bot Ready & Online',
+              `Bot ${d.user.username}#${d.user.discriminator} kết nối thành công tới Discord Gateway.`,
+              'Gateway WebSocket Listening'
+            ).catch(() => {});
           }
 
           if (t === 'INTERACTION_CREATE') {
@@ -272,7 +284,9 @@ function connectGateway() {
 
         case 9: { // Invalid Session
           console.log('⚠️ Session invalid, reconnecting...');
-          setTimeout(connectGateway, 5000);
+          const delay = Math.min(5000 * Math.pow(1.5, reconnectAttempts), MAX_RECONNECT_DELAY_MS);
+          reconnectAttempts++;
+          setTimeout(connectGateway, delay);
           break;
         }
       }
@@ -288,9 +302,23 @@ function connectGateway() {
   ws.onclose = (event) => {
     const code = event ? (event.code || event) : 'unknown';
     const reason = event ? (event.reason || '') : '';
-    console.log(`🔌 WebSocket ngắt kết nối (Code ${code}${reason ? ': ' + reason : ''}). Đang kết nối lại sau 5 giây...`);
+    reconnectAttempts++;
+    const delay = Math.min(5000 * Math.pow(1.5, reconnectAttempts - 1), MAX_RECONNECT_DELAY_MS);
+    
+    console.log(`🔌 WebSocket ngắt kết nối (Code ${code}${reason ? ': ' + reason : ''}). Đang thử kết nối lại lần ${reconnectAttempts} sau ${Math.round(delay / 1000)}s...`);
+    
     if (heartbeatInterval) clearInterval(heartbeatInterval);
-    setTimeout(connectGateway, 5000);
+
+    if (reconnectAttempts === 3) {
+      notifyWarning(
+        'DiscordBotRunner',
+        'Mất Kết Nối Discord Gateway',
+        `Bot đã bị ngắt kết nối WebSocket ${reconnectAttempts} lần liên tiếp (Code: ${code}). Đang tự động kết nối lại...`,
+        { 'Lần thử': reconnectAttempts, 'Delay': `${Math.round(delay / 1000)}s` }
+      ).catch(() => {});
+    }
+
+    setTimeout(connectGateway, delay);
   };
 }
 

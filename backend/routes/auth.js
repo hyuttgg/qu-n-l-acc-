@@ -368,16 +368,17 @@ router.put('/password', protect, validate(updatePasswordSchema), async (req, res
 const getDynamicDiscordCallbackUrl = (req) => {
   if (process.env.DISCORD_CALLBACK_URL && process.env.DISCORD_CALLBACK_URL.trim()) {
     let url = process.env.DISCORD_CALLBACK_URL.trim();
+    if (url.includes('manageblox.io.vn')) {
+      url = url.replace(/api\.manageblox\.io\.vn|manageblox\.io\.vn/g, 'quan-ly-acc-viet-nam.onrender.com');
+    }
     if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
     if (!url.includes('/api/') && url.includes('/auth/')) {
       url = url.replace('/auth/', '/api/auth/');
     }
     return url;
   }
-  const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
-  const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:5000';
-  const baseUrl = req.baseUrl || '/api/auth';
-  return `${proto}://${host}${baseUrl}/discord/callback`;
+  const host = process.env.BACKEND_PUBLIC_URL || 'https://quan-ly-acc-viet-nam.onrender.com';
+  return `${host.replace(/\/+$/, '')}/api/auth/discord/callback`;
 };
 
 // @desc    Auth with Discord

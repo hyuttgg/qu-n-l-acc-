@@ -97,25 +97,25 @@ export const DashboardOverview: React.FC = () => {
       {/* Stats Cards Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         {/* Card 1: Total Accounts */}
-        <div className="glass-panel p-5 border-l-4 border-l-ocean-cyan flex flex-col justify-between">
+        <div className="glass-panel p-5 border-t-2 border-t-ocean-cyan flex flex-col justify-between hover:scale-[1.02] transition-transform duration-200">
           <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Accounts</span>
           <div className="mt-2 flex items-baseline gap-1">
             <span className="text-3xl font-black text-white">{summary.totalAccounts}</span>
-            <span className="text-slate-500 text-xs font-bold">accs</span>
+            <span className="text-slate-400 text-xs font-bold">accs</span>
           </div>
         </div>
 
         {/* Card 2: Online Accounts */}
-        <div className="glass-panel p-5 border-l-4 border-l-emerald-500 flex flex-col justify-between">
+        <div className="glass-panel p-5 border-t-2 border-t-emerald-500 flex flex-col justify-between hover:scale-[1.02] transition-transform duration-200">
           <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Online Status</span>
           <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-3xl font-black text-emerald-400 glow-text-cyan">{summary.onlineAccounts}</span>
-            <span className="text-slate-500 text-xs font-bold">online</span>
+            <span className="text-3xl font-black text-emerald-400">{summary.onlineAccounts}</span>
+            <span className="text-slate-400 text-xs font-bold">online</span>
           </div>
         </div>
 
         {/* Card 3: Total Beli */}
-        <div className="glass-panel p-5 border-l-4 border-l-emerald-400 flex flex-col justify-between">
+        <div className="glass-panel p-5 border-t-2 border-t-emerald-400 flex flex-col justify-between hover:scale-[1.02] transition-transform duration-200">
           <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Beli</span>
           <div className="mt-2 flex items-center gap-1.5">
             <Coins className="w-5 h-5 text-emerald-400" />
@@ -124,25 +124,25 @@ export const DashboardOverview: React.FC = () => {
         </div>
 
         {/* Card 4: Total Fragments */}
-        <div className="glass-panel p-5 border-l-4 border-l-purple-500 flex flex-col justify-between">
+        <div className="glass-panel p-5 border-t-2 border-t-indigo-400 flex flex-col justify-between hover:scale-[1.02] transition-transform duration-200">
           <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Fragments</span>
           <div className="mt-2 flex items-center gap-1.5">
-            <Gem className="w-5 h-5 text-purple-400" />
-            <span className="text-2xl font-black text-purple-400">{formatBeli(summary.totalFragments)}</span>
+            <Gem className="w-5 h-5 text-indigo-400" />
+            <span className="text-2xl font-black text-indigo-400">{formatBeli(summary.totalFragments)}</span>
           </div>
         </div>
 
         {/* Card 5: Total Fruits */}
-        <div className="gold-panel p-5 border-l-4 border-l-gold flex flex-col justify-between">
+        <div className="gold-panel p-5 border-t-2 border-t-gold flex flex-col justify-between hover:scale-[1.02] transition-transform duration-200">
           <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Stored Fruits</span>
           <div className="mt-2 flex items-center gap-1.5">
             <Sparkles className="w-5 h-5 text-gold" />
-            <span className="text-2xl font-black text-gold glow-text-gold">{summary.totalFruitsCount}</span>
+            <span className="text-2xl font-black text-gold">{summary.totalFruitsCount}</span>
           </div>
         </div>
 
         {/* Card 6: Total Playtime */}
-        <div className="glass-panel p-5 border-l-4 border-l-blue-500 flex flex-col justify-between">
+        <div className="glass-panel p-5 border-t-2 border-t-sky-400 flex flex-col justify-between hover:scale-[1.02] transition-transform duration-200">
           <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Playtime</span>
           <div className="mt-2 flex items-center gap-1.5">
             <Clock className="w-5 h-5 text-sky-400" />

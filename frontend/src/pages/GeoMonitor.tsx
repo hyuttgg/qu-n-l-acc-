@@ -74,7 +74,7 @@ export const GeoMonitor: React.FC = () => {
   useEffect(() => {
     if (!token) return;
 
-    const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const socketUrl = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
     const socket = io(socketUrl, {
       auth: { token },
       transports: ['websocket', 'polling'],

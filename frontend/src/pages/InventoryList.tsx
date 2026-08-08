@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useApp } from '../store';
 import { ShoppingBag, Search, Sparkles, Swords, Zap, Crown, Box } from 'lucide-react';
 
-const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const BACKEND_URL = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
 
 import { resolveItemImage } from '../utils/itemImageResolver';
 

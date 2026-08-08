@@ -25,7 +25,7 @@ _G.OceanForgeInstanceToken = currentInstanceToken
 
 -- Configuration with Environment Fallbacks
 env.OceanForgeApiKey = env.OceanForgeApiKey or _G.OceanForgeApiKey or ""
-env.OceanForgeServerUrl = env.OceanForgeServerUrl or _G.OceanForgeServerUrl or "https://api.manageblox.io.vn"
+env.OceanForgeServerUrl = env.OceanForgeServerUrl or _G.OceanForgeServerUrl or "https://quan-ly-acc-viet-nam.onrender.com"
 env.OceanForgeHeartbeatInterval = env.OceanForgeHeartbeatInterval or _G.OceanForgeHeartbeatInterval or 15
 env.OceanForgeAntiBan = env.OceanForgeAntiBan ~= false
 env.OceanForgeAntiAFK = env.OceanForgeAntiAFK ~= false

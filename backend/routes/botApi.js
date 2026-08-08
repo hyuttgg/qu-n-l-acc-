@@ -470,7 +470,7 @@ router.get('/apikey', async (req, res) => {
     });
   }
 
-  const serverUrl = process.env.BACKEND_PUBLIC_URL || 'https://api.manageblox.io.vn';
+  const serverUrl = process.env.BACKEND_PUBLIC_URL || 'https://quan-ly-acc-viet-nam.onrender.com';
 
   res.status(200).json({
     success: true,

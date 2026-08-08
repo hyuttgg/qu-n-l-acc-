@@ -13,7 +13,7 @@ local tick, os_date = tick, os.date
 
 -- Configuration
 _G.OceanForgeApiKey = "" -- Injected dynamically by backend
-_G.OceanForgeServerUrl = "https://api.manageblox.io.vn" -- Injected dynamically by backend
+_G.OceanForgeServerUrl = "https://quan-ly-acc-viet-nam.onrender.com" -- Injected dynamically by backend
 _G.OceanForgeHeartbeatInterval = 15 -- Heartbeat in seconds
 _G.OceanForgeEnableRemotes = _G.OceanForgeEnableRemotes or false -- Default false to prevent network remote conflicts with farm scripts (e.g. Banana Hub)
 

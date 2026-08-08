@@ -71,32 +71,32 @@ export const AnalyticsDashboard: React.FC = () => {
 
       {/* Session Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="glass-panel p-6 border-l-4 border-l-gold flex items-center gap-4">
+        <div className="glass-panel p-6 border-t-2 border-t-gold flex items-center gap-4 hover:scale-[1.01] transition-transform">
           <div className="p-3 bg-gold/10 border border-gold/20 rounded-xl text-gold">
             <Activity className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-slate-500 text-xs block font-bold uppercase tracking-wider">Total Sessions</span>
+            <span className="text-slate-400 text-xs block font-bold uppercase tracking-wider">Total Sessions</span>
             <span className="text-2xl font-black text-white mt-1">{metrics.totalSessionsCount}</span>
           </div>
         </div>
 
-        <div className="glass-panel p-6 border-l-4 border-l-ocean-cyan flex items-center gap-4">
+        <div className="glass-panel p-6 border-t-2 border-t-ocean-cyan flex items-center gap-4 hover:scale-[1.01] transition-transform">
           <div className="p-3 bg-ocean-cyan/10 border border-ocean-cyan/20 rounded-xl text-ocean-cyan">
             <Clock className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-slate-500 text-xs block font-bold uppercase tracking-wider">Avg Session Time</span>
+            <span className="text-slate-400 text-xs block font-bold uppercase tracking-wider">Avg Session Time</span>
             <span className="text-2xl font-black text-white mt-1">{formatDuration(metrics.avgSessionDuration)}</span>
           </div>
         </div>
 
-        <div className="glass-panel p-6 border-l-4 border-l-purple-500 flex items-center gap-4">
-          <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-400">
+        <div className="glass-panel p-6 border-t-2 border-t-indigo-400 flex items-center gap-4 hover:scale-[1.01] transition-transform">
+          <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-400">
             <TrendingUp className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-slate-500 text-xs block font-bold uppercase tracking-wider">Longest session</span>
+            <span className="text-slate-400 text-xs block font-bold uppercase tracking-wider">Longest session</span>
             <span className="text-2xl font-black text-white mt-1">{formatDuration(metrics.longestSessionDuration)}</span>
           </div>
         </div>

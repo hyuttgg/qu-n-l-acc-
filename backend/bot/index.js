@@ -8,6 +8,8 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 require('dotenv').config();
 
+const { notifyWarning, notifyError, notifyInfo } = require('../utils/devopsNotifier');
+
 const PORT = process.env.PORT || 5000;
 const API_BASE = process.env.BACKEND_API_URL || `http://127.0.0.1:${PORT}/api/bot`;
 const BOT_SECRET = process.env.DISCORD_BOT_SECRET || 'oceanforge_bot_secret_2026';
@@ -153,12 +155,24 @@ function startDiscordAlertMonitor(alertCallback) {
       const res = await botApiClient.get('/online');
       if (res.data && res.data.summary) {
         // If there are accounts in warning state, trigger alert
-        if (res.data.summary.updating > 0 && alertCallback) {
-          alertCallback({
-            type: 'WARNING',
-            title: '⚠️ Warning',
-            message: `Có ${res.data.summary.updating} tài khoản không gửi dữ liệu trong hơn 15 phút hoặc mất kết nối!`
-          });
+        if (res.data.summary.updating > 0) {
+          const msg = `Có ${res.data.summary.updating} tài khoản không gửi dữ liệu trong hơn 15 phút hoặc mất kết nối!`;
+          
+          if (alertCallback) {
+            alertCallback({
+              type: 'WARNING',
+              title: '⚠️ Warning',
+              message: msg
+            });
+          }
+
+          // Send to DevOps Self-Healing Alert Notifier
+          await notifyWarning(
+            'RobloxAccountMonitor',
+            'Phát Hiện Tài Khoản Ngừng Gửi Dữ Liệu',
+            msg,
+            { 'Số tài khoản gián đoạn': res.data.summary.updating, 'Tổng online': res.data.summary.online || 0 }
+          );
         }
       }
     } catch (err) {

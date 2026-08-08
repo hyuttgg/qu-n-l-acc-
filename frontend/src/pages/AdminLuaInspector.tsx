@@ -132,7 +132,7 @@ export const AdminLuaInspector: React.FC = () => {
   useEffect(() => {
     if (!token || !user || !isLive || !isUnlocked) return;
 
-    const socketUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim().replace(/\/+$/, '');
+    const socketUrl = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
     const socket: Socket = io(socketUrl, {
       auth: { token },
       transports: ['websocket', 'polling'],
@@ -266,7 +266,7 @@ export const AdminLuaInspector: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="glass-panel p-6 border-l-4 border-l-cyan-400 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="glass-panel p-6 border-t-2 border-t-cyan-400 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-black text-white glow-text-cyan flex items-center gap-2">

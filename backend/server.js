@@ -148,6 +148,8 @@ const io = socketIo(server, {
       const isAllowed = 
         securityConfig.cors.allowedOrigins.some(allowed => cleanOriginStr.startsWith(allowed)) ||
         cleanOriginStr.endsWith('.vercel.app') ||
+        cleanOriginStr.endsWith('.pages.dev') ||
+        cleanOriginStr.endsWith('.onrender.com') ||
         cleanOriginStr.includes('manageblox.io.vn') ||
         cleanOriginStr.includes('localhost') ||
         cleanOriginStr.includes('127.0.0.1');

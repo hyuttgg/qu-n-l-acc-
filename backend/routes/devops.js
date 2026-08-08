@@ -26,6 +26,7 @@ const {
   getLastHealthCheckResult,
   getCircuitBreakerStates,
   resetCircuitBreaker,
+  triggerAutoFixForService,
 } = require('../utils/selfHealingEngine');
 
 const { getDashboardData, getFullHealthReport } = require('../utils/healthCheckDaemon');
@@ -256,7 +257,7 @@ router.post('/reset-circuit', requireAdmin, (req, res) => {
   if (!service) {
     return res.status(400).json({
       success: false,
-      message: 'Service name is required. Available: MongoDB, MySQL, Memory, Express, Socket.IO',
+      message: 'Service name is required. Available: MongoDB, MySQL, Memory, CPU, Express, Socket.IO',
     });
   }
 
@@ -267,6 +268,38 @@ router.post('/reset-circuit', requireAdmin, (req, res) => {
     message: `Circuit breaker for "${service}" has been reset`,
     data: getCircuitBreakerStates(),
   });
+});
+
+// ═══════════════════════════════════════
+// POST /api/devops/trigger-autofix
+// Trigger auto-fix action manually for a target service
+// ═══════════════════════════════════════
+
+router.post('/trigger-autofix', requireAdmin, async (req, res) => {
+  const { service } = req.body;
+
+  if (!service) {
+    return res.status(400).json({
+      success: false,
+      message: 'Service parameter is required (e.g. MongoDB, Memory, Express, LogFiles)',
+    });
+  }
+
+  try {
+    const autofixResult = await triggerAutoFixForService(service);
+
+    res.status(200).json({
+      success: true,
+      message: `Auto-fix triggered for ${service}`,
+      data: autofixResult,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: `Failed to trigger auto-fix for ${service}`,
+      error: err.message,
+    });
+  }
 });
 
 module.exports = router;

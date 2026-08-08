@@ -12,6 +12,8 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 require('dotenv').config();
 
+const { notifyCritical, notifyWarning, notifyInfo } = require('../utils/devopsNotifier');
+
 const token = process.env.DISCORD_BOT_TOKEN;
 const guildId = process.env.DISCORD_GUILD_ID || '1323888389870718977';
 
@@ -25,6 +27,16 @@ const api = token ? axios.create({
 
 // Track message frequency per Discord User ID for spam detection
 const userMessageTracker = new Map();
+
+// Memory leak prevention: Periodic cleanup of tracker map every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [userId, track] of userMessageTracker.entries()) {
+    if (now - track.firstTime > 60000) { // older than 1 min
+      userMessageTracker.delete(userId);
+    }
+  }
+}, 10 * 60 * 1000);
 
 // Phishing & Malicious Patterns
 const MALICIOUS_PATTERNS = [
@@ -164,6 +176,14 @@ async function executeDiscordAutoBan(channelId, messageId, userId, username, vio
     }
 
     console.log(`🚨 [DISCORD ANTI-ABUSE]: Đã BAN thành công ${username} (${userId}) vì lý do: ${violation.reason}`);
+
+    // 4. Send alert to DevOps Notifier
+    await notifyCritical(
+      'DiscordAntiAbuseGuard',
+      `Auto-Ban Member: ${username}`,
+      `Phát hiện vi phạm nghiêm trọng (${violation.type}): ${violation.reason}`,
+      `User ID: ${userId} | Channel ID: ${channelId} | Severity: ${violation.severity}`
+    );
 
   } catch (err) {
     console.error('Lỗi khi thực thi Auto-Ban Discord:', err.message);

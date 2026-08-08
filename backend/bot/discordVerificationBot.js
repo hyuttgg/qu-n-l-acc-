@@ -96,7 +96,7 @@ async function publishVerificationEmbed() {
             type: 2,
             style: 5, // LINK
             label: '📖 Tutorial',
-            url: 'https://manageblox.io.vn',
+            url: 'https://oceanforge-web.pages.dev',
           },
         ],
       },

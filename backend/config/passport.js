@@ -12,8 +12,11 @@ module.exports = function (passport) {
 
   const getCleanCallback = (envVal, defaultPath) => {
     let raw = cleanEnv(envVal);
+    if (raw.includes('manageblox.io.vn')) {
+      raw = raw.replace(/api\.manageblox\.io\.vn|manageblox\.io\.vn/g, 'quan-ly-acc-viet-nam.onrender.com');
+    }
     if (!raw) {
-      const host = process.env.BACKEND_URL || 'http://localhost:5000';
+      const host = process.env.BACKEND_PUBLIC_URL || process.env.BACKEND_URL || 'https://quan-ly-acc-viet-nam.onrender.com';
       return `${host.replace(/\/+$/, '')}${defaultPath}`;
     }
     if (!/^https?:\/\//i.test(raw)) {
