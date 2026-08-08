@@ -196,6 +196,8 @@ module.exports = function (passport) {
     'Sec-Fetch-Site': 'same-origin',
   };
 
+  const basicAuth = Buffer.from(`${discordClientId}:${discordClientSecret}`).toString('base64');
+
   if (discordStrat._oauth2) {
     discordStrat._oauth2._customHeaders = browserHeaders;
 
@@ -226,6 +228,7 @@ module.exports = function (passport) {
           const response = await axios.post(url, payload.toString(), {
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
+              'Authorization': `Basic ${basicAuth}`,
               ...browserHeaders,
             },
             timeout: 12000,
