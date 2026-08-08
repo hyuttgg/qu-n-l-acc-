@@ -50,7 +50,7 @@ export const LoginPage: React.FC = () => {
 
   const handleDiscordLogin = () => {
     const clientId = '1527320103476269076';
-    const redirectUri = encodeURIComponent('https://quan-ly-acc-viet-nam.onrender.com/api/auth/discord/callback');
+    const redirectUri = encodeURIComponent(`${window.location.origin}/oauth-success`);
     window.location.href = `https://discord.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20email`;
   };
 

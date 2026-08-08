@@ -470,6 +470,74 @@ router.get('/discord/callback', (req, res, next) => {
   }
 });
 
+// @desc    Discord Direct Token Login (Bypasses Datacenter IP 1015 Rate Limits)
+// @route   POST /api/auth/discord/token-login
+// @access  Public
+router.post('/discord/token-login', async (req, res) => {
+  try {
+    const { access_token } = req.body;
+    if (!access_token) {
+      return res.status(400).json({ success: false, message: 'access_token is required' });
+    }
+
+    const response = await axios.get('https://discord.com/api/v10/users/@me', {
+      headers: { Authorization: `Bearer ${access_token}` },
+      timeout: 8000,
+    });
+
+    const profile = response.data;
+    const discordId = profile.id;
+    const email = profile.email || null;
+    const displayName = profile.global_name || profile.username || 'DiscordUser';
+
+    let user = null;
+    if (global.dbConnected) {
+      if (email && email.trim()) {
+        user = await User.findOne({ $or: [{ discordId }, { email: email.trim() }] });
+      } else {
+        user = await User.findOne({ discordId });
+      }
+
+      if (user) {
+        if (!user.discordId) user.discordId = discordId;
+        user.lastLogin = new Date();
+        await user.save();
+      } else {
+        const { generateUserCode, generateNickname } = require('../utils/identityGenerator');
+        const userCode = await generateUserCode();
+        const nickname = await generateNickname();
+        const cleanedName = displayName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+        const username = (cleanedName.length > 15 ? cleanedName.substring(0, 15) : cleanedName) + '_' + Math.random().toString(36).substring(2, 5);
+
+        user = await User.create({
+          username,
+          email: email || `${discordId}@discord.auth`,
+          discordId,
+          discriminator: profile.discriminator || '0',
+          avatar: profile.avatar ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png` : null,
+          userCode,
+          nickname,
+          role: 'Member',
+          joinDate: new Date(),
+          lastLogin: new Date(),
+          loginCount: 1,
+        });
+      }
+    } else {
+      user = mockStore.findUserByDiscordId(discordId) || (email ? mockStore.findUserByEmail(email) : null);
+      if (!user) {
+        user = mockStore.createUser(displayName, email || `${discordId}@discord.mock`, null, null, discordId);
+      }
+    }
+
+    const token = getSignedJwtToken(user._id || user.id);
+    return res.json({ success: true, token, user });
+  } catch (err) {
+    console.error('❌ Direct Token Login Error:', err.response ? err.response.data : err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // @desc    Auth with Google
 // @route   GET /api/auth/google
 // @access  Public
