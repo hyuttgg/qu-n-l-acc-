@@ -39,13 +39,15 @@ export const LoginPage: React.FC = () => {
   }, []);
 
   const handleGoogleLogin = () => {
-    const apiUrl = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
-    window.location.href = `${apiUrl}/api/auth/google`;
+    const clientId = '74674241888-9iqupamglth0rbmsl0uedv846548qrn6.apps.googleusercontent.com';
+    const redirectUri = encodeURIComponent('https://quan-ly-acc-viet-nam.onrender.com/api/auth/google/callback');
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=openid%20profile%20email`;
   };
 
   const handleDiscordLogin = () => {
-    const apiUrl = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
-    window.location.href = `${apiUrl}/api/auth/discord`;
+    const clientId = '1527320103476269076';
+    const redirectUri = encodeURIComponent('https://quan-ly-acc-viet-nam.onrender.com/api/auth/discord/callback');
+    window.location.href = `https://discord.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20email`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
