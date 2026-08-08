@@ -7,7 +7,7 @@ const { securityLogger } = require('../middleware/logging');
 module.exports = function (passport) {
   const cleanEnv = (val) => {
     if (!val) return '';
-    return val.toString().trim().replace(/[\r\n\t]/g, '');
+    return val.toString().trim().replace(/^["']|["']$/g, '').replace(/[\r\n\t]/g, '');
   };
 
   const getCleanCallback = (envVal, defaultPath) => {
@@ -180,20 +180,12 @@ module.exports = function (passport) {
     }
   );
 
-  // Overriding getOAuthAccessToken & userProfile with Axios, full Chrome headers & endpoint fallback to bypass Cloudflare WAF 1015
+  // Overriding getOAuthAccessToken & userProfile with Axios, official DiscordBot headers & endpoint fallback
   const axios = require('axios');
   const browserHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-    'Accept': 'application/json, text/plain, */*',
+    'User-Agent': 'DiscordBot (https://oceanforge-web.pages.dev, 1.0.0)',
+    'Accept': 'application/json',
     'Accept-Language': 'en-US,en;q=0.9',
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache',
-    'Sec-Ch-Ua': '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
-    'Sec-Ch-Ua-Mobile': '?0',
-    'Sec-Ch-Ua-Platform': '"Windows"',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-origin',
   };
 
   const basicAuth = Buffer.from(`${discordClientId}:${discordClientSecret}`).toString('base64');
