@@ -25,17 +25,14 @@ export const OAuthSuccess: React.FC = () => {
       // Direct browser code-to-token exchange (Bypasses Render datacenter IP Cloudflare 1015 blocks)
       const handleCodeExchange = async () => {
         try {
-          const payload = new URLSearchParams();
-          payload.append('client_id', '1527320103476269076');
-          payload.append('client_secret', 'aUntdurcsEqbyhWSEInrSQh18KzFOxmR');
-          payload.append('grant_type', 'authorization_code');
-          payload.append('code', code);
-          payload.append('redirect_uri', 'https://quan-ly-acc-viet-nam.onrender.com/api/auth/discord/callback');
-
-          const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
+          // Call Cloudflare Edge Function (/api/discord-token) to exchange code on Cloudflare Edge network (Trusted IPs)
+          const tokenRes = await fetch('/api/discord-token', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: payload.toString(),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              code,
+              redirect_uri: 'https://quan-ly-acc-viet-nam.onrender.com/api/auth/discord/callback',
+            }),
           });
 
           const tokenData = await tokenRes.json();
