@@ -31,7 +31,8 @@ export const LoginPage: React.FC = () => {
       setError('Địa chỉ IP của bạn đã đăng ký quá số lượng tài khoản Discord cho phép (Tối đa 3).');
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (params.get('error') === 'oauth_failed') {
-      setError('Đăng nhập bằng mạng xã hội thất bại. Vui lòng thử lại.');
+      const reason = params.get('reason');
+      setError(reason ? `Đăng nhập thất bại: ${decodeURIComponent(reason)}` : 'Đăng nhập bằng mạng xã hội thất bại. Vui lòng thử lại.');
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);

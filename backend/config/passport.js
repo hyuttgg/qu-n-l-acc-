@@ -180,11 +180,101 @@ module.exports = function (passport) {
     }
   );
 
+  // Overriding getOAuthAccessToken & userProfile with Axios to bypass Cloudflare WAF Error 1015 & auto-retry 429 Rate Limits
+  const axios = require('axios');
+  const chromeUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
   if (discordStrat._oauth2) {
     discordStrat._oauth2._customHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 OceanForgeAuth/1.0'
+      'User-Agent': chromeUserAgent,
+    };
+
+    discordStrat._oauth2.getOAuthAccessToken = function(code, params, callback) {
+      const payload = new URLSearchParams();
+      payload.append('client_id', discordClientId);
+      payload.append('client_secret', discordClientSecret);
+      payload.append('grant_type', 'authorization_code');
+      payload.append('code', code);
+      payload.append('redirect_uri', (params && params.redirect_uri) || discordCallbackUrl);
+
+      const makeTokenRequest = async (retries = 3) => {
+        try {
+          const response = await axios.post('https://discord.com/api/oauth2/token', payload.toString(), {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': chromeUserAgent,
+              'Accept': 'application/json',
+            },
+            timeout: 12000,
+          });
+
+          const data = response.data;
+          callback(null, data.access_token, data.refresh_token, data);
+        } catch (err) {
+          if (err.response && err.response.status === 429 && retries > 0) {
+            const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 2.0;
+            console.warn(`[DiscordOAuth] Token Rate Limited (429). Retrying in ${retryAfter}s... (${retries} retries left)`);
+            await new Promise((r) => setTimeout(r, Math.ceil(retryAfter * 1000)));
+            return makeTokenRequest(retries - 1);
+          }
+
+          const errMsg = err.response ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) : err.message;
+          callback(new Error(errMsg));
+        }
+      };
+
+      makeTokenRequest();
     };
   }
+
+  discordStrat.userProfile = function(accessToken, done) {
+    const makeProfileRequest = async (retries = 3) => {
+      try {
+        const response = await axios.get('https://discord.com/api/v10/users/@me', {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'User-Agent': chromeUserAgent,
+            'Accept': 'application/json',
+          },
+          timeout: 12000,
+        });
+
+        const json = response.data;
+        const profile = {
+          provider: 'discord',
+          id: json.id,
+          username: json.username,
+          global_name: json.global_name || json.username,
+          avatar: json.avatar,
+          discriminator: json.discriminator || '0',
+          public_flags: json.public_flags,
+          flags: json.flags,
+          banner: json.banner,
+          accent_color: json.accent_color,
+          locale: json.locale,
+          verified: json.verified,
+          email: json.email,
+          fetchedAt: new Date(),
+          _raw: JSON.stringify(json),
+          _json: json,
+        };
+
+        done(null, profile);
+      } catch (err) {
+        if (err.response && err.response.status === 429 && retries > 0) {
+          const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 2.0;
+          console.warn(`[DiscordOAuth] Profile Rate Limited (429). Retrying in ${retryAfter}s... (${retries} retries left)`);
+          await new Promise((r) => setTimeout(r, Math.ceil(retryAfter * 1000)));
+          return makeProfileRequest(retries - 1);
+        }
+
+        const errMsg = err.response ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) : err.message;
+        done(new Error(`Failed to fetch user profile: ${errMsg}`));
+      }
+    };
+
+    makeProfileRequest();
+  };
 
   passport.use(discordStrat);
 
