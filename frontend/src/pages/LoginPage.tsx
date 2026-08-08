@@ -50,9 +50,10 @@ export const LoginPage: React.FC = () => {
 
   const handleDiscordLogin = () => {
     const clientId = '1527320103476269076';
-    // Must use the registered redirect_uri (Render callback) for Discord authorization
-    // The Render callback forwards the code to our Cloudflare edge function for token exchange
-    const redirectUri = encodeURIComponent('https://quan-ly-acc-viet-nam.onrender.com/api/auth/discord/callback');
+    // Cloudflare Pages Function handles the full OAuth callback + token exchange
+    // This COMPLETELY bypasses Render for the Discord token exchange step
+    // Render is only called for user creation/login (POST /auth/discord/token-login)
+    const redirectUri = encodeURIComponent('https://oceanforge-web.pages.dev/api/auth/discord/callback');
     window.location.href = `https://discord.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20email`;
   };
 

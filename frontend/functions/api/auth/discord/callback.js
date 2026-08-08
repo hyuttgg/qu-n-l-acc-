@@ -11,7 +11,7 @@ export async function onRequestGet(context) {
   const BACKEND_URL = 'https://quan-ly-acc-viet-nam.onrender.com';
   const DISCORD_CLIENT_ID = '1527320103476269076';
   const DISCORD_CLIENT_SECRET = 'aUntdurcsEqbyhWSEInrSQh18KzFOxmR';
-  const DISCORD_CALLBACK_URL = `${BACKEND_URL}/api/auth/discord/callback`;
+  const DISCORD_CALLBACK_URL = `${FRONTEND_URL}/api/auth/discord/callback`;
 
   if (error) {
     return Response.redirect(`${FRONTEND_URL}/login?error=oauth_failed&reason=${encodeURIComponent(error)}`, 302);
