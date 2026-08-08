@@ -320,19 +320,6 @@ module.exports = function (passport) {
         }
       };
 
-          const errMsg = err.response 
-            ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) 
-            : (err.message || String(err));
-          
-          console.error('[DiscordOAuth] Token Request Error:', errMsg);
-          if (typeof callback === 'function') {
-            const formattedErr = new Error(errMsg);
-            formattedErr.oauthError = { statusCode: err.response ? err.response.status : 500, data: errMsg };
-            callback(formattedErr);
-          }
-        }
-      };
-
       makeTokenRequest();
     };
 
