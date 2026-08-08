@@ -222,15 +222,19 @@ module.exports = function (passport) {
         'https://discord.com/api/oauth2/token'
       ];
 
-      const makeTokenRequest = async (endpointIndex = 0, retriesLeft = 3) => {
+      const makeTokenRequest = async (endpointIndex = 0, retriesLeft = 3, useBasicHeader = true) => {
         const url = tokenEndpoints[endpointIndex % tokenEndpoints.length];
+        const headers = {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          ...browserHeaders,
+        };
+        if (useBasicHeader) {
+          headers['Authorization'] = `Basic ${basicAuth}`;
+        }
+
         try {
           const response = await axios.post(url, payload.toString(), {
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'Authorization': `Basic ${basicAuth}`,
-              ...browserHeaders,
-            },
+            headers,
             timeout: 12000,
           });
 
@@ -239,6 +243,12 @@ module.exports = function (passport) {
             callback(null, data.access_token, data.refresh_token, data);
           }
         } catch (err) {
+          const isInvalidClient = err.response && err.response.data && JSON.stringify(err.response.data).includes('invalid_client');
+          if (isInvalidClient && useBasicHeader) {
+            console.warn(`[DiscordOAuth] invalid_client with Basic header at ${url}. Retrying with Body-only credentials...`);
+            return makeTokenRequest(endpointIndex, retriesLeft, false);
+          }
+
           const isRateLimit = err.response && (
             err.response.status === 429 || 
             (typeof err.response.data === 'string' && err.response.data.includes('error-1015')) ||
@@ -249,7 +259,7 @@ module.exports = function (passport) {
             const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 1.5;
             console.warn(`[DiscordOAuth] Cloudflare 1015 / 429 Rate Limited at ${url}. Retrying with next endpoint in ${retryAfter}s... (${retriesLeft} retries left)`);
             await new Promise((r) => setTimeout(r, Math.ceil(retryAfter * 1000)));
-            return makeTokenRequest(endpointIndex + 1, retriesLeft - 1);
+            return makeTokenRequest(endpointIndex + 1, retriesLeft - 1, useBasicHeader);
           }
 
           const errMsg = err.response 
