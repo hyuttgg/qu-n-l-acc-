@@ -180,14 +180,24 @@ module.exports = function (passport) {
     }
   );
 
-  // Overriding getOAuthAccessToken & userProfile with Axios to bypass Cloudflare WAF Error 1015 & auto-retry 429 Rate Limits
+  // Overriding getOAuthAccessToken & userProfile with Axios, full Chrome headers & endpoint fallback to bypass Cloudflare WAF 1015
   const axios = require('axios');
-  const chromeUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+  const browserHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Sec-Ch-Ua': '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"Windows"',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'same-origin',
+  };
 
   if (discordStrat._oauth2) {
-    discordStrat._oauth2._customHeaders = {
-      'User-Agent': chromeUserAgent,
-    };
+    discordStrat._oauth2._customHeaders = browserHeaders;
 
     discordStrat._oauth2.getOAuthAccessToken = function(code, params, callback) {
       if (typeof params === 'function') {
@@ -204,13 +214,19 @@ module.exports = function (passport) {
       payload.append('code', code);
       payload.append('redirect_uri', redirectUri);
 
-      const makeTokenRequest = async (retries = 3) => {
+      const tokenEndpoints = [
+        'https://discord.com/api/v10/oauth2/token',
+        'https://discordapp.com/api/oauth2/token',
+        'https://discord.com/api/oauth2/token'
+      ];
+
+      const makeTokenRequest = async (endpointIndex = 0, retriesLeft = 3) => {
+        const url = tokenEndpoints[endpointIndex % tokenEndpoints.length];
         try {
-          const response = await axios.post('https://discord.com/api/oauth2/token', payload.toString(), {
+          const response = await axios.post(url, payload.toString(), {
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
-              'User-Agent': chromeUserAgent,
-              'Accept': 'application/json',
+              ...browserHeaders,
             },
             timeout: 12000,
           });
@@ -220,11 +236,17 @@ module.exports = function (passport) {
             callback(null, data.access_token, data.refresh_token, data);
           }
         } catch (err) {
-          if (err.response && err.response.status === 429 && retries > 0) {
-            const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 2.0;
-            console.warn(`[DiscordOAuth] Token Rate Limited (429). Retrying in ${retryAfter}s... (${retries} retries left)`);
+          const isRateLimit = err.response && (
+            err.response.status === 429 || 
+            (typeof err.response.data === 'string' && err.response.data.includes('error-1015')) ||
+            (err.response.data && err.response.data.type && String(err.response.data.type).includes('1015'))
+          );
+
+          if (isRateLimit && retriesLeft > 0) {
+            const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 1.5;
+            console.warn(`[DiscordOAuth] Cloudflare 1015 / 429 Rate Limited at ${url}. Retrying with next endpoint in ${retryAfter}s... (${retriesLeft} retries left)`);
             await new Promise((r) => setTimeout(r, Math.ceil(retryAfter * 1000)));
-            return makeTokenRequest(retries - 1);
+            return makeTokenRequest(endpointIndex + 1, retriesLeft - 1);
           }
 
           const errMsg = err.response 
@@ -244,13 +266,19 @@ module.exports = function (passport) {
     };
 
     discordStrat.userProfile = function(accessToken, done) {
-      const makeProfileRequest = async (retries = 3) => {
+      const profileEndpoints = [
+        'https://discord.com/api/v10/users/@me',
+        'https://discordapp.com/api/v10/users/@me',
+        'https://discord.com/api/users/@me'
+      ];
+
+      const makeProfileRequest = async (endpointIndex = 0, retriesLeft = 3) => {
+        const url = profileEndpoints[endpointIndex % profileEndpoints.length];
         try {
-          const response = await axios.get('https://discord.com/api/v10/users/@me', {
+          const response = await axios.get(url, {
             headers: {
               Authorization: `Bearer ${accessToken}`,
-              'User-Agent': chromeUserAgent,
-              'Accept': 'application/json',
+              ...browserHeaders,
             },
             timeout: 12000,
           });
@@ -279,11 +307,17 @@ module.exports = function (passport) {
             done(null, profile);
           }
         } catch (err) {
-          if (err.response && err.response.status === 429 && retries > 0) {
-            const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 2.0;
-            console.warn(`[DiscordOAuth] Profile Rate Limited (429). Retrying in ${retryAfter}s... (${retries} retries left)`);
+          const isRateLimit = err.response && (
+            err.response.status === 429 || 
+            (typeof err.response.data === 'string' && err.response.data.includes('error-1015')) ||
+            (err.response.data && err.response.data.type && String(err.response.data.type).includes('1015'))
+          );
+
+          if (isRateLimit && retriesLeft > 0) {
+            const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 1.5;
+            console.warn(`[DiscordOAuth] Profile Cloudflare 1015 / 429 Rate Limited at ${url}. Retrying with next endpoint in ${retryAfter}s... (${retriesLeft} retries left)`);
             await new Promise((r) => setTimeout(r, Math.ceil(retryAfter * 1000)));
-            return makeProfileRequest(retries - 1);
+            return makeProfileRequest(endpointIndex + 1, retriesLeft - 1);
           }
 
           const errMsg = err.response 
