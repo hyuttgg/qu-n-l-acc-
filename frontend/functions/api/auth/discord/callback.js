@@ -1,6 +1,6 @@
 // Cloudflare Pages Function: Full Discord OAuth Callback Handler
 // This completely bypasses Render's backend for the token exchange step.
-// Flow: Discord → this function → exchange code → get user → redirect to backend token-login → JWT → frontend
+// Flow: Discord → this function → exchange code → backend token-login → JWT → frontend
 
 export async function onRequestGet(context) {
   const url = new URL(context.request.url);
@@ -22,24 +22,44 @@ export async function onRequestGet(context) {
   }
 
   try {
-    // Step 1: Exchange code for access_token (Cloudflare Edge IP, trusted by Discord WAF)
+    // Step 1: Exchange code for access_token using Basic Auth header (RFC 6749 recommended)
+    const basicAuth = btoa(`${DISCORD_CLIENT_ID}:${DISCORD_CLIENT_SECRET}`);
+
     const tokenPayload = new URLSearchParams();
-    tokenPayload.append('client_id', DISCORD_CLIENT_ID);
-    tokenPayload.append('client_secret', DISCORD_CLIENT_SECRET);
     tokenPayload.append('grant_type', 'authorization_code');
     tokenPayload.append('code', code);
     tokenPayload.append('redirect_uri', DISCORD_CALLBACK_URL);
 
-    const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
+    let tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'DiscordBot (https://oceanforge-web.pages.dev, 1.0.0)',
+        'Authorization': `Basic ${basicAuth}`,
       },
       body: tokenPayload.toString(),
     });
 
-    const tokenData = await tokenRes.json();
+    let tokenData = await tokenRes.json();
+
+    // Fallback: if Basic auth fails, try with credentials in body
+    if (tokenData.error === 'invalid_client') {
+      const bodyPayload = new URLSearchParams();
+      bodyPayload.append('client_id', DISCORD_CLIENT_ID);
+      bodyPayload.append('client_secret', DISCORD_CLIENT_SECRET);
+      bodyPayload.append('grant_type', 'authorization_code');
+      bodyPayload.append('code', code);
+      bodyPayload.append('redirect_uri', DISCORD_CALLBACK_URL);
+
+      tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: bodyPayload.toString(),
+      });
+
+      tokenData = await tokenRes.json();
+    }
 
     if (!tokenData.access_token) {
       const errMsg = tokenData.error_description || tokenData.error || 'token_exchange_failed';
@@ -49,7 +69,7 @@ export async function onRequestGet(context) {
       );
     }
 
-    // Step 2: Send access_token to backend's /auth/discord/token-login (no Discord API call needed from Render)
+    // Step 2: Send access_token to backend's /auth/discord/token-login
     const loginRes = await fetch(`${BACKEND_URL}/api/auth/discord/token-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -59,7 +79,6 @@ export async function onRequestGet(context) {
     const loginData = await loginRes.json();
 
     if (loginData.success && loginData.token) {
-      // Step 3: Redirect to frontend with JWT
       return Response.redirect(`${FRONTEND_URL}/oauth-success?token=${loginData.token}`, 302);
     }
 
