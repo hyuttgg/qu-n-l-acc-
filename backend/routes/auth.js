@@ -398,17 +398,25 @@ router.get('/discord', (req, res, next) => {
 const formatOAuthError = (err) => {
   if (!err) return 'Unknown error';
   if (typeof err === 'string') return err;
+  if (err.oauthError) {
+    const oe = err.oauthError;
+    if (typeof oe === 'string') return oe;
+    if (oe.data) {
+      if (typeof oe.data === 'string') return oe.data;
+      if (typeof oe.data === 'object') {
+        return oe.data.error_description || oe.data.message || oe.data.error || JSON.stringify(oe.data);
+      }
+    }
+    if (oe.message) return oe.message;
+  }
   if (err.response && err.response.data) {
     if (typeof err.response.data === 'string') return err.response.data;
     if (typeof err.response.data === 'object') {
       return err.response.data.message || err.response.data.error_description || err.response.data.error || JSON.stringify(err.response.data);
     }
   }
-  if (err.message && typeof err.message === 'string' && err.message !== '[object Object]' && err.message !== '{}') {
+  if (err.message && typeof err.message === 'string' && err.message !== '[object Object]' && err.message !== '{}' && err.message !== 'Failed to obtain access token') {
     return err.message;
-  }
-  if (err.oauthError) {
-    return formatOAuthError(err.oauthError);
   }
   return err.name ? `${err.name}: ${err.message || 'error'}` : String(err);
 };

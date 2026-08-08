@@ -233,71 +233,75 @@ module.exports = function (passport) {
           
           console.error('[DiscordOAuth] Token Request Error:', errMsg);
           if (typeof callback === 'function') {
-            callback(new Error(errMsg));
+            const formattedErr = new Error(errMsg);
+            formattedErr.oauthError = { statusCode: err.response ? err.response.status : 500, data: errMsg };
+            callback(formattedErr);
           }
         }
       };
 
       makeTokenRequest();
     };
-  }
 
-  discordStrat.userProfile = function(accessToken, done) {
-    const makeProfileRequest = async (retries = 3) => {
-      try {
-        const response = await axios.get('https://discord.com/api/v10/users/@me', {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'User-Agent': chromeUserAgent,
-            'Accept': 'application/json',
-          },
-          timeout: 12000,
-        });
+    discordStrat.userProfile = function(accessToken, done) {
+      const makeProfileRequest = async (retries = 3) => {
+        try {
+          const response = await axios.get('https://discord.com/api/v10/users/@me', {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'User-Agent': chromeUserAgent,
+              'Accept': 'application/json',
+            },
+            timeout: 12000,
+          });
 
-        const json = response.data;
-        const profile = {
-          provider: 'discord',
-          id: json.id,
-          username: json.username,
-          global_name: json.global_name || json.username,
-          avatar: json.avatar,
-          discriminator: json.discriminator || '0',
-          public_flags: json.public_flags,
-          flags: json.flags,
-          banner: json.banner,
-          accent_color: json.accent_color,
-          locale: json.locale,
-          verified: json.verified,
-          email: json.email,
-          fetchedAt: new Date(),
-          _raw: JSON.stringify(json),
-          _json: json,
-        };
+          const json = response.data;
+          const profile = {
+            provider: 'discord',
+            id: json.id,
+            username: json.username,
+            global_name: json.global_name || json.username,
+            avatar: json.avatar,
+            discriminator: json.discriminator || '0',
+            public_flags: json.public_flags,
+            flags: json.flags,
+            banner: json.banner,
+            accent_color: json.accent_color,
+            locale: json.locale,
+            verified: json.verified,
+            email: json.email,
+            fetchedAt: new Date(),
+            _raw: JSON.stringify(json),
+            _json: json,
+          };
 
-        if (typeof done === 'function') {
-          done(null, profile);
+          if (typeof done === 'function') {
+            done(null, profile);
+          }
+        } catch (err) {
+          if (err.response && err.response.status === 429 && retries > 0) {
+            const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 2.0;
+            console.warn(`[DiscordOAuth] Profile Rate Limited (429). Retrying in ${retryAfter}s... (${retries} retries left)`);
+            await new Promise((r) => setTimeout(r, Math.ceil(retryAfter * 1000)));
+            return makeProfileRequest(retries - 1);
+          }
+
+          const errMsg = err.response 
+            ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) 
+            : (err.message || String(err));
+          
+          console.error('[DiscordOAuth] Profile Request Error:', errMsg);
+          if (typeof done === 'function') {
+            const formattedErr = new Error(`Failed to fetch user profile: ${errMsg}`);
+            formattedErr.oauthError = { statusCode: err.response ? err.response.status : 500, data: errMsg };
+            done(formattedErr);
+          }
         }
-      } catch (err) {
-        if (err.response && err.response.status === 429 && retries > 0) {
-          const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 2.0;
-          console.warn(`[DiscordOAuth] Profile Rate Limited (429). Retrying in ${retryAfter}s... (${retries} retries left)`);
-          await new Promise((r) => setTimeout(r, Math.ceil(retryAfter * 1000)));
-          return makeProfileRequest(retries - 1);
-        }
+      };
 
-        const errMsg = err.response 
-          ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) 
-          : (err.message || String(err));
-        
-        console.error('[DiscordOAuth] Profile Request Error:', errMsg);
-        if (typeof done === 'function') {
-          done(new Error(`Failed to fetch user profile: ${errMsg}`));
-        }
-      }
+      makeProfileRequest();
     };
-
-    makeProfileRequest();
-  };
+  }
 
   passport.use(discordStrat);
 
