@@ -180,8 +180,27 @@ module.exports = function (passport) {
     }
   );
 
-  // Overriding getOAuthAccessToken & userProfile with Axios, full Chrome 126 headers & endpoint fallback to bypass Cloudflare 1015
+  // Overriding getOAuthAccessToken & userProfile with Axios + Native Fetch, Chrome 126 TLS fingerprinting & endpoint fallback to bypass Cloudflare 1015
   const axios = require('axios');
+  const https = require('https');
+
+  const httpsAgent = new https.Agent({
+    keepAlive: true,
+    maxSockets: 50,
+    ciphers: [
+      'TLS_AES_128_GCM_SHA256',
+      'TLS_AES_256_GCM_SHA384',
+      'TLS_CHACHA20_POLY1305_SHA256',
+      'ECDHE-ECDSA-AES128-GCM-SHA256',
+      'ECDHE-RSA-AES128-GCM-SHA256',
+      'ECDHE-ECDSA-AES256-GCM-SHA384',
+      'ECDHE-RSA-AES256-GCM-SHA384',
+      'ECDHE-ECDSA-CHACHA20-POLY1305',
+      'ECDHE-RSA-CHACHA20-POLY1305',
+    ].join(':'),
+    honorCipherOrder: true,
+  });
+
   const browserHeaders = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
     'Accept': 'application/json, text/plain, */*',
@@ -215,7 +234,7 @@ module.exports = function (passport) {
         'https://discord.com/api/v9/oauth2/token'
       ];
 
-      const makeTokenRequest = async (endpointIndex = 0, retriesLeft = 3, useBasicHeader = false) => {
+      const makeTokenRequest = async (endpointIndex = 0, retriesLeft = 3, useBasicHeader = false, useFetch = false) => {
         const url = tokenEndpoints[endpointIndex % tokenEndpoints.length];
         
         const payload = new URLSearchParams();
@@ -236,12 +255,34 @@ module.exports = function (passport) {
         }
 
         try {
-          const response = await axios.post(url, payload.toString(), {
-            headers,
-            timeout: 10000,
-          });
+          let data;
+          if (useFetch && typeof globalThis.fetch === 'function') {
+            console.log(`[DiscordOAuth] Trying native fetch (Undici TLS engine) at ${url}...`);
+            const fetchRes = await globalThis.fetch(url, {
+              method: 'POST',
+              headers,
+              body: payload.toString(),
+            });
+            const text = await fetchRes.text();
+            try {
+              data = JSON.parse(text);
+            } catch (e) {
+              data = text;
+            }
+            if (!fetchRes.ok) {
+              const errObj = new Error(typeof data === 'string' ? data : JSON.stringify(data));
+              errObj.response = { status: fetchRes.status, data };
+              throw errObj;
+            }
+          } else {
+            const response = await axios.post(url, payload.toString(), {
+              headers,
+              httpsAgent,
+              timeout: 10000,
+            });
+            data = response.data;
+          }
 
-          const data = response.data;
           if (typeof callback === 'function') {
             callback(null, data.access_token, data.refresh_token, data);
           }
@@ -249,7 +290,7 @@ module.exports = function (passport) {
           const isInvalidClient = err.response && err.response.data && JSON.stringify(err.response.data).includes('invalid_client');
           if (isInvalidClient && !useBasicHeader) {
             console.warn(`[DiscordOAuth] invalid_client with Body-only credentials at ${url}. Retrying with Basic header...`);
-            return makeTokenRequest(endpointIndex, retriesLeft, true);
+            return makeTokenRequest(endpointIndex, retriesLeft, true, useFetch);
           }
 
           const isRateLimit = err.response && (
@@ -259,12 +300,25 @@ module.exports = function (passport) {
           );
 
           if (isRateLimit && retriesLeft > 0) {
-            const rawWait = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 2.0;
+            const rawWait = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 1.5;
             const waitSec = Math.min(rawWait, 3.0);
-            console.warn(`[DiscordOAuth] Cloudflare 1015 / 429 at ${url}. Retrying next endpoint in ${waitSec}s... (${retriesLeft} retries left)`);
+            console.warn(`[DiscordOAuth] Cloudflare 1015 / 429 at ${url}. Retrying with ${!useFetch ? 'native fetch' : 'next endpoint'} in ${waitSec}s... (${retriesLeft} retries left)`);
             await new Promise((r) => setTimeout(r, Math.ceil(waitSec * 1000)));
-            return makeTokenRequest(endpointIndex + 1, retriesLeft - 1, useBasicHeader);
+            return makeTokenRequest(!useFetch ? endpointIndex : endpointIndex + 1, retriesLeft - 1, useBasicHeader, !useFetch);
           }
+
+          const errMsg = err.response 
+            ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) 
+            : (err.message || String(err));
+          
+          console.error('[DiscordOAuth] Token Request Error:', errMsg);
+          if (typeof callback === 'function') {
+            const formattedErr = new Error(errMsg);
+            formattedErr.oauthError = { statusCode: err.response ? err.response.status : 500, data: errMsg };
+            callback(formattedErr);
+          }
+        }
+      };
 
           const errMsg = err.response 
             ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) 
