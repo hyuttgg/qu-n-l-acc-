@@ -395,6 +395,24 @@ router.get('/discord', (req, res, next) => {
   passport.authenticate('discord', { callbackURL })(req, res, next);
 });
 
+const formatOAuthError = (err) => {
+  if (!err) return 'Unknown error';
+  if (typeof err === 'string') return err;
+  if (err.response && err.response.data) {
+    if (typeof err.response.data === 'string') return err.response.data;
+    if (typeof err.response.data === 'object') {
+      return err.response.data.message || err.response.data.error_description || err.response.data.error || JSON.stringify(err.response.data);
+    }
+  }
+  if (err.message && typeof err.message === 'string' && err.message !== '[object Object]' && err.message !== '{}') {
+    return err.message;
+  }
+  if (err.oauthError) {
+    return formatOAuthError(err.oauthError);
+  }
+  return err.name ? `${err.name}: ${err.message || 'error'}` : String(err);
+};
+
 // @desc    Discord auth callback
 // @route   GET /api/auth/discord/callback
 // @access  Public
@@ -402,7 +420,7 @@ router.get('/discord/callback', (req, res, next) => {
   const callbackURL = getDynamicDiscordCallbackUrl(req);
   passport.authenticate('discord', { callbackURL, session: false }, (err, user, info) => {
     if (err) {
-      const errorMsg = err.oauthError ? (typeof err.oauthError === 'string' ? err.oauthError : JSON.stringify(err.oauthError)) : (err.message || String(err));
+      const errorMsg = formatOAuthError(err);
       console.error('❌ Discord OAuth Callback TokenError Details:', errorMsg);
       securityLogger.error('Discord OAuth callback error', {
         error: err.name || 'TokenError',
@@ -410,15 +428,19 @@ router.get('/discord/callback', (req, res, next) => {
         stack: err.stack,
         url: req.originalUrl
       });
-      if (err.message === 'ip_limit') {
+      if (errorMsg === 'ip_limit' || (err.message && err.message === 'ip_limit')) {
         return res.redirect(getRedirectUrl(`/login?error=discord_ip_limit`));
       }
-      const reason = encodeURIComponent(errorMsg.length > 80 ? errorMsg.substring(0, 80) : errorMsg);
+      const cleanReason = (errorMsg && errorMsg !== '{}' && errorMsg !== '[object Object]') ? errorMsg : 'Authentication failed';
+      const reason = encodeURIComponent(cleanReason.length > 120 ? cleanReason.substring(0, 120) : cleanReason);
       return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reason}`));
     }
     if (!user) {
-      console.error('❌ Discord OAuth: User object not returned by strategy');
-      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=user_not_found`));
+      console.error('❌ Discord OAuth: User object not returned by strategy. Info:', info);
+      const infoMsg = info ? (info.message || (typeof info === 'string' ? info : JSON.stringify(info))) : 'user_not_found';
+      const cleanReason = (infoMsg && infoMsg !== '{}' && infoMsg !== '[object Object]') ? infoMsg : 'User authorization failed';
+      const reason = encodeURIComponent(cleanReason.length > 120 ? cleanReason.substring(0, 120) : cleanReason);
+      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reason}`));
     }
 
     try {

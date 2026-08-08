@@ -32,7 +32,8 @@ export const LoginPage: React.FC = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (params.get('error') === 'oauth_failed') {
       const reason = params.get('reason');
-      setError(reason ? `Đăng nhập thất bại: ${decodeURIComponent(reason)}` : 'Đăng nhập bằng mạng xã hội thất bại. Vui lòng thử lại.');
+      const cleanReason = (reason && reason !== '{}' && reason !== '[object Object]') ? decodeURIComponent(reason) : '';
+      setError(cleanReason ? `Đăng nhập thất bại: ${cleanReason}` : 'Đăng nhập bằng mạng xã hội thất bại. Vui lòng thử lại.');
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
