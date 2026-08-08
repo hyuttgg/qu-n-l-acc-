@@ -480,17 +480,22 @@ router.get('/discord/callback', (req, res, next) => {
 // @access  Public
 router.post('/discord/token-login', async (req, res) => {
   try {
-    const { access_token } = req.body;
-    if (!access_token) {
-      return res.status(400).json({ success: false, message: 'access_token is required' });
+    let profile = req.body.profile;
+    if (!profile) {
+      if (!access_token) {
+        return res.status(400).json({ success: false, message: 'access_token or profile is required' });
+      }
+      const response = await axios.get('https://discord.com/api/v10/users/@me', {
+        headers: { Authorization: `Bearer ${access_token}` },
+        timeout: 8000,
+      });
+      profile = response.data;
     }
 
-    const response = await axios.get('https://discord.com/api/v10/users/@me', {
-      headers: { Authorization: `Bearer ${access_token}` },
-      timeout: 8000,
-    });
+    if (!profile || !profile.id) {
+      return res.status(400).json({ success: false, message: 'Invalid profile data' });
+    }
 
-    const profile = response.data;
     const discordId = profile.id;
     const email = profile.email || null;
     const displayName = profile.global_name || profile.username || 'DiscordUser';

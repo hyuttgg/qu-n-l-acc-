@@ -1,16 +1,16 @@
 // Cloudflare Pages Function: Full Discord OAuth Callback Handler
-// This completely bypasses Render's backend for the token exchange step.
-// Flow: Discord → this function → exchange code → backend token-login → JWT → frontend
+// Completely bypasses Render's backend for Discord API interactions.
+// Flow: Discord → Cloudflare Edge (token exchange + profile fetch) → Render (DB sync + JWT) → Frontend
 
 export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const code = url.searchParams.get('code');
   const error = url.searchParams.get('error');
 
-  const FRONTEND_URL = 'https://oceanforge-web.pages.dev';
-  const BACKEND_URL = 'https://quan-ly-acc-viet-nam.onrender.com';
-  const DISCORD_CLIENT_ID = '1527320103476269076';
-  const DISCORD_CLIENT_SECRET = 'aUntdurcsEqbyhWSEInrSQh18KzFOxmR';
+  const FRONTEND_URL = context.env?.FRONTEND_URL || 'https://oceanforge-web.pages.dev';
+  const BACKEND_URL = context.env?.BACKEND_URL || 'https://quan-ly-acc-viet-nam.onrender.com';
+  const DISCORD_CLIENT_ID = context.env?.DISCORD_CLIENT_ID || '1527320103476269076';
+  const DISCORD_CLIENT_SECRET = context.env?.DISCORD_CLIENT_SECRET || 'aUntdurcsEqbyhWSEInrSQh18KzFOxmR';
   const DISCORD_CALLBACK_URL = `${FRONTEND_URL}/api/auth/discord/callback`;
 
   if (error) {
@@ -22,40 +22,37 @@ export async function onRequestGet(context) {
   }
 
   try {
-    // Step 1: Exchange code for access_token using Basic Auth header (RFC 6749 recommended)
-    const basicAuth = btoa(`${DISCORD_CLIENT_ID}:${DISCORD_CLIENT_SECRET}`);
-
-    const tokenPayload = new URLSearchParams();
-    tokenPayload.append('grant_type', 'authorization_code');
-    tokenPayload.append('code', code);
-    tokenPayload.append('redirect_uri', DISCORD_CALLBACK_URL);
+    // Step 1: Exchange code for access_token on Cloudflare Edge (Trusted IPs)
+    const bodyPayload = new URLSearchParams();
+    bodyPayload.append('client_id', DISCORD_CLIENT_ID);
+    bodyPayload.append('client_secret', DISCORD_CLIENT_SECRET);
+    bodyPayload.append('grant_type', 'authorization_code');
+    bodyPayload.append('code', code);
+    bodyPayload.append('redirect_uri', DISCORD_CALLBACK_URL);
 
     let tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${basicAuth}`,
-      },
-      body: tokenPayload.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: bodyPayload.toString(),
     });
 
     let tokenData = await tokenRes.json();
 
-    // Fallback: if Basic auth fails, try with credentials in body
+    // Fallback: If POST body fails with invalid_client, try Basic Auth
     if (tokenData.error === 'invalid_client') {
-      const bodyPayload = new URLSearchParams();
-      bodyPayload.append('client_id', DISCORD_CLIENT_ID);
-      bodyPayload.append('client_secret', DISCORD_CLIENT_SECRET);
-      bodyPayload.append('grant_type', 'authorization_code');
-      bodyPayload.append('code', code);
-      bodyPayload.append('redirect_uri', DISCORD_CALLBACK_URL);
+      const basicAuth = btoa(`${DISCORD_CLIENT_ID}:${DISCORD_CLIENT_SECRET}`);
+      const basicPayload = new URLSearchParams();
+      basicPayload.append('grant_type', 'authorization_code');
+      basicPayload.append('code', code);
+      basicPayload.append('redirect_uri', DISCORD_CALLBACK_URL);
 
       tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${basicAuth}`,
         },
-        body: bodyPayload.toString(),
+        body: basicPayload.toString(),
       });
 
       tokenData = await tokenRes.json();
@@ -69,11 +66,20 @@ export async function onRequestGet(context) {
       );
     }
 
-    // Step 2: Send access_token to backend's /auth/discord/token-login
+    // Step 2: Fetch Discord user profile on Cloudflare Edge
+    const profileRes = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const profileData = profileRes.ok ? await profileRes.json() : null;
+
+    // Step 3: Send token & profile to backend to generate JWT session (Render does 0 Discord API requests)
     const loginRes = await fetch(`${BACKEND_URL}/api/auth/discord/token-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ access_token: tokenData.access_token }),
+      body: JSON.stringify({
+        access_token: tokenData.access_token,
+        profile: profileData,
+      }),
     });
 
     const loginData = await loginRes.json();

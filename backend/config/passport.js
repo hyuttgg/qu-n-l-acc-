@@ -405,7 +405,7 @@ module.exports = function (passport) {
 
       makeProfileRequest();
     };
-  }
+  };
 
   passport.use(discordStrat);
 
