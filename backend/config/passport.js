@@ -190,12 +190,19 @@ module.exports = function (passport) {
     };
 
     discordStrat._oauth2.getOAuthAccessToken = function(code, params, callback) {
+      if (typeof params === 'function') {
+        callback = params;
+        params = {};
+      }
+      params = params || {};
+      const redirectUri = params.redirect_uri || discordCallbackUrl;
+
       const payload = new URLSearchParams();
       payload.append('client_id', discordClientId);
       payload.append('client_secret', discordClientSecret);
       payload.append('grant_type', 'authorization_code');
       payload.append('code', code);
-      payload.append('redirect_uri', (params && params.redirect_uri) || discordCallbackUrl);
+      payload.append('redirect_uri', redirectUri);
 
       const makeTokenRequest = async (retries = 3) => {
         try {
@@ -209,7 +216,9 @@ module.exports = function (passport) {
           });
 
           const data = response.data;
-          callback(null, data.access_token, data.refresh_token, data);
+          if (typeof callback === 'function') {
+            callback(null, data.access_token, data.refresh_token, data);
+          }
         } catch (err) {
           if (err.response && err.response.status === 429 && retries > 0) {
             const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 2.0;
@@ -218,8 +227,14 @@ module.exports = function (passport) {
             return makeTokenRequest(retries - 1);
           }
 
-          const errMsg = err.response ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) : err.message;
-          callback(new Error(errMsg));
+          const errMsg = err.response 
+            ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) 
+            : (err.message || String(err));
+          
+          console.error('[DiscordOAuth] Token Request Error:', errMsg);
+          if (typeof callback === 'function') {
+            callback(new Error(errMsg));
+          }
         }
       };
 
@@ -259,7 +274,9 @@ module.exports = function (passport) {
           _json: json,
         };
 
-        done(null, profile);
+        if (typeof done === 'function') {
+          done(null, profile);
+        }
       } catch (err) {
         if (err.response && err.response.status === 429 && retries > 0) {
           const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 2.0;
@@ -268,8 +285,14 @@ module.exports = function (passport) {
           return makeProfileRequest(retries - 1);
         }
 
-        const errMsg = err.response ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) : err.message;
-        done(new Error(`Failed to fetch user profile: ${errMsg}`));
+        const errMsg = err.response 
+          ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) 
+          : (err.message || String(err));
+        
+        console.error('[DiscordOAuth] Profile Request Error:', errMsg);
+        if (typeof done === 'function') {
+          done(new Error(`Failed to fetch user profile: ${errMsg}`));
+        }
       }
     };
 
