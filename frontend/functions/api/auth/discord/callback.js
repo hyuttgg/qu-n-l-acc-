@@ -1,6 +1,6 @@
 // Cloudflare Pages Function: Full Discord OAuth Callback Handler
 // Completely bypasses Render's backend for Discord API interactions.
-// Flow: Discord → Cloudflare Edge (token exchange + profile fetch) → Render (DB sync + JWT) → Frontend
+// Supports both Public Client (No Secret) and Confidential Client (Secret).
 
 export async function onRequestGet(context) {
   const url = new URL(context.request.url);
@@ -22,37 +22,37 @@ export async function onRequestGet(context) {
   }
 
   try {
-    // Step 1: Exchange code for access_token on Cloudflare Edge (Trusted IPs)
-    const bodyPayload = new URLSearchParams();
-    bodyPayload.append('client_id', DISCORD_CLIENT_ID);
-    bodyPayload.append('client_secret', DISCORD_CLIENT_SECRET);
-    bodyPayload.append('grant_type', 'authorization_code');
-    bodyPayload.append('code', code);
-    bodyPayload.append('redirect_uri', DISCORD_CALLBACK_URL);
+    let tokenData = null;
+
+    // Step 1: Attempt exchange as Public Client (client_id only, NO client_secret)
+    // Discord Public Clients (SPA) strictly require NO client_secret
+    const publicPayload = new URLSearchParams();
+    publicPayload.append('client_id', DISCORD_CLIENT_ID);
+    publicPayload.append('grant_type', 'authorization_code');
+    publicPayload.append('code', code);
+    publicPayload.append('redirect_uri', DISCORD_CALLBACK_URL);
 
     let tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: bodyPayload.toString(),
+      body: publicPayload.toString(),
     });
 
-    let tokenData = await tokenRes.json();
+    tokenData = await tokenRes.json();
 
-    // Fallback: If POST body fails with invalid_client, try Basic Auth
+    // Fallback: If Public Client mode returns invalid_client, retry with Client Secret (Confidential Client)
     if (tokenData.error === 'invalid_client') {
-      const basicAuth = btoa(`${DISCORD_CLIENT_ID}:${DISCORD_CLIENT_SECRET}`);
-      const basicPayload = new URLSearchParams();
-      basicPayload.append('grant_type', 'authorization_code');
-      basicPayload.append('code', code);
-      basicPayload.append('redirect_uri', DISCORD_CALLBACK_URL);
+      const secretPayload = new URLSearchParams();
+      secretPayload.append('client_id', DISCORD_CLIENT_ID);
+      secretPayload.append('client_secret', DISCORD_CLIENT_SECRET);
+      secretPayload.append('grant_type', 'authorization_code');
+      secretPayload.append('code', code);
+      secretPayload.append('redirect_uri', DISCORD_CALLBACK_URL);
 
       tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${basicAuth}`,
-        },
-        body: basicPayload.toString(),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: secretPayload.toString(),
       });
 
       tokenData = await tokenRes.json();
@@ -66,7 +66,7 @@ export async function onRequestGet(context) {
       );
     }
 
-    // Step 2: Fetch Discord user profile on Cloudflare Edge
+    // Step 2: Fetch Discord user profile on Cloudflare Edge (Trusted IPs)
     const profileRes = await fetch('https://discord.com/api/v10/users/@me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
