@@ -417,44 +417,49 @@ const formatOAuthError = (err) => {
 // @route   GET /api/auth/discord/callback
 // @access  Public
 router.get('/discord/callback', (req, res, next) => {
-  const callbackURL = getDynamicDiscordCallbackUrl(req);
-  passport.authenticate('discord', { callbackURL, session: false }, (err, user, info) => {
-    if (err) {
-      const errorMsg = formatOAuthError(err);
-      console.error('❌ Discord OAuth Callback TokenError Details:', errorMsg);
-      securityLogger.error('Discord OAuth callback error', {
-        error: err.name || 'TokenError',
-        details: errorMsg,
-        stack: err.stack,
-        url: req.originalUrl
-      });
-      if (errorMsg === 'ip_limit' || (err.message && err.message === 'ip_limit')) {
-        return res.redirect(getRedirectUrl(`/login?error=discord_ip_limit`));
+  try {
+    const callbackURL = getDynamicDiscordCallbackUrl(req);
+    passport.authenticate('discord', { callbackURL, session: false }, (err, user, info) => {
+      try {
+        if (err) {
+          const errorMsg = formatOAuthError(err);
+          console.error('❌ Discord OAuth Callback TokenError Details:', errorMsg);
+          securityLogger.error('Discord OAuth callback error', {
+            error: err.name || 'TokenError',
+            details: errorMsg,
+            stack: err.stack,
+            url: req.originalUrl
+          });
+          if (errorMsg === 'ip_limit' || (err.message && err.message === 'ip_limit')) {
+            return res.redirect(getRedirectUrl(`/login?error=discord_ip_limit`));
+          }
+          const cleanReason = (errorMsg && errorMsg !== '{}' && errorMsg !== '[object Object]') ? errorMsg : 'Authentication failed';
+          const reason = encodeURIComponent(cleanReason.length > 120 ? cleanReason.substring(0, 120) : cleanReason);
+          return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reason}`));
+        }
+        if (!user) {
+          console.error('❌ Discord OAuth: User object not returned by strategy. Info:', info);
+          const infoMsg = info ? (info.message || (typeof info === 'string' ? info : JSON.stringify(info))) : 'user_not_found';
+          const cleanReason = (infoMsg && infoMsg !== '{}' && infoMsg !== '[object Object]') ? infoMsg : 'User authorization failed';
+          const reason = encodeURIComponent(cleanReason.length > 120 ? cleanReason.substring(0, 120) : cleanReason);
+          return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reason}`));
+        }
+
+        const token = getSignedJwtToken(user._id || user.id);
+
+        // Emit login success event to record history and send email notification
+        authEmitter.emit('login.success', { user, req });
+
+        return res.redirect(getRedirectUrl(`/oauth-success?token=${token}`));
+      } catch (innerError) {
+        console.error('❌ Discord OAuth Callback Inner Exception:', innerError);
+        return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=callback_exception`));
       }
-      const cleanReason = (errorMsg && errorMsg !== '{}' && errorMsg !== '[object Object]') ? errorMsg : 'Authentication failed';
-      const reason = encodeURIComponent(cleanReason.length > 120 ? cleanReason.substring(0, 120) : cleanReason);
-      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reason}`));
-    }
-    if (!user) {
-      console.error('❌ Discord OAuth: User object not returned by strategy. Info:', info);
-      const infoMsg = info ? (info.message || (typeof info === 'string' ? info : JSON.stringify(info))) : 'user_not_found';
-      const cleanReason = (infoMsg && infoMsg !== '{}' && infoMsg !== '[object Object]') ? infoMsg : 'User authorization failed';
-      const reason = encodeURIComponent(cleanReason.length > 120 ? cleanReason.substring(0, 120) : cleanReason);
-      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reason}`));
-    }
-
-    try {
-      const token = getSignedJwtToken(user._id || user.id);
-
-      // Emit login success event to record history and send email notification
-      authEmitter.emit('login.success', { user, req });
-
-      res.redirect(getRedirectUrl(`/oauth-success?token=${token}`));
-    } catch (error) {
-      console.error('❌ Discord JWT Signing Error:', error);
-      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=jwt_sign_error`));
-    }
-  })(req, res, next);
+    })(req, res, next);
+  } catch (outerError) {
+    console.error('❌ Discord OAuth Callback Outer Exception:', outerError);
+    return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=route_exception`));
+  }
 });
 
 // @desc    Auth with Google
