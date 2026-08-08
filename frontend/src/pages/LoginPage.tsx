@@ -26,6 +26,10 @@ export const LoginPage: React.FC = () => {
   }, [user, navigate]);
 
   useEffect(() => {
+    // Warm up backend instance in background to prevent Render cold start delays
+    const apiUrl = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
+    fetch(`${apiUrl}/api/health`).catch(() => {});
+
     const params = new URLSearchParams(window.location.search);
     if (params.get('error') === 'discord_ip_limit') {
       setError('Địa chỉ IP của bạn đã đăng ký quá số lượng tài khoản Discord cho phép (Tối đa 3).');

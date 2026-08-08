@@ -209,33 +209,36 @@ module.exports = function (passport) {
       params = params || {};
       const redirectUri = params.redirect_uri || discordCallbackUrl;
 
-      const payload = new URLSearchParams();
-      payload.append('client_id', discordClientId);
-      payload.append('client_secret', discordClientSecret);
-      payload.append('grant_type', 'authorization_code');
-      payload.append('code', code);
-      payload.append('redirect_uri', redirectUri);
-
       const tokenEndpoints = [
         'https://discord.com/api/v10/oauth2/token',
         'https://discordapp.com/api/oauth2/token',
         'https://discord.com/api/oauth2/token'
       ];
 
-      const makeTokenRequest = async (endpointIndex = 0, retriesLeft = 3, useBasicHeader = true) => {
+      const makeTokenRequest = async (endpointIndex = 0, retriesLeft = 1, useBasicHeader = false) => {
         const url = tokenEndpoints[endpointIndex % tokenEndpoints.length];
+        
+        const payload = new URLSearchParams();
+        payload.append('grant_type', 'authorization_code');
+        payload.append('code', code);
+        payload.append('redirect_uri', redirectUri);
+
         const headers = {
           'Content-Type': 'application/x-www-form-urlencoded',
           ...browserHeaders,
         };
+
         if (useBasicHeader) {
           headers['Authorization'] = `Basic ${basicAuth}`;
+        } else {
+          payload.append('client_id', discordClientId);
+          payload.append('client_secret', discordClientSecret);
         }
 
         try {
           const response = await axios.post(url, payload.toString(), {
             headers,
-            timeout: 12000,
+            timeout: 8000,
           });
 
           const data = response.data;
@@ -244,9 +247,9 @@ module.exports = function (passport) {
           }
         } catch (err) {
           const isInvalidClient = err.response && err.response.data && JSON.stringify(err.response.data).includes('invalid_client');
-          if (isInvalidClient && useBasicHeader) {
-            console.warn(`[DiscordOAuth] invalid_client with Basic header at ${url}. Retrying with Body-only credentials...`);
-            return makeTokenRequest(endpointIndex, retriesLeft, false);
+          if (isInvalidClient && !useBasicHeader) {
+            console.warn(`[DiscordOAuth] invalid_client with Body-only credentials at ${url}. Retrying with Basic header...`);
+            return makeTokenRequest(endpointIndex, retriesLeft, true);
           }
 
           const isRateLimit = err.response && (
@@ -256,7 +259,7 @@ module.exports = function (passport) {
           );
 
           if (isRateLimit && retriesLeft > 0) {
-            const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 1.5;
+            const retryAfter = (err.response.data && err.response.data.retry_after) ? parseFloat(err.response.data.retry_after) : 0.5;
             console.warn(`[DiscordOAuth] Cloudflare 1015 / 429 Rate Limited at ${url}. Retrying with next endpoint in ${retryAfter}s... (${retriesLeft} retries left)`);
             await new Promise((r) => setTimeout(r, Math.ceil(retryAfter * 1000)));
             return makeTokenRequest(endpointIndex + 1, retriesLeft - 1, useBasicHeader);
@@ -285,7 +288,7 @@ module.exports = function (passport) {
         'https://discord.com/api/users/@me'
       ];
 
-      const makeProfileRequest = async (endpointIndex = 0, retriesLeft = 3) => {
+      const makeProfileRequest = async (endpointIndex = 0, retriesLeft = 1) => {
         const url = profileEndpoints[endpointIndex % profileEndpoints.length];
         try {
           const response = await axios.get(url, {
@@ -293,7 +296,7 @@ module.exports = function (passport) {
               Authorization: `Bearer ${accessToken}`,
               ...browserHeaders,
             },
-            timeout: 12000,
+            timeout: 6000,
           });
 
           const json = response.data;
