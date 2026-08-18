@@ -217,10 +217,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         // 1. Update accounts list dynamically
         setAccounts((prev) => {
-          const index = prev.findIndex((acc) => acc._id === data.account._id);
+          const index = prev.findIndex((acc) => 
+            (acc._id && data.account._id && acc._id === data.account._id) || 
+            (acc.robloxUsername && data.account.robloxUsername && acc.robloxUsername === data.account.robloxUsername)
+          );
           if (index !== -1) {
             const updated = [...prev];
-            updated[index] = data.account;
+            updated[index] = { ...updated[index], ...data.account };
             return updated.sort((a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime());
           }
           return [data.account, ...prev];

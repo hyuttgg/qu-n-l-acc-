@@ -41,8 +41,7 @@ const AccountSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['online', 'offline', 'idle', 'grinding', 'bossing', 'sea_event', 'trading', 'updating', 'reconnecting'],
-    default: 'offline',
+    default: 'grinding',
   },
   location: {
     type: String,

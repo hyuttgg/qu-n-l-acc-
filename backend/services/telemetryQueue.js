@@ -299,6 +299,15 @@ class TelemetryQueue {
             description: `Leveled up from ${oldLevel} to ${account.level}`,
           });
         }
+
+        // 5. Broadcast complete saved account with valid _id to Socket.io subscribers
+        if (item.io) {
+          item.io.to(userId).emit('account_update', {
+            account: account.toObject(),
+            inventory: inventory ? inventory.toObject() : null,
+            activeSession: activeSession ? activeSession.toObject() : null
+          });
+        }
       }
     } catch (err) {
       console.error('[TelemetryQueue] Flush error:', err.message);
