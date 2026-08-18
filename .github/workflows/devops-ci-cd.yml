@@ -1,0 +1,306 @@
+name: 🚀 OceanForge DevOps CI/CD Pipeline (Self-Healing)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  NODE_VERSION: '20'
+  HEALTH_CHECK_URL: 'http://localhost:5000/api/health'
+  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_DEVOPS_WEBHOOK }}
+
+jobs:
+  # ══════════════════════════════════════════════════════════════
+  # STAGE 1: Code Quality & Syntax Verification (with Auto-Retry)
+  # ══════════════════════════════════════════════════════════════
+  lint_and_check:
+    name: 🔍 Lint & Syntax Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Verify JavaScript Syntax (Auto-Retry x3)
+        working-directory: backend
+        run: |
+          max_retries=3
+          attempt=1
+          while [ $attempt -le $max_retries ]; do
+            echo "🔍 Syntax check attempt $attempt/$max_retries..."
+            if node -c server.js && \
+               node -c routes/*.js && \
+               node -c bot/*.js && \
+               node -c middleware/*.js && \
+               node -c utils/*.js; then
+              echo "✅ All syntax checks passed on attempt $attempt"
+              exit 0
+            fi
+            echo "⚠️ Syntax check failed on attempt $attempt"
+            attempt=$((attempt + 1))
+            sleep 5
+          done
+          echo "❌ Syntax check failed after $max_retries attempts"
+          exit 1
+
+      - name: Notify Discord — Lint Failed
+        if: failure()
+        run: |
+          curl -s -X POST "${{ env.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "🔴 Lint & Syntax Check FAILED",
+                "description": "Code quality check thất bại trên branch `${{ github.ref_name }}`.",
+                "color": 15158332,
+                "fields": [
+                  {"name": "Branch", "value": "`${{ github.ref_name }}`", "inline": true},
+                  {"name": "Commit", "value": "`${{ github.sha }}`", "inline": true},
+                  {"name": "Author", "value": "`${{ github.actor }}`", "inline": true}
+                ],
+                "footer": {"text": "OceanForge Self-Healing CI/CD"},
+                "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+              }]
+            }' || true
+
+  # ══════════════════════════════════════════════════════════════
+  # STAGE 2: Automated SQL Database Migration & Test
+  # ══════════════════════════════════════════════════════════════
+  sql_database_migration_test:
+    name: 🗄️ MySQL Schema Migration & Health Test
+    runs-on: ubuntu-latest
+    needs: lint_and_check
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: bloxfruits_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install MySQL Driver
+        working-directory: backend
+        run: npm install mysql2 dotenv
+
+      - name: Execute SQL Migration (Auto-Retry x3)
+        working-directory: backend
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: 3306
+          MYSQL_USER: root
+          MYSQL_PASSWORD: rootpassword
+        run: |
+          max_retries=3
+          attempt=1
+          while [ $attempt -le $max_retries ]; do
+            echo "🗄️ Migration attempt $attempt/$max_retries..."
+            if node scripts/run_migrations.js; then
+              echo "✅ Migration passed on attempt $attempt"
+              exit 0
+            fi
+            echo "⚠️ Migration failed on attempt $attempt"
+            attempt=$((attempt + 1))
+            sleep 10
+          done
+          echo "❌ Migration failed after $max_retries attempts"
+          exit 1
+
+      - name: Validate Database Schema Health & Index Integrity
+        env:
+          MYSQL_PWD: rootpassword
+        run: |
+          mysql -h 127.0.0.1 -u root -e "USE bloxfruits_db; SHOW TABLES; DESCRIBE users; DESCRIBE accounts; DESCRIBE account_equipment;"
+
+      - name: Notify Discord — Migration Failed
+        if: failure()
+        run: |
+          curl -s -X POST "${{ env.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "🔴 Database Migration FAILED",
+                "description": "SQL migration thất bại sau 3 lần thử.",
+                "color": 15158332,
+                "fields": [
+                  {"name": "Branch", "value": "`${{ github.ref_name }}`", "inline": true},
+                  {"name": "Commit", "value": "`${{ github.sha }}`", "inline": true}
+                ],
+                "footer": {"text": "OceanForge Self-Healing CI/CD"},
+                "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+              }]
+            }' || true
+
+  # ══════════════════════════════════════════════════════════════
+  # STAGE 3: Deploy to Production (with Auto-Rollback)
+  # ══════════════════════════════════════════════════════════════
+  deploy:
+    name: 🚀 Production Auto-Deploy
+    runs-on: ubuntu-latest
+    needs: [lint_and_check, sql_database_migration_test]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Deploy to Server via SSH
+        id: deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/oceanforge/backend
+
+            # Save current commit hash for rollback
+            PREVIOUS_COMMIT=$(git rev-parse HEAD)
+            echo "PREVIOUS_COMMIT=$PREVIOUS_COMMIT" > /tmp/oceanforge_deploy_state
+
+            # Pull latest code
+            git pull origin main
+            npm install --production
+
+            # Restart with PM2
+            if [ -f ecosystem.config.js ]; then
+              pm2 restart ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
+            else
+              pm2 restart oceanforge-backend || pm2 start server.js --name oceanforge-backend
+            fi
+
+            echo "✅ Deployment completed at $(date)"
+
+      - name: Post-Deploy Health Check (Auto-Fix)
+        id: health_check
+        if: success()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "⏳ Waiting 15 seconds for server warmup..."
+            sleep 15
+
+            max_retries=5
+            attempt=1
+            while [ $attempt -le $max_retries ]; do
+              echo "🏥 Health check attempt $attempt/$max_retries..."
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/api/health --max-time 10 || echo "000")
+
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "✅ Health check PASSED (HTTP $HTTP_CODE) on attempt $attempt"
+                exit 0
+              fi
+
+              echo "⚠️ Health check returned HTTP $HTTP_CODE on attempt $attempt"
+              attempt=$((attempt + 1))
+              sleep 10
+            done
+
+            echo "❌ Health check FAILED after $max_retries attempts"
+            exit 1
+
+      - name: Auto-Rollback on Health Check Failure
+        if: failure() && steps.deploy.outcome == 'success'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "🔄 INITIATING AUTO-ROLLBACK..."
+            cd /var/www/oceanforge/backend
+
+            # Read previous commit
+            if [ -f /tmp/oceanforge_deploy_state ]; then
+              source /tmp/oceanforge_deploy_state
+              echo "Rolling back to commit: $PREVIOUS_COMMIT"
+              git checkout $PREVIOUS_COMMIT
+              npm install --production
+              pm2 restart oceanforge-backend
+              echo "✅ Rollback completed to $PREVIOUS_COMMIT"
+            else
+              echo "⚠️ No rollback state found — reverting to HEAD~1"
+              git reset --hard HEAD~1
+              npm install --production
+              pm2 restart oceanforge-backend
+              echo "✅ Rollback completed to HEAD~1"
+            fi
+
+            # Verify rollback health
+            sleep 10
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/api/health --max-time 10 || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Post-rollback health check PASSED"
+            else
+              echo "❌ Post-rollback health check FAILED — CRITICAL: Manual intervention required"
+              exit 1
+            fi
+
+      - name: Notify Discord — Deploy Success
+        if: success()
+        run: |
+          curl -s -X POST "${{ env.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "🟢 Deployment Thành Công",
+                "description": "Deploy lên production thành công + health check PASSED.",
+                "color": 3066993,
+                "fields": [
+                  {"name": "Branch", "value": "`${{ github.ref_name }}`", "inline": true},
+                  {"name": "Commit", "value": "`${{ github.sha }}`", "inline": true},
+                  {"name": "Author", "value": "`${{ github.actor }}`", "inline": true},
+                  {"name": "Health Check", "value": "✅ PASSED", "inline": true}
+                ],
+                "footer": {"text": "OceanForge Self-Healing CI/CD"},
+                "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+              }]
+            }' || true
+
+      - name: Notify Discord — Deploy Failed / Rolled Back
+        if: failure()
+        run: |
+          curl -s -X POST "${{ env.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "🔴 Deployment FAILED — Auto-Rollback Triggered",
+                "description": "Deploy thất bại hoặc health check không pass. Hệ thống đã tự động rollback về commit trước.",
+                "color": 15158332,
+                "fields": [
+                  {"name": "Branch", "value": "`${{ github.ref_name }}`", "inline": true},
+                  {"name": "Commit", "value": "`${{ github.sha }}`", "inline": true},
+                  {"name": "Author", "value": "`${{ github.actor }}`", "inline": true},
+                  {"name": "Action", "value": "⏪ AUTO-ROLLBACK", "inline": true}
+                ],
+                "footer": {"text": "OceanForge Self-Healing CI/CD — Cần kiểm tra thủ công"},
+                "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+              }]
+            }' || true

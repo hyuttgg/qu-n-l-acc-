@@ -1,0 +1,288 @@
+stages:
+  - lint
+  - sql-migration-test
+  - deploy
+  - health-check
+  - auto-rollback
+
+variables:
+  DISCORD_WEBHOOK_URL: $DISCORD_DEVOPS_WEBHOOK
+
+cache:
+  paths:
+    - backend/node_modules/
+
+# ══════════════════════════════════════════════════════════════
+# STAGE 1: Lint & Code Quality Check (Auto-Retry)
+# ══════════════════════════════════════════════════════════════
+lint-code:
+  stage: lint
+  image: node:20-alpine
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - script_failure
+  script:
+    - cd backend
+    - npm ci
+    - echo "🔍 Verifying JavaScript syntax..."
+    - node -c server.js
+    - node -c routes/*.js
+    - node -c bot/*.js
+    - node -c utils/*.js
+    - echo "✅ All syntax checks passed!"
+  after_script:
+    - |
+      if [ "$CI_JOB_STATUS" = "failed" ]; then
+        curl -s -X POST "$DISCORD_WEBHOOK_URL" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"🔴 [GitLab CI] Lint FAILED\",
+              \"description\": \"Code quality check thất bại trên branch \`$CI_COMMIT_REF_NAME\`.\",
+              \"color\": 15158332,
+              \"fields\": [
+                {\"name\": \"Branch\", \"value\": \"\`$CI_COMMIT_REF_NAME\`\", \"inline\": true},
+                {\"name\": \"Commit\", \"value\": \"\`$CI_COMMIT_SHORT_SHA\`\", \"inline\": true},
+                {\"name\": \"Author\", \"value\": \"\`$CI_COMMIT_AUTHOR\`\", \"inline\": true},
+                {\"name\": \"Pipeline\", \"value\": \"[#$CI_PIPELINE_ID]($CI_PIPELINE_URL)\", \"inline\": true}
+              ],
+              \"footer\": {\"text\": \"OceanForge Self-Healing GitLab CI/CD\"},
+              \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+            }]
+          }" || true
+      fi
+
+# ══════════════════════════════════════════════════════════════
+# STAGE 2: Automated MySQL Migration & Schema Health Check
+# ══════════════════════════════════════════════════════════════
+sql-migration-test:
+  stage: sql-migration-test
+  image: node:20
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - script_failure
+  services:
+    - name: mysql:8.0
+      alias: mysql-db
+      command: ["--default-authentication-plugin=mysql_native_password"]
+  variables:
+    MYSQL_ROOT_PASSWORD: rootpassword
+    MYSQL_DATABASE: bloxfruits_db
+    MYSQL_HOST: mysql-db
+    MYSQL_PORT: 3306
+    MYSQL_USER: root
+    MYSQL_PASSWORD: rootpassword
+  script:
+    - cd backend
+    - npm install mysql2 dotenv
+    - |
+      echo "🗄️ Running database migration with auto-retry..."
+      max_retries=3
+      attempt=1
+      while [ $attempt -le $max_retries ]; do
+        echo "📦 Migration attempt $attempt/$max_retries..."
+        if node scripts/run_migrations.js; then
+          echo "✅ Migration passed on attempt $attempt"
+          exit 0
+        fi
+        echo "⚠️ Migration failed on attempt $attempt — retrying in 10s..."
+        attempt=$((attempt + 1))
+        sleep 10
+      done
+      echo "❌ Migration failed after $max_retries attempts"
+      exit 1
+  after_script:
+    - |
+      if [ "$CI_JOB_STATUS" = "failed" ]; then
+        curl -s -X POST "$DISCORD_WEBHOOK_URL" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"🔴 [GitLab CI] Database Migration FAILED\",
+              \"description\": \"SQL migration thất bại sau nhiều lần thử.\",
+              \"color\": 15158332,
+              \"fields\": [
+                {\"name\": \"Branch\", \"value\": \"\`$CI_COMMIT_REF_NAME\`\", \"inline\": true},
+                {\"name\": \"Commit\", \"value\": \"\`$CI_COMMIT_SHORT_SHA\`\", \"inline\": true}
+              ],
+              \"footer\": {\"text\": \"OceanForge Self-Healing GitLab CI/CD\"},
+              \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+            }]
+          }" || true
+      fi
+
+# ══════════════════════════════════════════════════════════════
+# STAGE 3: Production Auto-Deploy
+# ══════════════════════════════════════════════════════════════
+deploy-to-production:
+  stage: deploy
+  image: alpine:latest
+  only:
+    - main
+    - master
+  before_script:
+    - apk add --no-cache openssh-client curl
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $SERVER_HOST >> ~/.ssh/known_hosts
+  script:
+    - |
+      echo "🚀 Deploying to production..."
+      ssh $SERVER_USER@$SERVER_HOST << 'DEPLOY_SCRIPT'
+        cd /var/www/oceanforge/backend
+
+        # Save current commit for rollback
+        PREVIOUS_COMMIT=$(git rev-parse HEAD)
+        echo "$PREVIOUS_COMMIT" > /tmp/oceanforge_previous_commit
+
+        # Pull & install
+        git pull origin main
+        npm install --production
+
+        # Restart with PM2 ecosystem config if available
+        if [ -f ecosystem.config.js ]; then
+          pm2 restart ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
+        else
+          pm2 restart oceanforge-backend || pm2 start server.js --name oceanforge-backend
+        fi
+
+        echo "✅ Deploy completed at $(date)"
+      DEPLOY_SCRIPT
+
+# ══════════════════════════════════════════════════════════════
+# STAGE 4: Post-Deploy Health Check
+# ══════════════════════════════════════════════════════════════
+health-check-production:
+  stage: health-check
+  image: alpine:latest
+  only:
+    - main
+    - master
+  needs:
+    - deploy-to-production
+  before_script:
+    - apk add --no-cache openssh-client curl
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $SERVER_HOST >> ~/.ssh/known_hosts
+  script:
+    - |
+      echo "⏳ Waiting 15 seconds for server warmup..."
+      sleep 15
+
+      echo "🏥 Running post-deploy health check..."
+      ssh $SERVER_USER@$SERVER_HOST << 'HEALTH_SCRIPT'
+        max_retries=5
+        attempt=1
+        while [ $attempt -le $max_retries ]; do
+          echo "🏥 Health check attempt $attempt/$max_retries..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/api/health --max-time 10 || echo "000")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Health check PASSED (HTTP $HTTP_CODE) on attempt $attempt"
+            exit 0
+          fi
+
+          echo "⚠️ Health check returned HTTP $HTTP_CODE on attempt $attempt"
+          attempt=$((attempt + 1))
+          sleep 10
+        done
+
+        echo "❌ Health check FAILED after $max_retries attempts"
+        exit 1
+      HEALTH_SCRIPT
+  after_script:
+    - |
+      if [ "$CI_JOB_STATUS" = "success" ]; then
+        curl -s -X POST "$DISCORD_WEBHOOK_URL" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"🟢 [GitLab CI] Deployment Thành Công\",
+              \"description\": \"Deploy lên production thành công + health check PASSED.\",
+              \"color\": 3066993,
+              \"fields\": [
+                {\"name\": \"Branch\", \"value\": \"\`$CI_COMMIT_REF_NAME\`\", \"inline\": true},
+                {\"name\": \"Commit\", \"value\": \"\`$CI_COMMIT_SHORT_SHA\`\", \"inline\": true},
+                {\"name\": \"Health Check\", \"value\": \"✅ PASSED\", \"inline\": true}
+              ],
+              \"footer\": {\"text\": \"OceanForge Self-Healing GitLab CI/CD\"},
+              \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+            }]
+          }" || true
+      fi
+
+# ══════════════════════════════════════════════════════════════
+# STAGE 5: Auto-Rollback (runs only when health check fails)
+# ══════════════════════════════════════════════════════════════
+auto-rollback-production:
+  stage: auto-rollback
+  image: alpine:latest
+  only:
+    - main
+    - master
+  when: on_failure
+  needs:
+    - health-check-production
+  before_script:
+    - apk add --no-cache openssh-client curl
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $SERVER_HOST >> ~/.ssh/known_hosts
+  script:
+    - |
+      echo "🔄 INITIATING AUTO-ROLLBACK..."
+      ssh $SERVER_USER@$SERVER_HOST << 'ROLLBACK_SCRIPT'
+        cd /var/www/oceanforge/backend
+
+        # Read previous commit
+        if [ -f /tmp/oceanforge_previous_commit ]; then
+          PREVIOUS_COMMIT=$(cat /tmp/oceanforge_previous_commit)
+          echo "⏪ Rolling back to commit: $PREVIOUS_COMMIT"
+          git checkout $PREVIOUS_COMMIT
+        else
+          echo "⚠️ No rollback state found — reverting to HEAD~1"
+          git reset --hard HEAD~1
+        fi
+
+        npm install --production
+        pm2 restart oceanforge-backend
+
+        # Verify rollback health
+        sleep 10
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/api/health --max-time 10 || echo "000")
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "✅ Post-rollback health check PASSED"
+        else
+          echo "❌ Post-rollback health check FAILED — CRITICAL: Manual intervention required"
+          exit 1
+        fi
+      ROLLBACK_SCRIPT
+  after_script:
+    - |
+      curl -s -X POST "$DISCORD_WEBHOOK_URL" \
+        -H "Content-Type: application/json" \
+        -d "{
+          \"embeds\": [{
+            \"title\": \"🔴 [GitLab CI] Deploy FAILED — Auto-Rollback Triggered\",
+            \"description\": \"Health check thất bại. Hệ thống đã tự động rollback về commit trước.\",
+            \"color\": 15158332,
+            \"fields\": [
+              {\"name\": \"Branch\", \"value\": \"\`$CI_COMMIT_REF_NAME\`\", \"inline\": true},
+              {\"name\": \"Commit\", \"value\": \"\`$CI_COMMIT_SHORT_SHA\`\", \"inline\": true},
+              {\"name\": \"Action\", \"value\": \"⏪ AUTO-ROLLBACK\", \"inline\": true}
+            ],
+            \"footer\": {\"text\": \"OceanForge Self-Healing GitLab CI/CD — Cần kiểm tra thủ công\"},
+            \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+          }]
+        }" || true

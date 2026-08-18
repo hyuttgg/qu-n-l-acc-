@@ -1,0 +1,22 @@
+# Environment Variables and Credentials
+.env
+.env.*
+!.env.example
+backend/.env
+
+# Project place file
+/quản lý acc python.rbxlx
+
+# Roblox Studio lock files
+/*.rbxlx.lock
+/*.rbxl.lock
+
+node_modules/
+*.exe
+*.mp4
+*.webp
+*.zip
+dist/
+build/
+.wrangler/
+.serena/

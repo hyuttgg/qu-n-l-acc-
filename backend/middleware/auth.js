@@ -1,0 +1,95 @@
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const mockStore = require('../utils/mockStore');
+const config = require('../config/security.config');
+
+// Protect routes for standard frontend users (JWT)
+exports.protect = async (req, res, next) => {
+  let token;
+
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Not authorized to access this route' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, config.jwt.secret);
+    
+    // In-memory fallback
+    if (!global.dbConnected) {
+      req.user = mockStore.findUserById(decoded.id);
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'User not found' });
+      }
+      return next();
+    }
+
+    req.user = await User.findById(decoded.id);
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'User not found' });
+    }
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Not authorized to access this route' });
+  }
+};
+
+// Authorize Lua scripts sending updates from Roblox (x-api-key)
+exports.requireApiKey = async (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+
+  if (!apiKey) {
+    return res.status(401).json({ success: false, message: 'Missing API key header (x-api-key)' });
+  }
+
+  try {
+    // Check if the provided key is a JWT session token
+    if (apiKey.startsWith('ey')) {
+      try {
+        const decoded = jwt.verify(apiKey, config.jwt.secret);
+        if (decoded.purpose === 'roblox_session') {
+          let user;
+          const userId = decoded.userId || decoded.id;
+          if (!global.dbConnected) {
+            user = mockStore.findUserById(userId);
+          } else {
+            user = await User.findById(userId);
+          }
+
+          if (user) {
+            req.apiUser = user;
+            return next();
+          }
+        }
+      } catch (jwtErr) {
+        return res.status(401).json({ success: false, message: 'Roblox session token expired or invalid' });
+      }
+    }
+
+    // In-memory fallback
+    if (!global.dbConnected) {
+      const user = mockStore.findUserByApiKey(apiKey);
+      if (!user) {
+        return res.status(401).json({ success: false, message: 'Invalid API key' });
+      }
+      req.apiUser = user;
+      return next();
+    }
+
+    const user = await User.findOne({ apiKey });
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid API key' });
+    }
+    req.apiUser = user;
+    next();
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'API key authorization failed' });
+  }
+};
+
