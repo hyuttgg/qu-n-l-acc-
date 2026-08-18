@@ -391,17 +391,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const oauthLogin = useCallback(async (tokenValue: string) => {
     try {
-      localStorage.setItem('token', tokenValue);
-      setToken(tokenValue);
-
       let res = null;
-      for (let attempt = 1; attempt <= 3; attempt++) {
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        localStorage.setItem('token', tokenValue);
+        setToken(tokenValue);
         res = await api.get('/auth/me', { Authorization: `Bearer ${tokenValue}` });
         if (res && res.success && res.user) {
           break;
         }
-        if (attempt < 3) {
-          await new Promise((r) => setTimeout(r, 800));
+        if (attempt < 5) {
+          await new Promise((r) => setTimeout(r, 1000));
         }
       }
 
