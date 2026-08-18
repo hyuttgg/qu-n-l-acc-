@@ -57,12 +57,25 @@ export const LoginPage: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     setSocialLoading(true);
+    setError('');
     const backendUrl = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
     try {
-      // Warm up backend before redirecting to ensure instant OAuth code exchange
-      await fetch(`${backendUrl}/api/health`, { method: 'GET', cache: 'no-store' }).catch(() => {});
-    } finally {
-      window.location.href = `${backendUrl}/api/auth/google`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(`${backendUrl}/api/health`, { method: 'GET', cache: 'no-store', signal: controller.signal }).catch(() => null);
+      clearTimeout(timeoutId);
+
+      if (!res || !res.ok) {
+        setError(`Không thể kết nối đến máy chủ Backend (${backendUrl}). Vui lòng kiểm tra lại dịch vụ Backend (node backend/server.js).`);
+        setSocialLoading(false);
+        return;
+      }
+
+      const currentOrigin = encodeURIComponent(window.location.origin);
+      window.location.href = `${backendUrl}/api/auth/google?redirect_origin=${currentOrigin}`;
+    } catch (err: any) {
+      setError(`Lỗi kết nối máy chủ: ${err?.message || 'Server không phản hồi'}`);
+      setSocialLoading(false);
     }
   };
 

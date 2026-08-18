@@ -23,9 +23,40 @@ const getSignedJwtToken = (id) => {
   });
 };
 
+// Helper to get callback URL (must match the URI registered in Google/Facebook OAuth Console)
+const getCallbackUrl = (req, provider) => {
+  const envUrl = provider === 'google' ? process.env.GOOGLE_CALLBACK_URL : process.env.FACEBOOK_CALLBACK_URL;
+  return (envUrl || '').trim() || `https://quan-ly-acc-viet-nam.onrender.com/auth/${provider}/callback`;
+};
+
 // Helper to get safe redirect URL (bulletproofs against missing http/https protocols in env configs)
-const getRedirectUrl = (path = '') => {
-  let baseUrl = (process.env.FRONTEND_URL || '').trim();
+const getRedirectUrl = (path = '', req = null) => {
+  let baseUrl = '';
+
+  if (req) {
+    const target = req.query?.state || req.query?.redirect_origin;
+    if (target && typeof target === 'string') {
+      try {
+        const parsed = new URL(target);
+        baseUrl = parsed.origin;
+      } catch (e) {
+        if (target.startsWith('http://') || target.startsWith('https://')) {
+          baseUrl = target;
+        }
+      }
+    }
+
+    if (!baseUrl && req.headers?.host) {
+      if (req.headers.host.includes('localhost') || req.headers.host.includes('127.0.0.1')) {
+        baseUrl = 'http://localhost:5173';
+      }
+    }
+  }
+
+  if (!baseUrl) {
+    baseUrl = (process.env.FRONTEND_URL || '').trim();
+  }
+
   if (!baseUrl || baseUrl.includes('manageblox.io.vn') || baseUrl.includes('vercel')) {
     baseUrl = 'https://oceanforge-web.pages.dev';
   }
@@ -391,8 +422,13 @@ setInterval(() => {
 // @route   GET /api/auth/google
 // @access  Public
 router.get('/google', (req, res, next) => {
-  const callbackURL = (process.env.GOOGLE_CALLBACK_URL || '').trim() || 'https://quan-ly-acc-viet-nam.onrender.com/auth/google/callback';
-  passport.authenticate('google', { scope: ['profile', 'email'], callbackURL })(req, res, next);
+  const redirectOrigin = req.query.redirect_origin || req.query.state || req.headers.referer || req.headers.origin;
+  const callbackURL = getCallbackUrl(req, 'google');
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+    callbackURL,
+    state: redirectOrigin ? String(redirectOrigin) : undefined
+  })(req, res, next);
 });
 
 // @desc    Google auth callback
@@ -404,12 +440,12 @@ router.get('/google/callback', async (req, res, next) => {
     const cached = oauthCodeExchangeCache.get(code);
     if (cached) {
       if (cached.token) {
-        return res.redirect(getRedirectUrl(`/oauth-success?token=${cached.token}`));
+        return res.redirect(getRedirectUrl(`/oauth-success?token=${cached.token}`, req));
       }
       if (cached.promise) {
         try {
           const token = await cached.promise;
-          return res.redirect(getRedirectUrl(`/oauth-success?token=${token}`));
+          return res.redirect(getRedirectUrl(`/oauth-success?token=${token}`, req));
         } catch {
           // Continue to standard fallback
         }
@@ -426,7 +462,7 @@ router.get('/google/callback', async (req, res, next) => {
     oauthCodeExchangeCache.set(code, { promise: exchangePromise, timestamp: Date.now() });
   }
 
-  const callbackURL = (process.env.GOOGLE_CALLBACK_URL || '').trim() || 'https://quan-ly-acc-viet-nam.onrender.com/auth/google/callback';
+  const callbackURL = getCallbackUrl(req, 'google');
   passport.authenticate('google', { session: false, callbackURL }, (err, user, info) => {
     if (err) {
       if (code && typeof code === 'string') oauthCodeExchangeCache.delete(code);
@@ -437,13 +473,13 @@ router.get('/google/callback', async (req, res, next) => {
         url: req.originalUrl
       });
       const reasonMsg = encodeURIComponent(err.message || 'Google Auth Error');
-      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reasonMsg}`));
+      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reasonMsg}`, req));
     }
     if (!user) {
       if (code && typeof code === 'string') oauthCodeExchangeCache.delete(code);
       rejectToken && rejectToken(new Error('User creation failed'));
       const reasonMsg = encodeURIComponent(typeof info === 'string' ? info : (info?.message || 'User creation failed'));
-      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reasonMsg}`));
+      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reasonMsg}`, req));
     }
 
     // Successful authentication, redirect to frontend with JWT token
@@ -453,7 +489,7 @@ router.get('/google/callback', async (req, res, next) => {
     }
     resolveToken && resolveToken(token);
     authEmitter.emit('login.success', { user, req });
-    res.redirect(getRedirectUrl(`/oauth-success?token=${token}`));
+    res.redirect(getRedirectUrl(`/oauth-success?token=${token}`, req));
   })(req, res, next);
 });
 
@@ -464,11 +500,16 @@ router.get('/facebook', (req, res, next) => {
   const fbAppId = (process.env.FACEBOOK_APP_ID || '').trim();
   if (!fbAppId || fbAppId === 'your_facebook_app_id_here' || fbAppId === '1234567890') {
     securityLogger.warn('Facebook OAuth attempted without valid FACEBOOK_APP_ID');
-    return res.redirect(getRedirectUrl(`/login?error=facebook_app_id_missing`));
+    return res.redirect(getRedirectUrl(`/login?error=facebook_app_id_missing`, req));
   }
 
-  const callbackURL = (process.env.FACEBOOK_CALLBACK_URL || '').trim() || 'https://quan-ly-acc-viet-nam.onrender.com/auth/facebook/callback';
-  passport.authenticate('facebook', { scope: ['email', 'public_profile'], callbackURL })(req, res, next);
+  const redirectOrigin = req.query.redirect_origin || req.query.state || req.headers.referer || req.headers.origin;
+  const callbackURL = getCallbackUrl(req, 'facebook');
+  passport.authenticate('facebook', {
+    scope: ['email', 'public_profile'],
+    callbackURL,
+    state: redirectOrigin ? String(redirectOrigin) : undefined
+  })(req, res, next);
 });
 
 // @desc    Facebook auth callback
@@ -480,12 +521,12 @@ router.get('/facebook/callback', async (req, res, next) => {
     const cached = oauthCodeExchangeCache.get(code);
     if (cached) {
       if (cached.token) {
-        return res.redirect(getRedirectUrl(`/oauth-success?token=${cached.token}`));
+        return res.redirect(getRedirectUrl(`/oauth-success?token=${cached.token}`, req));
       }
       if (cached.promise) {
         try {
           const token = await cached.promise;
-          return res.redirect(getRedirectUrl(`/oauth-success?token=${token}`));
+          return res.redirect(getRedirectUrl(`/oauth-success?token=${token}`, req));
         } catch {
           // Continue to standard fallback
         }
@@ -502,7 +543,7 @@ router.get('/facebook/callback', async (req, res, next) => {
     oauthCodeExchangeCache.set(code, { promise: exchangePromise, timestamp: Date.now() });
   }
 
-  const callbackURL = (process.env.FACEBOOK_CALLBACK_URL || '').trim() || 'https://quan-ly-acc-viet-nam.onrender.com/auth/facebook/callback';
+  const callbackURL = getCallbackUrl(req, 'facebook');
   passport.authenticate('facebook', { session: false, callbackURL }, (err, user, info) => {
     if (err) {
       if (code && typeof code === 'string') oauthCodeExchangeCache.delete(code);
@@ -518,13 +559,13 @@ router.get('/facebook/callback', async (req, res, next) => {
           ? 'Mã xác thực đã hết hạn hoặc đã được gửi lại do mạng chậm. Vui lòng bấm Đăng nhập Facebook lại.'
           : (err.message || 'Facebook Auth Error')
       );
-      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reasonMsg}`));
+      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reasonMsg}`, req));
     }
     if (!user) {
       if (code && typeof code === 'string') oauthCodeExchangeCache.delete(code);
       rejectToken && rejectToken(new Error('User creation failed'));
       const reasonMsg = encodeURIComponent(typeof info === 'string' ? info : (info?.message || 'User creation failed'));
-      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reasonMsg}`));
+      return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reasonMsg}`, req));
     }
 
     // Successful authentication, redirect to frontend with JWT token
@@ -534,7 +575,7 @@ router.get('/facebook/callback', async (req, res, next) => {
     }
     resolveToken && resolveToken(token);
     authEmitter.emit('login.success', { user, req });
-    res.redirect(getRedirectUrl(`/oauth-success?token=${token}`));
+    res.redirect(getRedirectUrl(`/oauth-success?token=${token}`, req));
   })(req, res, next);
 });
 

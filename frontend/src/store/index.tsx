@@ -390,8 +390,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       localStorage.setItem('token', tokenValue);
       setToken(tokenValue);
-      const res = await api.get('/auth/me', { Authorization: `Bearer ${tokenValue}` });
-      if (res.success && res.user) {
+
+      let res = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        res = await api.get('/auth/me', { Authorization: `Bearer ${tokenValue}` });
+        if (res && res.success && res.user) {
+          break;
+        }
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 800));
+        }
+      }
+
+      if (res && res.success && res.user) {
         setUser(res.user);
         return { success: true };
       } else {

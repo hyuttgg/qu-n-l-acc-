@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../store';
 import { Compass } from 'lucide-react';
@@ -7,21 +7,24 @@ export const OAuthSuccess: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { oauthLogin } = useApp();
   const navigate = useNavigate();
+  const processedRef = useRef(false);
 
   useEffect(() => {
+    if (processedRef.current) return;
+    processedRef.current = true;
+
     const token = searchParams.get('token');
 
     if (token) {
-      // JWT token provided directly from OAuth redirect
       oauthLogin(token).then((res: { success: boolean }) => {
         if (res.success) {
           navigate('/dashboard', { replace: true });
         } else {
-          navigate('/login?error=OAuth%20login%20failed', { replace: true });
+          navigate('/login?error=oauth_failed&reason=Không%20thể%20xác%20thực%20tài%20khoản', { replace: true });
         }
       });
     } else {
-      navigate('/login?error=No%20token%20provided', { replace: true });
+      navigate('/login?error=oauth_failed&reason=Không%20nhận%20được%20token%20xác%20thực', { replace: true });
     }
   }, [searchParams, oauthLogin, navigate]);
 

@@ -39,7 +39,7 @@ module.exports = function (passport) {
           return done(new Error('Google Account has no email associated'), null);
         }
 
-        const username = profile.displayName || (profile.name ? profile.name.givenName : null) || email.split('@')[0];
+        let rawUsername = profile.displayName || (profile.name ? profile.name.givenName : null) || email.split('@')[0];
         const googleId = profile.id;
         const googleAvatarUrl = profile.photos && profile.photos[0] ? profile.photos[0].value : null;
         const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -49,7 +49,7 @@ module.exports = function (passport) {
             // In-memory mock store
             let user = mockStore.findUserByEmail(email);
             if (!user) {
-              user = mockStore.createUser(username, email, null, googleId, null, googleAvatarUrl);
+              user = mockStore.createUser(rawUsername, email, null, googleId, null, googleAvatarUrl);
             } else {
               if (!user.googleId) user.googleId = googleId;
               if (googleAvatarUrl) user.avatar = googleAvatarUrl;
@@ -76,7 +76,14 @@ module.exports = function (passport) {
             return done(null, user);
           }
 
-          // 3. Create a new user
+          // 3. Create a new user with guaranteed unique username
+          let username = rawUsername.trim();
+          const existingUsernameUser = await User.findOne({ username });
+          if (existingUsernameUser) {
+            const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+            username = `${username}_${randomSuffix}`;
+          }
+
           user = await User.create({
             username,
             email,

@@ -41,7 +41,7 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email('Invalid email address').trim().toLowerCase(),
   password: z.string().min(1, 'Password is required'),
-  captcha: z.string().optional()
+  captcha: z.string().optional().nullable()
 });
 
 // ───── Lua Roblox Ingestion Schema ─────
