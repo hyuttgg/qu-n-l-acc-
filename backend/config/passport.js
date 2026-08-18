@@ -12,11 +12,11 @@ module.exports = function (passport) {
 
   const googleClientId = cleanEnv(process.env.GOOGLE_CLIENT_ID);
   const googleClientSecret = cleanEnv(process.env.GOOGLE_CLIENT_SECRET);
-  const googleCallbackUrl = 'https://quan-ly-acc-viet-nam.onrender.com/auth/google/callback';
+  const googleCallbackUrl = cleanEnv(process.env.GOOGLE_CALLBACK_URL) || 'https://quan-ly-acc-viet-nam.onrender.com/auth/google/callback';
 
   const facebookAppId = cleanEnv(process.env.FACEBOOK_APP_ID) || '1234567890';
   const facebookAppSecret = cleanEnv(process.env.FACEBOOK_APP_SECRET) || 'dummy_facebook_secret';
-  const facebookCallbackUrl = 'https://quan-ly-acc-viet-nam.onrender.com/auth/facebook/callback';
+  const facebookCallbackUrl = cleanEnv(process.env.FACEBOOK_CALLBACK_URL) || 'https://quan-ly-acc-viet-nam.onrender.com/auth/facebook/callback';
 
   securityLogger.info('Passport initialization check', {
     googleClientId,

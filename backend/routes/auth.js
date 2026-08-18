@@ -391,7 +391,7 @@ setInterval(() => {
 // @route   GET /api/auth/google
 // @access  Public
 router.get('/google', (req, res, next) => {
-  const callbackURL = 'https://quan-ly-acc-viet-nam.onrender.com/auth/google/callback';
+  const callbackURL = (process.env.GOOGLE_CALLBACK_URL || '').trim() || 'https://quan-ly-acc-viet-nam.onrender.com/auth/google/callback';
   passport.authenticate('google', { scope: ['profile', 'email'], callbackURL })(req, res, next);
 });
 
@@ -426,7 +426,7 @@ router.get('/google/callback', async (req, res, next) => {
     oauthCodeExchangeCache.set(code, { promise: exchangePromise, timestamp: Date.now() });
   }
 
-  const callbackURL = 'https://quan-ly-acc-viet-nam.onrender.com/auth/google/callback';
+  const callbackURL = (process.env.GOOGLE_CALLBACK_URL || '').trim() || 'https://quan-ly-acc-viet-nam.onrender.com/auth/google/callback';
   passport.authenticate('google', { session: false, callbackURL }, (err, user, info) => {
     if (err) {
       if (code && typeof code === 'string') oauthCodeExchangeCache.delete(code);
@@ -467,7 +467,7 @@ router.get('/facebook', (req, res, next) => {
     return res.redirect(getRedirectUrl(`/login?error=facebook_app_id_missing`));
   }
 
-  const callbackURL = 'https://quan-ly-acc-viet-nam.onrender.com/auth/facebook/callback';
+  const callbackURL = (process.env.FACEBOOK_CALLBACK_URL || '').trim() || 'https://quan-ly-acc-viet-nam.onrender.com/auth/facebook/callback';
   passport.authenticate('facebook', { scope: ['email', 'public_profile'], callbackURL })(req, res, next);
 });
 
@@ -502,7 +502,7 @@ router.get('/facebook/callback', async (req, res, next) => {
     oauthCodeExchangeCache.set(code, { promise: exchangePromise, timestamp: Date.now() });
   }
 
-  const callbackURL = 'https://quan-ly-acc-viet-nam.onrender.com/auth/facebook/callback';
+  const callbackURL = (process.env.FACEBOOK_CALLBACK_URL || '').trim() || 'https://quan-ly-acc-viet-nam.onrender.com/auth/facebook/callback';
   passport.authenticate('facebook', { session: false, callbackURL }, (err, user, info) => {
     if (err) {
       if (code && typeof code === 'string') oauthCodeExchangeCache.delete(code);
