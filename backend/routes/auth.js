@@ -25,20 +25,29 @@ const getSignedJwtToken = (id) => {
 
 // Helper to get callback URL (must match the URI registered in Google/Facebook OAuth Console)
 const getCallbackUrl = (req, provider) => {
+  if (req) {
+    const host = req.headers?.host || (typeof req.get === 'function' ? req.get('host') : '');
+    if (host && (host.includes('localhost') || host.includes('127.0.0.1'))) {
+      const protocol = req.protocol || 'http';
+      return `${protocol}://${host}/api/auth/${provider}/callback`;
+    }
+  }
   const envUrl = provider === 'google' ? process.env.GOOGLE_CALLBACK_URL : process.env.FACEBOOK_CALLBACK_URL;
   return (envUrl || '').trim() || `https://quan-ly-acc-viet-nam.onrender.com/auth/${provider}/callback`;
 };
 
-// Helper to get safe redirect URL (bulletproofs against missing http/https protocols in env configs)
+// Helper to get safe redirect URL (bulletproofs against missing http/https protocols in env configs & invalid hostnames)
 const getRedirectUrl = (path = '', req = null) => {
   let baseUrl = '';
 
   if (req) {
-    const target = req.query?.state || req.query?.redirect_origin;
+    const target = req.query?.state || req.query?.redirect_origin || req.headers?.referer || req.headers?.origin;
     if (target && typeof target === 'string') {
       try {
         const parsed = new URL(target);
-        baseUrl = parsed.origin;
+        if (parsed.hostname && parsed.hostname !== '&' && /^[a-zA-Z0-9.-]+$/.test(parsed.hostname)) {
+          baseUrl = parsed.origin;
+        }
       } catch (e) {
         if (target.startsWith('http://') || target.startsWith('https://')) {
           baseUrl = target;
@@ -53,13 +62,18 @@ const getRedirectUrl = (path = '', req = null) => {
     }
   }
 
-  if (!baseUrl) {
+  if (!baseUrl || baseUrl.includes('&') || !/^https?:\/\/[a-zA-Z0-9.-]+/i.test(baseUrl)) {
     baseUrl = (process.env.FRONTEND_URL || '').trim();
   }
 
-  if (!baseUrl || baseUrl.includes('manageblox.io.vn') || baseUrl.includes('vercel')) {
-    baseUrl = 'https://oceanforge-web.pages.dev';
+  if (!baseUrl || baseUrl.includes('&') || baseUrl.includes('manageblox.io.vn') || baseUrl.includes('vercel')) {
+    if (req && req.headers?.host && (req.headers.host.includes('localhost') || req.headers.host.includes('127.0.0.1'))) {
+      baseUrl = 'http://localhost:5173';
+    } else {
+      baseUrl = 'https://oceanforge-web.pages.dev';
+    }
   }
+
   if (!/^https?:\/\//i.test(baseUrl)) {
     baseUrl = `https://${baseUrl}`;
   }
@@ -472,7 +486,16 @@ router.get('/google/callback', async (req, res, next) => {
         stack: err.stack,
         url: req.originalUrl
       });
-      const reasonMsg = encodeURIComponent(err.message || 'Google Auth Error');
+      const isUsedCode = err.message && (
+        err.message.includes('authorization code has been used') ||
+        err.message.includes('Code has already been used') ||
+        err.message.includes('invalid_grant')
+      );
+      const reasonMsg = encodeURIComponent(
+        isUsedCode
+          ? 'Mã xác thực đã được sử dụng hoặc hết hạn. Vui lòng thử đăng nhập Google lại.'
+          : (err.message || 'Google Auth Error')
+      );
       return res.redirect(getRedirectUrl(`/login?error=oauth_failed&reason=${reasonMsg}`, req));
     }
     if (!user) {

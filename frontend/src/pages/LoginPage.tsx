@@ -58,7 +58,10 @@ export const LoginPage: React.FC = () => {
   const handleGoogleLogin = async () => {
     setSocialLoading(true);
     setError('');
-    const backendUrl = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
+    const defaultBackend = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:5001'
+      : 'https://quan-ly-acc-viet-nam.onrender.com';
+    const backendUrl = (import.meta.env.VITE_API_URL || defaultBackend).trim().replace(/\/+$/, '');
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);

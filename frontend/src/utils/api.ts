@@ -1,4 +1,7 @@
-const rawApiUrl = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
+const defaultBackend = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:5001'
+  : 'https://quan-ly-acc-viet-nam.onrender.com';
+const rawApiUrl = (import.meta.env.VITE_API_URL || defaultBackend).trim().replace(/\/+$/, '');
 const BASE_URL = `${rawApiUrl}/api`;
 
 export const getHeaders = (endpoint?: string) => {
