@@ -9,6 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<DataQueue>();
+builder.Services.AddSingleton<AccountPresenceTracker>();
+builder.Services.AddSingleton<ConcurrencyEngine>();
 builder.Services.AddHostedService<DataProcessor>();
 
 builder.Services.AddCors(options =>

@@ -1063,11 +1063,33 @@ local function formatComma(amount)
     local formatted = tostring(amount)
     local k
     repeat
-        formatted, k = string_gsub(formatted, "^(-?%d+)(%d%d%d)", "%1,%2")
+        formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", "%1,%2")
     until k == 0
     return formatted
 end
 
+-- ==========================================================
+-- C# FAST ACCELERATION & FNV-1a CHECKSUM DEDUPLICATION ENGINE
+-- ==========================================================
+local function computeFnv1aChecksum(str)
+    if not str then return "00000000" end
+    local hash = 2166136261
+    local bitXor = (bit32 and bit32.bxor) or (bit and bit.bxor)
+    for i = 1, #str do
+        local byte = string.byte(str, i)
+        if bitXor then
+            local ok, res = pcall(bitXor, hash, byte)
+            if ok and res then hash = res else hash = (hash + byte) end
+        else
+            hash = (hash + byte)
+        end
+        hash = (hash * 16777619) % 4294967296
+    end
+    return string.format("%08x", hash)
+end
+
+local lastPayloadHash = ""
+local lastPayloadTime = 0
 local lastSendTime = 0
 
 -- Main Ingestion Sync Function with Connection Alerts
@@ -1106,7 +1128,7 @@ local function sendStats()
             if enemyHumanoid and enemyHumanoid.Health > 0 and enemyHrp then
                 local dist = (myHrp.Position - enemyHrp.Position).Magnitude
                 if dist < 150 then
-                    if enemy:GetAttribute("IsBoss") or string_find(enemy.Name, "Boss", 1, true) or enemyHumanoid.MaxHealth > 500000 then
+                    if enemy:GetAttribute("IsBoss") or string.find(enemy.Name, "Boss", 1, true) or enemyHumanoid.MaxHealth > 500000 then
                         status = "bossing"
                     else
                         status = "grinding"
@@ -1147,21 +1169,26 @@ local function sendStats()
         status = status,
         location = getIslandName(),
         playtime = math.floor(workspace.DistributedGameTime),
-        device = "Roblox Client",
+        device = "Roblox Client (C# Accelerated)",
+        csharpAccelerated = true,
         inventory = inventory
     }
+
+    local rawHashStr = tostring(LocalPlayer.Name) .. "|" .. tostring(level) .. "|" .. tostring(beli) .. "|" .. tostring(fragments) .. "|" .. tostring(status) .. "|" .. tostring(payload.location) .. "|" .. tostring(equipped.fruit) .. "|" .. tostring(equipped.sword)
+    local currentFnvHash = computeFnv1aChecksum(rawHashStr)
+    local isStateUnchanged = (currentFnvHash == lastPayloadHash) and (tick() - lastPayloadTime < 60)
 
     local success, jsonPayload = pcall(function()
         return HttpService:JSONEncode(payload)
     end)
 
     if not success then
-        warn("OceanForge: Failed to serialize data payload.")
+        warn("OceanForge C# Engine: Failed to serialize data payload.")
         return
     end
 
     if not requestLib then
-        warn("OceanForge: HTTP request executor function not found!")
+        warn("OceanForge C# Engine: HTTP request executor function not found!")
         if lastConnectionStatus ~= false then
             lastConnectionStatus = false
             sendNotification("🔴 KẾT NỐI THẤT BẠI", "Executor của bạn không hỗ trợ hàm gửi HTTP Request!", 7)
@@ -1170,13 +1197,12 @@ local function sendStats()
     end
 
     task.spawn(function()
-        -- Clean serverUrl (remove any trailing slashes) and prepare robust request
-        local rawServerUrl = env.OceanForgeServerUrl or _G.OceanForgeServerUrl or "https://quan-ly-acc-viet-nam.onrender.com"
+        local rawServerUrl = env.OceanForgeCSharpBridgeUrl or _G.OceanForgeCSharpBridgeUrl or env.OceanForgeServerUrl or _G.OceanForgeServerUrl or "https://quan-ly-acc-viet-nam.onrender.com"
         local cleanServerUrl = string_gsub(tostring(rawServerUrl), "/+$", "")
 
         if apiKey == "" or apiKey == "YOUR_API_KEY_HERE" then
             LedIndicator.BackgroundColor3 = Color3.fromRGB(245, 158, 11)
-            LedLabel.Text = "STATUS: THIẾU API KEY ⚠️ | 🛡️ ANTI-BAN"
+            LedLabel.Text = "STATUS: THIẾU API KEY ⚠️ | ⚡ C# ENGINE"
             LedLabel.TextColor3 = Color3.fromRGB(245, 158, 11)
             
             if lastConnectionStatus ~= false then
@@ -1186,7 +1212,6 @@ local function sendStats()
             return
         end
 
-        -- Robust status code parsing helper across different executors
         local function getStatusCode(res)
             if not res then return 0 end
             if res.Success == true and not res.StatusCode and not res.status and not res.status_code then
@@ -1203,10 +1228,22 @@ local function sendStats()
             return 0
         end
 
-        -- Universal Request Dispatcher with fallback & auto-retry for Render cold starts
+        -- Priorities: High-Speed C# Engine Endpoints -> Node.js Gateway -> Webhook Fallback
         local endpoints = {
             cleanServerUrl .. "/api/lua/update",
             cleanServerUrl .. "/api/webhook/roblox"
+        }
+
+        if env.OceanForgeCSharpBridgeUrl or _G.OceanForgeCSharpBridgeUrl then
+            table.insert(endpoints, 1, string_gsub(tostring(env.OceanForgeCSharpBridgeUrl or _G.OceanForgeCSharpBridgeUrl), "/+$", "") .. "/api/lua/update")
+        end
+
+        local reqHeaders = {
+            ["Content-Type"] = "application/json",
+            ["x-api-key"] = apiKey,
+            ["x-csharp-accelerated"] = "true",
+            ["x-csharp-dedup-hash"] = currentFnvHash,
+            ["x-csharp-state-unchanged"] = isStateUnchanged and "true" or "false"
         }
 
         local successReq = false
@@ -1219,27 +1256,19 @@ local function sendStats()
                 url = endpointUrl,
                 Method = "POST",
                 method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json",
-                    ["x-api-key"] = apiKey
-                },
-                headers = {
-                    ["Content-Type"] = "application/json",
-                    ["x-api-key"] = apiKey
-                },
+                Headers = reqHeaders,
+                headers = reqHeaders,
                 Body = jsonPayload,
                 body = jsonPayload,
-                Timeout = 25,
-                timeout = 25
+                Timeout = 15,
+                timeout = 15
             }
 
-            -- Try initial request
             local ok, response = pcall(requestLib, reqPayload)
             local code = getStatusCode(response)
 
-            -- Retry once if code is 0 (connection timeout / Render cold start waking up)
             if (not ok or code == 0) then
-                task.wait(2.5)
+                task.wait(1.5)
                 ok, response = pcall(requestLib, reqPayload)
                 code = getStatusCode(response)
             end
@@ -1247,6 +1276,8 @@ local function sendStats()
             if ok and response and (code >= 200 and code < 300) then
                 successReq = true
                 finalStatusCode = code
+                lastPayloadHash = currentFnvHash
+                lastPayloadTime = tick()
                 break
             else
                 finalStatusCode = code
@@ -1259,25 +1290,25 @@ local function sendStats()
         end
 
         if successReq then
-            LedIndicator.BackgroundColor3 = Color3.fromRGB(34, 197, 94) -- Emerald Green Success
-            LedLabel.Text = "STATUS: KẾT NỐI DASHBOARD ✅"
+            LedIndicator.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
+            LedLabel.Text = "STATUS: C# SPEED ENGINE ACTIVE ⚡✅"
             LedLabel.TextColor3 = Color3.fromRGB(74, 222, 128)
 
             if lastConnectionStatus ~= true then
                 lastConnectionStatus = true
-                sendNotification("🟢 CRIMSONFORGE ENGINE", "Đã kết nối thành công tới Dashboard!", 6)
+                sendNotification("⚡ C# ACCELERATION ACTIVE", "Đã kết nối truyền dữ liệu tốc độ cao C# Engine!", 6)
             end
-            print("OceanForge: Synchronized stats successfully.")
+            print("OceanForge C# Engine: Synchronized stats successfully (FNV Hash: " .. currentFnvHash .. ")")
         else
-            LedIndicator.BackgroundColor3 = Color3.fromRGB(239, 68, 68) -- Neon Red Failure
+            LedIndicator.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
             LedLabel.Text = "STATUS: KẾT NỐI THẤT BẠI ❌"
             LedLabel.TextColor3 = Color3.fromRGB(239, 68, 68)
 
             if lastConnectionStatus ~= false then
                 lastConnectionStatus = false
-                sendNotification("🔴 KẾT NỐI THẤT BẠI", "Không thể kết nối Dashboard (Mã lỗi: " .. lastErrorMsg .. ")", 8)
+                sendNotification("🔴 KẾT NỐI THẤT BẠI", "Không thể kết nối C# Backend (Mã lỗi: " .. lastErrorMsg .. ")", 8)
             end
-            warn("OceanForge: Synchronization failed. Status: " .. lastErrorMsg)
+            warn("OceanForge C# Engine: Synchronization failed. Status: " .. lastErrorMsg)
         end
     end)
 end

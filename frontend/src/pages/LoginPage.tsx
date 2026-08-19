@@ -8,6 +8,8 @@ import type { ReCaptchaRef } from '../components/ReCaptcha';
 import { TreasureMapAnimation } from '../components/TreasureMapAnimation';
 import DecryptedText from '../components/DecryptedText';
 
+import { getBackendUrl } from '../utils/api';
+
 export const LoginPage: React.FC = () => {
   const { login, user } = useApp();
   const navigate = useNavigate();
@@ -40,7 +42,7 @@ export const LoginPage: React.FC = () => {
   }, [user, navigate]);
 
   useEffect(() => {
-    const apiUrl = (import.meta.env.VITE_API_URL || 'https://quan-ly-acc-viet-nam.onrender.com').trim().replace(/\/+$/, '');
+    const apiUrl = getBackendUrl();
     fetch(`${apiUrl}/api/health`).catch(() => {});
 
     const params = new URLSearchParams(window.location.search);
@@ -58,10 +60,7 @@ export const LoginPage: React.FC = () => {
   const handleGoogleLogin = async () => {
     setSocialLoading(true);
     setError('');
-    const defaultBackend = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-      ? 'http://localhost:5001'
-      : 'https://quan-ly-acc-viet-nam.onrender.com';
-    const backendUrl = (import.meta.env.VITE_API_URL || defaultBackend).trim().replace(/\/+$/, '');
+    const backendUrl = getBackendUrl();
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
@@ -69,7 +68,7 @@ export const LoginPage: React.FC = () => {
       clearTimeout(timeoutId);
 
       if (!res || !res.ok) {
-        setError(`Không thể kết nối đến máy chủ Backend (${backendUrl}). Vui lòng kiểm tra lại dịch vụ Backend (node backend/server.js).`);
+        setError(`Không thể kết nối đến máy chủ Backend (${backendUrl}). Vui lòng khởi động lại Backend (node backend/server.js).`);
         setSocialLoading(false);
         return;
       }

@@ -1,8 +1,18 @@
-const defaultBackend = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? 'http://localhost:5001'
-  : 'https://quan-ly-acc-viet-nam.onrender.com';
-const rawApiUrl = (import.meta.env.VITE_API_URL || defaultBackend).trim().replace(/\/+$/, '');
-const BASE_URL = `${rawApiUrl}/api`;
+export const getBackendUrl = (): string => {
+  const isLocalHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const rawEnv = (import.meta.env.VITE_API_URL || '').trim();
+
+  if (!isLocalHost) {
+    if (rawEnv && !rawEnv.includes('localhost') && !rawEnv.includes('127.0.0.1')) {
+      return rawEnv.replace(/\/+$/, '');
+    }
+    return 'https://quan-ly-acc-viet-nam.onrender.com';
+  }
+
+  return (rawEnv || 'http://localhost:5001').replace(/\/+$/, '');
+};
+
+const getBaseUrl = () => `${getBackendUrl()}/api`;
 
 export const getHeaders = (endpoint?: string) => {
   const token = localStorage.getItem('token');
@@ -40,7 +50,7 @@ const handleResponse = async (res: Response) => {
 export const api = {
   get: async (endpoint: string, customHeaders?: any) => {
     try {
-      const res = await fetch(`${BASE_URL}${endpoint}`, {
+      const res = await fetch(`${getBaseUrl()}${endpoint}`, {
         method: 'GET',
         headers: { ...getHeaders(endpoint), ...customHeaders },
       });
@@ -52,7 +62,7 @@ export const api = {
 
   post: async (endpoint: string, body: any, customHeaders?: any) => {
     try {
-      const res = await fetch(`${BASE_URL}${endpoint}`, {
+      const res = await fetch(`${getBaseUrl()}${endpoint}`, {
         method: 'POST',
         headers: { ...getHeaders(endpoint), ...customHeaders },
         body: JSON.stringify(body),
@@ -65,7 +75,7 @@ export const api = {
 
   delete: async (endpoint: string, customHeaders?: any) => {
     try {
-      const res = await fetch(`${BASE_URL}${endpoint}`, {
+      const res = await fetch(`${getBaseUrl()}${endpoint}`, {
         method: 'DELETE',
         headers: { ...getHeaders(endpoint), ...customHeaders },
       });
@@ -77,7 +87,7 @@ export const api = {
 
   put: async (endpoint: string, body: any, customHeaders?: any) => {
     try {
-      const res = await fetch(`${BASE_URL}${endpoint}`, {
+      const res = await fetch(`${getBaseUrl()}${endpoint}`, {
         method: 'PUT',
         headers: { ...getHeaders(endpoint), ...customHeaders },
         body: JSON.stringify(body),
