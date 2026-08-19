@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useApp } from '../store';
-import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity, FileText, Copy, Check, Cpu, Zap, Filter } from 'lucide-react';
+import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity, FileText, Copy, Check, Cpu, Zap, Filter, Sparkles, Trophy, Flame, AlertTriangle } from 'lucide-react';
 import { csharpWasm } from '../services/csharpWasmService';
 
 import { ItemImage } from '../components/ItemImage';
@@ -11,6 +11,9 @@ export const AccountList: React.FC = () => {
   const [selectedSea, setSelectedSea] = useState<number>(0);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [minLevelFilter, setMinLevelFilter] = useState<number>(0);
+  const [selectedTier, setSelectedTier] = useState<string>('all');
+  const [selectedSmartTag, setSelectedSmartTag] = useState<string>('all');
+  const [godItemOnly, setGodItemOnly] = useState<boolean>(false);
   const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'equipped' | 'inventory' | 'sessions' | 'logs'>('equipped');
 
@@ -91,11 +94,14 @@ export const AccountList: React.FC = () => {
       sea: selectedSea,
       status: selectedStatus === 'all' ? '' : selectedStatus,
       minLevel: minLevelFilter,
+      tier: selectedTier === 'all' ? '' : selectedTier,
+      tag: selectedSmartTag === 'all' ? '' : selectedSmartTag,
+      hasGodItem: godItemOnly,
     });
     const t1 = performance.now();
     setFilterDuration((t1 - t0).toFixed(2));
     return result;
-  }, [accounts, searchTerm, selectedSea, selectedStatus, minLevelFilter]);
+  }, [accounts, searchTerm, selectedSea, selectedStatus, minLevelFilter, selectedTier, selectedSmartTag, godItemOnly]);
 
   const formatBeli = (num: number) => {
     if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
@@ -119,7 +125,7 @@ export const AccountList: React.FC = () => {
             <h1 className="text-3xl font-black text-white glow-text-cyan flex items-center gap-2">
               <Layers className="w-8 h-8 text-gold" /> ACCOUNT MANAGEMENT
             </h1>
-            <p className="text-slate-400 text-sm mt-1">Quản lý và giám sát thời gian thực danh sách tài khoản</p>
+            <p className="text-slate-400 text-sm mt-1">Quản lý và giám sát thời gian thực danh sách tài khoản (C# LINQ Smart Filtering)</p>
           </div>
 
           <div className="relative w-full sm:w-80">
@@ -130,34 +136,108 @@ export const AccountList: React.FC = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm kiếm tài khoản, tộc, vị trí..."
+              placeholder="Tìm thông minh: tên, trái, võ, kiếm, tier..."
               className="w-full bg-ocean-deep/60 border border-slate-800 focus:border-ocean-cyan focus:ring-1 focus:ring-ocean-cyan rounded-xl py-2.5 pl-10 pr-4 text-white text-sm outline-none transition"
             />
           </div>
         </div>
 
-        {/* C# Wasm Quick Filter Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-900/60 border border-slate-800 rounded-2xl">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5 mr-1">
-              <Filter className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Lọc C# LINQ:</span>
+        {/* C# Wasm Smart Multi-Filter Bar */}
+        <div className="flex flex-col gap-3 p-3.5 bg-slate-900/70 border border-slate-800/80 rounded-2xl backdrop-blur-md">
+          {/* Row 1: Basic Filters & Performance */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5 mr-1">
+                <Filter className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Lọc C# LINQ:</span>
+              </span>
+
+              {/* Sea Filters */}
+              <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
+                {[
+                  { label: 'Tất cả Sea', val: 0 },
+                  { label: 'Sea 1', val: 1 },
+                  { label: 'Sea 2', val: 2 },
+                  { label: 'Sea 3', val: 3 },
+                ].map((item) => (
+                  <button
+                    key={item.val}
+                    onClick={() => setSelectedSea(item.val)}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      selectedSea === item.val
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Status Filters */}
+              <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
+                {[
+                  { label: 'Tất cả', val: 'all' },
+                  { label: 'Online 🟢', val: 'online' },
+                  { label: 'Grinding ⚔️', val: 'grinding' },
+                  { label: 'Offline ⚪', val: 'offline' },
+                ].map((item) => (
+                  <button
+                    key={item.val}
+                    onClick={() => setSelectedStatus(item.val)}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      selectedStatus === item.val
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Max Level Filter */}
+              <button
+                onClick={() => setMinLevelFilter(minLevelFilter === 2600 ? 0 : 2600)}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                  minLevelFilter === 2600
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
+                    : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>Max Lv 2600</span>
+              </button>
+            </div>
+
+            {/* Performance Badge */}
+            <div className="flex items-center gap-2 text-xs font-mono text-cyan-300 bg-cyan-950/40 px-3 py-1.5 rounded-xl border border-cyan-500/30">
+              <Cpu className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+              <span>C# Wasm: <b>{filterDuration}ms</b> ({filteredAccounts.length}/{accounts.length} accs)</span>
+            </div>
+          </div>
+
+          {/* Row 2: AI Smart Classifier & Tier Filters */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/60">
+            <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5 mr-1">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Phân loại thông minh:</span>
             </span>
 
-            {/* Sea Filters */}
+            {/* Tier Filters */}
             <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
               {[
-                { label: 'Tất cả Sea', val: 0 },
-                { label: 'Sea 1', val: 1 },
-                { label: 'Sea 2', val: 2 },
-                { label: 'Sea 3', val: 3 },
+                { label: 'Tất cả Tier', val: 'all' },
+                { label: 'Tier S+ (God)', val: 'Tier S+' },
+                { label: 'Tier A (PvP)', val: 'Tier A' },
+                { label: 'Tier B (Mid)', val: 'Tier B' },
               ].map((item) => (
                 <button
                   key={item.val}
-                  onClick={() => setSelectedSea(item.val)}
+                  onClick={() => setSelectedTier(item.val)}
                   className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    selectedSea === item.val
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                    selectedTier === item.val
+                      ? 'bg-purple-500/25 text-purple-300 border border-purple-500/40 shadow-sm'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800'
                   }`}
                 >
@@ -166,46 +246,44 @@ export const AccountList: React.FC = () => {
               ))}
             </div>
 
-            {/* Status Filters */}
+            {/* Smart Behavior Tags */}
             <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
               {[
-                { label: 'Tất cả', val: 'all' },
-                { label: 'Online 🟢', val: 'online' },
-                { label: 'Grinding ⚔️', val: 'grinding' },
-                { label: 'Offline ⚪', val: 'offline' },
-              ].map((item) => (
-                <button
-                  key={item.val}
-                  onClick={() => setSelectedStatus(item.val)}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    selectedStatus === item.val
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+                { label: 'Tất cả Tag', val: 'all', icon: null },
+                { label: 'Boss Hunter', val: 'Boss Hunting', icon: Flame },
+                { label: 'AFK Alert', val: 'AFK', icon: AlertTriangle },
+                { label: 'Mythical Fruit', val: 'Mythical Fruit', icon: Sparkles },
+              ].map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <button
+                    key={item.val}
+                    onClick={() => setSelectedSmartTag(item.val)}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                      selectedSmartTag === item.val
+                        ? 'bg-rose-500/25 text-rose-300 border border-rose-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    {IconComponent && <IconComponent className="w-3 h-3" />}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Max Level Filter */}
+            {/* God Items (CDK/TTK/Godhuman) Toggle */}
             <button
-              onClick={() => setMinLevelFilter(minLevelFilter === 2600 ? 0 : 2600)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
-                minLevelFilter === 2600
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
+              onClick={() => setGodItemOnly(!godItemOnly)}
+              className={`px-3 py-1 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                godItemOnly
+                  ? 'bg-gradient-to-r from-amber-500/30 to-orange-500/30 text-amber-300 border-amber-400/50 shadow-md'
                   : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-800'
               }`}
             >
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span>Max Lv 2600</span>
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span>God Items (CDK/Godhuman)</span>
             </button>
-          </div>
-
-          {/* Performance Badge */}
-          <div className="flex items-center gap-2 text-xs font-mono text-cyan-300 bg-cyan-950/40 px-3 py-1.5 rounded-xl border border-cyan-500/30">
-            <Cpu className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-            <span>C# Wasm: <b>{filterDuration}ms</b> ({filteredAccounts.length}/{accounts.length} accs)</span>
           </div>
         </div>
       </div>
@@ -228,36 +306,65 @@ export const AccountList: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-900">
-              {filteredAccounts.map((acc) => (
+              {filteredAccounts.map((acc) => {
+                const smart = csharpWasm.smartClassifyAccount(acc);
+                const isGodTier = smart.tier.includes('God Tier');
+                const isPvpReady = smart.tier.includes('PvP Ready');
+
+                return (
                 <tr
                   key={acc._id}
                   onClick={() => handleOpenDetails(acc._id)}
                   className="hover:bg-slate-900/30 transition-colors cursor-pointer group"
                 >
                   <td className="py-4 font-bold text-white group-hover:text-gold transition-colors">
-                    <div className="flex items-center gap-2">
-                      {acc.robloxUsername}
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await navigator.clipboard.writeText(acc.robloxUsername);
-                          setCopiedAccountId(acc._id);
-                          showToast('Đã copy tên tài khoản!');
-                          setTimeout(() => setCopiedAccountId(null), 1500);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded bg-slate-900/60 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
-                        title="Copy Username"
-                      >
-                        {copiedAccountId === acc._id ? (
-                          <Check className="w-3 h-3 text-emerald-400" />
-                        ) : (
-                          <Copy className="w-3 h-3" />
-                        )}
-                      </button>
-                      {acc.notes && (
-                        <span title={acc.notes} className="inline-flex items-center text-ocean-cyan hover:text-white cursor-help" onClick={(e) => e.stopPropagation()}>
-                          <FileText className="w-3.5 h-3.5" />
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span>{acc.robloxUsername}</span>
+                        {/* Smart AI Tier Badge */}
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                          isGodTier
+                            ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                            : isPvpReady
+                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700/60'
+                        }`}>
+                          {isGodTier && <Trophy className="w-2.5 h-2.5 text-amber-400" />}
+                          {smart.tier.split(' ')[0]} {smart.tier.split(' ')[1]}
                         </span>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await navigator.clipboard.writeText(acc.robloxUsername);
+                            setCopiedAccountId(acc._id);
+                            showToast('Đã copy tên tài khoản!');
+                            setTimeout(() => setCopiedAccountId(null), 1500);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded bg-slate-900/60 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                          title="Copy Username"
+                        >
+                          {copiedAccountId === acc._id ? (
+                            <Check className="w-3 h-3 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                        {acc.notes && (
+                          <span title={acc.notes} className="inline-flex items-center text-ocean-cyan hover:text-white cursor-help" onClick={(e) => e.stopPropagation()}>
+                            <FileText className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Smart Tags Chips */}
+                      {smart.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {smart.tags.slice(0, 3).map((tag: string) => (
+                            <span key={tag} className="text-[9px] font-semibold text-slate-400 bg-slate-950/60 border border-slate-800/80 px-1.5 py-0.2 rounded">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </td>
@@ -270,18 +377,20 @@ export const AccountList: React.FC = () => {
                     <span className="font-semibold text-sky-400">{acc.equipped.fruit}</span>
                   </td>
                   <td className="py-4">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold capitalize ${
-                      acc.status === 'offline'
-                        ? 'bg-slate-800 text-slate-500'
-                        : acc.status === 'grinding'
-                        ? 'bg-emerald-500/10 text-emerald-400'
-                        : 'bg-gold/10 text-gold shadow-gold-border'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        acc.status === 'offline' ? 'bg-slate-500' : 'bg-emerald-500 animate-pulse'
-                      }`} />
-                      {acc.status}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-extrabold capitalize ${
+                        acc.status === 'offline'
+                          ? 'bg-slate-800 text-slate-500'
+                          : acc.status === 'grinding'
+                          ? 'bg-emerald-500/10 text-emerald-400'
+                          : 'bg-gold/10 text-gold shadow-gold-border'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          acc.status === 'offline' ? 'bg-slate-500' : 'bg-emerald-500 animate-pulse'
+                        }`} />
+                        {acc.status}
+                      </span>
+                    </div>
                   </td>
                   <td className="py-4 text-right">
                     <div className="flex justify-end gap-2">
@@ -305,7 +414,8 @@ export const AccountList: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {filteredAccounts.length === 0 && (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-500 text-sm">

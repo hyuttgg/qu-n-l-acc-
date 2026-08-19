@@ -22,7 +22,9 @@ namespace OceanForge.BackendEngine.Services
         int Level,
         long Beli,
         string Location,
-        long LastHeartbeatUnixMs
+        long LastHeartbeatUnixMs,
+        string Tier,
+        string[] Tags
     );
 
     /// <summary>
@@ -130,7 +132,9 @@ namespace OceanForge.BackendEngine.Services
                     Level: 0,
                     Beli: 0,
                     Location: "Unknown",
-                    LastHeartbeatUnixMs: 0
+                    LastHeartbeatUnixMs: 0,
+                    Tier: "Tier C (Starter)",
+                    Tags: new[] { "Offline" }
                 );
             }
 
@@ -147,6 +151,48 @@ namespace OceanForge.BackendEngine.Services
 
             double evaluationLatencyMs = (Stopwatch.GetTimestamp() - startTicks) * 1000.0 / Stopwatch.Frequency;
 
+            // Smart classification & tagging
+            var tags = new List<string>();
+            string tier = "Tier C (Starter)";
+            if (entry.Level >= 2600)
+            {
+                tier = "Tier S+ (God Tier)";
+                tags.Add("Max Lv 2600");
+            }
+            else if (entry.Level >= 2000)
+            {
+                tier = "Tier A (PvP Ready)";
+            }
+            else if (entry.Level >= 700)
+            {
+                tier = "Tier B (Mid-Game)";
+            }
+
+            if (isOnline)
+            {
+                string stLower = (entry.GameActivityStatus ?? "").ToLower();
+                if (stLower.Contains("boss") || stLower.Contains("raid") || stLower.Contains("trial"))
+                {
+                    tags.Add("Boss Hunting");
+                }
+                else if (stLower.Contains("grind") || stLower.Contains("farm"))
+                {
+                    tags.Add("Grinding");
+                }
+                else if (stLower.Contains("idle") || stLower.Contains("afk") || stLower.Contains("stand"))
+                {
+                    tags.Add("AFK");
+                }
+                else
+                {
+                    tags.Add("Online");
+                }
+            }
+            else
+            {
+                tags.Add(secondsElapsed <= 180 ? "Disrupted" : "Offline");
+            }
+
             return new AccountPresenceResult(
                 RobloxUsername: entry.RobloxUsername,
                 IsOnline: isOnline,
@@ -157,7 +203,9 @@ namespace OceanForge.BackendEngine.Services
                 Level: entry.Level,
                 Beli: entry.Beli,
                 Location: entry.Location,
-                LastHeartbeatUnixMs: entry.LastHeartbeatUnixMs
+                LastHeartbeatUnixMs: entry.LastHeartbeatUnixMs,
+                Tier: tier,
+                Tags: tags.ToArray()
             );
         }
 
@@ -175,6 +223,38 @@ namespace OceanForge.BackendEngine.Services
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// 🚀 High-performance LINQ Smart Filter for Account Telemetry
+        /// </summary>
+        public IEnumerable<AccountPresenceResult> SmartFilter(
+            string? query = null,
+            int minLevel = 0,
+            string? activityTag = null,
+            string? tier = null,
+            bool? isOnline = null)
+        {
+            var all = EvaluateAllPresence();
+            var queryTokens = string.IsNullOrWhiteSpace(query)
+                ? Array.Empty<string>()
+                : query.ToLower().Split(new[] { ' ', ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+
+            return all.Where(acc =>
+            {
+                if (minLevel > 0 && acc.Level < minLevel) return false;
+                if (isOnline.HasValue && acc.IsOnline != isOnline.Value) return false;
+                if (!string.IsNullOrEmpty(tier) && tier != "ALL" && !acc.Tier.Contains(tier, StringComparison.OrdinalIgnoreCase)) return false;
+                if (!string.IsNullOrEmpty(activityTag) && activityTag != "ALL" && !acc.Tags.Any(t => t.Equals(activityTag, StringComparison.OrdinalIgnoreCase))) return false;
+
+                if (queryTokens.Length > 0)
+                {
+                    string combined = $"{acc.RobloxUsername} {acc.Location} {acc.GameActivityStatus} {acc.Tier}".ToLower();
+                    if (!queryTokens.All(t => combined.Contains(t))) return false;
+                }
+
+                return true;
+            });
         }
 
         /// <summary>
