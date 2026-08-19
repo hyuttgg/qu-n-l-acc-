@@ -25,16 +25,20 @@ const getSignedJwtToken = (id) => {
 
 // Helper to get callback URL (must match the URI registered in Google/Facebook OAuth Console)
 const getCallbackUrl = (req, provider) => {
+  if (req) {
+    const host = req.headers?.host || (typeof req.get === 'function' ? req.get('host') : '');
+    if (host) {
+      if (host.includes('localhost') || host.includes('127.0.0.1')) {
+        return `http://${host}/api/auth/${provider}/callback`;
+      }
+      if (host.includes('manageblox.io.vn')) {
+        return `https://api.manageblox.io.vn/api/auth/${provider}/callback`;
+      }
+    }
+  }
   const envUrl = provider === 'google' ? process.env.GOOGLE_CALLBACK_URL : process.env.FACEBOOK_CALLBACK_URL;
   if (envUrl && envUrl.trim()) {
     return envUrl.trim();
-  }
-  if (req) {
-    const host = req.headers?.host || (typeof req.get === 'function' ? req.get('host') : '');
-    if (host && (host.includes('localhost') || host.includes('127.0.0.1'))) {
-      const protocol = req.protocol || 'http';
-      return `${protocol}://${host}/api/auth/${provider}/callback`;
-    }
   }
   return `https://quan-ly-acc-viet-nam.onrender.com/auth/${provider}/callback`;
 };
