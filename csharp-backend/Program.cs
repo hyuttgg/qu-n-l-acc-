@@ -8,6 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<MySqlDatabaseService>();
+builder.Services.AddScoped<AccountRepository>();
 builder.Services.AddSingleton<DataQueue>();
 builder.Services.AddSingleton<AccountPresenceTracker>();
 builder.Services.AddSingleton<ConcurrencyEngine>();
