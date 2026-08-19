@@ -25,6 +25,10 @@ const getSignedJwtToken = (id) => {
 
 // Helper to get callback URL (must match the URI registered in Google/Facebook OAuth Console)
 const getCallbackUrl = (req, provider) => {
+  const envUrl = provider === 'google' ? process.env.GOOGLE_CALLBACK_URL : process.env.FACEBOOK_CALLBACK_URL;
+  if (envUrl && envUrl.trim()) {
+    return envUrl.trim();
+  }
   if (req) {
     const host = req.headers?.host || (typeof req.get === 'function' ? req.get('host') : '');
     if (host && (host.includes('localhost') || host.includes('127.0.0.1'))) {
@@ -32,8 +36,7 @@ const getCallbackUrl = (req, provider) => {
       return `${protocol}://${host}/api/auth/${provider}/callback`;
     }
   }
-  const envUrl = provider === 'google' ? process.env.GOOGLE_CALLBACK_URL : process.env.FACEBOOK_CALLBACK_URL;
-  return (envUrl || '').trim() || `https://quan-ly-acc-viet-nam.onrender.com/auth/${provider}/callback`;
+  return `https://quan-ly-acc-viet-nam.onrender.com/auth/${provider}/callback`;
 };
 
 // Helper to get safe redirect URL (bulletproofs against missing http/https protocols in env configs & invalid hostnames)
