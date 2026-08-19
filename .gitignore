@@ -18,5 +18,8 @@ node_modules/
 *.zip
 dist/
 build/
+bin/
+obj/
+*.user
 .wrangler/
 .serena/
