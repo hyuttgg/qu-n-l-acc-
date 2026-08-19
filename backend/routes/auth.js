@@ -29,7 +29,7 @@ const getCallbackUrl = (req, provider) => {
     const host = req.headers?.host || (typeof req.get === 'function' ? req.get('host') : '');
     if (host) {
       if (host.includes('localhost') || host.includes('127.0.0.1')) {
-        return `http://${host}/api/auth/${provider}/callback`;
+        return `http://${host}/auth/${provider}/callback`;
       }
       if (host.includes('manageblox.io.vn')) {
         return `https://api.manageblox.io.vn/api/auth/${provider}/callback`;
