@@ -12,10 +12,20 @@ namespace OceanForge.BackendEngine.Hubs
             await base.OnConnectedAsync();
         }
 
-        public override async Task OnDisconnectedAsync(Exception? exception)
+        public async Task Subscribe(string accountId)
         {
-            Console.WriteLine($"[SignalR DataHub] Client disconnected: {Context.ConnectionId}");
-            await base.OnDisconnectedAsync(exception);
+            if (!string.IsNullOrWhiteSpace(accountId))
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, $"account:{accountId}");
+            }
+        }
+
+        public async Task Unsubscribe(string accountId)
+        {
+            if (!string.IsNullOrWhiteSpace(accountId))
+            {
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"account:{accountId}");
+            }
         }
     }
 }
