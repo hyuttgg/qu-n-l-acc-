@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using OceanForge.BackendEngine;
 using OceanForge.BackendEngine.Hubs;
 using OceanForge.BackendEngine.Infrastructure;
+using OceanForge.BackendEngine.Infrastructure.Distributed;
 using OceanForge.BackendEngine.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,8 +20,14 @@ builder.Services.AddSingleton<IHeavyLoadManager>(sp => new HeavyLoadManager(
 ));
 builder.Services.AddHostedService<AccountWorkerService>();
 
+// 🌐 Register Distributed Cluster Services (Redis + Batch DB Flush Engine)
+builder.Services.AddSingleton<IDistributedCacheService, RedisDistributedService>();
+builder.Services.AddSingleton<BatchDatabaseWriter>();
+builder.Services.AddSingleton<IBatchDatabaseWriter>(sp => sp.GetRequiredService<BatchDatabaseWriter>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<BatchDatabaseWriter>());
+
 builder.Services.AddSingleton<MySqlDatabaseService>();
-builder.Services.AddScoped<AccountRepository>();
+builder.Services.AddSingleton<AccountRepository>();
 builder.Services.AddSingleton<DataQueue>();
 builder.Services.AddSingleton<AccountPresenceTracker>();
 builder.Services.AddSingleton<ConcurrencyEngine>();
