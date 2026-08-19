@@ -48,16 +48,27 @@ const getRedirectUrl = (path = '', req = null) => {
   let baseUrl = '';
 
   if (req) {
-    const target = req.query?.state || req.query?.redirect_origin || req.headers?.referer || req.headers?.origin;
+    const target = req.query?.state || req.query?.redirect_origin;
     if (target && typeof target === 'string') {
       try {
         const parsed = new URL(target);
-        if (parsed.hostname && parsed.hostname !== '&' && /^[a-zA-Z0-9.-]+$/.test(parsed.hostname)) {
+        const host = (parsed.hostname || '').toLowerCase();
+        if (
+          host &&
+          host !== '&' &&
+          /^[a-zA-Z0-9.-]+$/.test(host) &&
+          !host.includes('google.com') &&
+          !host.includes('googleusercontent.com') &&
+          !host.includes('facebook.com') &&
+          !host.includes('discord.com')
+        ) {
           baseUrl = parsed.origin;
         }
       } catch (e) {
         if (target.startsWith('http://') || target.startsWith('https://')) {
-          baseUrl = target;
+          if (!target.includes('google.com') && !target.includes('facebook.com')) {
+            baseUrl = target;
+          }
         }
       }
     }
@@ -69,11 +80,11 @@ const getRedirectUrl = (path = '', req = null) => {
     }
   }
 
-  if (!baseUrl || baseUrl.includes('&') || !/^https?:\/\/[a-zA-Z0-9.-]+/i.test(baseUrl)) {
+  if (!baseUrl || baseUrl.includes('&') || baseUrl.includes('google.com') || !/^https?:\/\/[a-zA-Z0-9.-]+/i.test(baseUrl)) {
     baseUrl = (process.env.FRONTEND_URL || '').trim();
   }
 
-  if (!baseUrl || baseUrl.includes('&') || baseUrl.includes('manageblox.io.vn') || baseUrl.includes('vercel')) {
+  if (!baseUrl || baseUrl.includes('&') || baseUrl.includes('google.com') || baseUrl.includes('manageblox.io.vn') || baseUrl.includes('vercel')) {
     if (req && req.headers?.host && (req.headers.host.includes('localhost') || req.headers.host.includes('127.0.0.1'))) {
       baseUrl = 'http://localhost:5173';
     } else {
