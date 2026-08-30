@@ -87,6 +87,7 @@ app.use('/api/map', require('./routes/map'));
 app.use('/api/webhook', require('./routes/webhook'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/multi-thread', require('./routes/multiThread'));
+app.use('/api/tools/cookie-splitter', require('./routes/cookieExtractor'));
 
 // ══════════════════════════════════════
 // DEVOPS SELF-HEALING DASHBOARD API

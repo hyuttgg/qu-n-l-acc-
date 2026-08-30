@@ -19,7 +19,8 @@ import {
   Activity,
   Globe,
   FileText,
-  Terminal
+  Terminal,
+  Scissors
 } from 'lucide-react';
 import { WasmStatusBadge } from '../components/WasmStatusBadge';
 
@@ -44,6 +45,7 @@ export const DashboardLayout: React.FC = () => {
       items: [
         { name: 'Dashboard', path: '/dashboard', icon: Compass },
         { name: 'Accounts', path: '/dashboard/accounts', icon: Layers },
+        { name: 'Tách Cookie', path: '/dashboard/cookie-splitter', icon: Scissors },
         { name: 'Live Fleet', path: '/dashboard/live', icon: Activity },
         { name: 'Geo Monitor', path: '/dashboard/geo', icon: Globe },
       ]

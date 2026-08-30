@@ -407,8 +407,54 @@ class CSharpWasmService {
    */
   public validateRobloxCookie(cookie: string): boolean {
     if (!cookie) return false;
-    const clean = cookie.trim();
+    const clean = cookie.trim().replace(/^\.ROBLOSECURITY\s*=\s*/i, '');
     return clean.includes('_|WARNING:-DO-NOT-SHARE-THIS') || clean.length >= 600;
+  }
+
+  /**
+   * ⚡ Fast Batch Cookie Parsing & Extractor Bridge
+   */
+  public extractCookiesFast(rawText: string) {
+    // Uses C# WASM regex-free scanner or Fallback TypeScript engine
+    const t0 = performance.now();
+    const lines = (rawText || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const validCookies: string[] = [];
+    const combos: { username: string; password?: string; cookie: string }[] = [];
+
+    for (const line of lines) {
+      if (line.includes('_|WARNING:') || line.length > 500) {
+        // Check delimiters
+        const parts = line.includes('|') ? line.split('|') : line.split(':');
+        let foundCookie = '';
+        let foundUser = '';
+        let foundPass = '';
+
+        for (let i = 0; i < parts.length; i++) {
+          const p = parts[i].trim();
+          if (p.includes('_|WARNING:') || p.length > 500) {
+            foundCookie = p.replace(/^\.ROBLOSECURITY\s*=\s*/i, '');
+            if (i >= 1) foundUser = parts[0].trim();
+            if (i >= 2) foundPass = parts[1].trim();
+            break;
+          }
+        }
+
+        if (foundCookie && this.validateRobloxCookie(foundCookie)) {
+          validCookies.push(foundCookie);
+          if (foundUser) {
+            combos.push({ username: foundUser, password: foundPass || undefined, cookie: foundCookie });
+          }
+        }
+      }
+    }
+    const t1 = performance.now();
+
+    return {
+      totalFound: validCookies.length,
+      validCookies,
+      combos,
+      durationMs: Number((t1 - t0).toFixed(3))
+    };
   }
 
   /**

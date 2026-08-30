@@ -19,6 +19,7 @@ const OAuthSuccess = lazy(() => import('./pages/OAuthSuccess').then(m => ({ defa
 const GeoMonitor = lazy(() => import('./pages/GeoMonitor').then(m => ({ default: m.GeoMonitor })));
 const ApiDocsPage = lazy(() => import('./pages/ApiDocsPage').then(m => ({ default: m.ApiDocsPage })));
 const AdminLuaInspector = lazy(() => import('./pages/AdminLuaInspector').then(m => ({ default: m.AdminLuaInspector })));
+const CookieSplitterPage = lazy(() => import('./pages/CookieSplitterPage').then(m => ({ default: m.CookieSplitterPage })));
 
 const PageFallback: React.FC = () => (
   <div className="deepsea-bg min-h-screen flex flex-col items-center justify-center">
@@ -76,6 +77,7 @@ export const App: React.FC = () => {
                 <Route path="analytics" element={<AnalyticsDashboard />} />
                 <Route path="sessions" element={<AnalyticsDashboard />} />
                 <Route path="admin-lua" element={<AdminLuaInspector />} />
+                <Route path="cookie-splitter" element={<CookieSplitterPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="docs" element={<ApiDocsPage />} />
               </Route>

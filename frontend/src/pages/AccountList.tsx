@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useApp } from '../store';
-import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity, FileText, Copy, Check, Cpu, Zap, Filter, Sparkles, Trophy, Flame, AlertTriangle } from 'lucide-react';
+import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity, FileText, Copy, Check, Cpu, Zap, Filter, Sparkles, Trophy, Flame, AlertTriangle, Scissors } from 'lucide-react';
 import { csharpWasm } from '../services/csharpWasmService';
 
 import { ItemImage } from '../components/ItemImage';
@@ -128,17 +129,27 @@ export const AccountList: React.FC = () => {
             <p className="text-slate-400 text-sm mt-1">Quản lý và giám sát thời gian thực danh sách tài khoản (C# LINQ Smart Filtering)</p>
           </div>
 
-          <div className="relative w-full sm:w-80">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
-              <Search className="w-5 h-5" />
-            </span>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm thông minh: tên, trái, võ, kiếm, tier..."
-              className="w-full bg-ocean-deep/60 border border-slate-800 focus:border-ocean-cyan focus:ring-1 focus:ring-ocean-cyan rounded-xl py-2.5 pl-10 pr-4 text-white text-sm outline-none transition"
-            />
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <Link
+              to="/dashboard/cookie-splitter"
+              className="px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 hover:text-white text-xs font-bold flex items-center gap-2 transition-all shrink-0 shadow-lg shadow-cyan-500/10"
+            >
+              <Scissors className="w-4 h-4 text-cyan-400" />
+              <span>Tách Cookie</span>
+            </Link>
+
+            <div className="relative w-full sm:w-72">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                <Search className="w-5 h-5" />
+              </span>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Tìm: tên, trái, võ, kiếm..."
+                className="w-full bg-ocean-deep/60 border border-slate-800 focus:border-ocean-cyan focus:ring-1 focus:ring-ocean-cyan rounded-xl py-2.5 pl-10 pr-4 text-white text-sm outline-none transition"
+              />
+            </div>
           </div>
         </div>
 
