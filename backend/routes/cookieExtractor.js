@@ -71,7 +71,7 @@ router.post('/extract', async (req, res) => {
 
       // Check boundary regex and combo prefix
       if (!foundCookie) {
-        const cookieMatch = line.match(/(?:\.ROBLOSECURITY\s*=\s*)?(_\|WARNING:-DO-NOT-SHARE-THIS[.\w\-~]+|_\|WARNING:[^\s,;:"'<>]+|[a-zA-Z0-9_\-~]{650,})/i);
+        const cookieMatch = line.match(/(?:\.ROBLOSECURITY\s*=\s*)?(_\|WARNING:[^\s"'<>]+|(?<![a-zA-Z0-9_\-])[a-zA-Z0-9_\-]{500,})/i);
         if (cookieMatch && typeof cookieMatch.index === 'number') {
           foundCookie = cookieMatch[1];
 

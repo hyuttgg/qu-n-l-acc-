@@ -54,9 +54,9 @@ export type OutputFormat =
   | 'CSV_FORMAT';
 
 // Roblox Cookie Regex Patterns
-const ROBLOSECURITY_STRICT_REGEX = /(_\|WARNING:-DO-NOT-SHARE-THIS[.\w\-~]+)/i;
-const ROBLOSECURITY_HEADER_REGEX = /\.ROBLOSECURITY\s*=\s*(_\|WARNING:-DO-NOT-SHARE-THIS[.\w\-~]+|[a-zA-Z0-9_\-~]{500,})/i;
-const ROBLOSECURITY_GENERIC_LONG_REGEX = /(_\|WARNING:[^\s,;:"'<>]+|(?<![a-zA-Z0-9_\-])[a-zA-Z0-9_\-]{650,}(?![a-zA-Z0-9_\-]))/i;
+const ROBLOSECURITY_STRICT_REGEX = /(_\|WARNING:[^\s"'<>]+)/i;
+const ROBLOSECURITY_HEADER_REGEX = /\.ROBLOSECURITY\s*=\s*(_\|WARNING:[^\s"'<>]+|[a-zA-Z0-9_\-~]{500,})/i;
+const ROBLOSECURITY_GENERIC_LONG_REGEX = /(_\|WARNING:[^\s"'<>]+|(?<![a-zA-Z0-9_\-])[a-zA-Z0-9_\-]{500,}(?![a-zA-Z0-9_\-]))/i;
 
 export class CookieSplitterService {
   /**
@@ -257,7 +257,7 @@ export class CookieSplitterService {
     // 3. Find the exact boundary of the Roblox cookie in the line
     if (!rawCookie) {
       // Find cookie match
-      const cookieMatch = line.match(/(?:\.ROBLOSECURITY\s*=\s*)?(_\|WARNING:-DO-NOT-SHARE-THIS[.\w\-~]+|_\|WARNING:[^\s,;:"'<>]+|[a-zA-Z0-9_\-~]{650,})/i);
+      const cookieMatch = line.match(/(?:\.ROBLOSECURITY\s*=\s*)?(_\|WARNING:[^\s"'<>]+|(?<![a-zA-Z0-9_\-])[a-zA-Z0-9_\-]{500,})/i);
       if (cookieMatch && typeof cookieMatch.index === 'number') {
         rawCookie = cookieMatch[1];
 
