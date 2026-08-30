@@ -1,25 +1,71 @@
+# ==============================================================================
+# ROBLOX TOOL & PROJECT GITIGNORE
+# ==============================================================================
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Logs & Runtime Data
+*.log
+*.tmp
+*.temp
+logs/
+data/screenshots/*.png
+data/screenshots/*.jpg
+data/logs/
+*.log.*
+
+# SQLite & Locks
+*.db-journal
+*.sqlite3-journal
+*.lock
+*.rbxlx.lock
+*.rbxl.lock
+/*.rbxlx.lock
+/*.rbxl.lock
+
 # Environment Variables and Credentials
 .env
 .env.*
 !.env.example
 backend/.env
+config.env
+*.pem
+*.key
 
-# Project place file
-/quản lý acc python.rbxlx
-
-# Roblox Studio lock files
-/*.rbxlx.lock
-/*.rbxl.lock
-
-node_modules/
-*.exe
+# Media & Archives
 *.mp4
-*.webp
 *.zip
+*.tar.gz
+*.exe
+*.dll
+
+# IDEs & System Files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node.js & Web Bundles
+node_modules/
 dist/
 build/
-bin/
-obj/
-*.user
 .wrangler/
 .serena/
