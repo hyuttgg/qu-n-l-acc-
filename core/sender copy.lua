@@ -1358,7 +1358,7 @@ FragLabel.TextSize = 11
 FragLabel.TextXAlignment = Enum.TextXAlignment.Left
 FragLabel.Parent = Card2
 
-local HwidBadge = Instance.new("TextLabel")
+local HwidBadge = Instance.new("TextButton")
 HwidBadge.Size = UDim2.new(0.9, 0, 0, 20)
 HwidBadge.Position = UDim2.new(0.06, 0, 0.80, 0)
 HwidBadge.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
@@ -1367,11 +1367,35 @@ HwidBadge.TextColor3 = Color3.fromRGB(129, 140, 248)
 HwidBadge.Font = Enum.Font.GothamBold
 HwidBadge.TextSize = 9.5
 HwidBadge.TextXAlignment = Enum.TextXAlignment.Left
+HwidBadge.AutoButtonColor = true
 HwidBadge.Parent = Card2
 
 local HwidCorner = Instance.new("UICorner")
 HwidCorner.CornerRadius = UDim.new(0, 4)
 HwidCorner.Parent = HwidBadge
+
+-- 1-Click Copy Full HWID to Clipboard
+HwidBadge.MouseButton1Click:Connect(function()
+    local dev = getDeviceIdentifier()
+    local fullHwid = dev and dev.hwid or ""
+    if fullHwid ~= "" then
+        pcall(function()
+            if setclipboard then
+                setclipboard(tostring(fullHwid))
+            elseif toclipboard then
+                toclipboard(tostring(fullHwid))
+            elseif set_clipboard then
+                set_clipboard(tostring(fullHwid))
+            end
+        end)
+        local origText = HwidBadge.Text
+        HwidBadge.Text = "📋 Đã Copy HWID vào Clipboard!"
+        HwidBadge.TextColor3 = Color3.fromRGB(74, 222, 128)
+        task.delay(1.5, function()
+            HwidBadge.Text = origText
+        end)
+    end
+end)
 
 -- Minimize & Restore Interactions
 MinBtn.MouseButton1Click:Connect(function()
