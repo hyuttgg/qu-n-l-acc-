@@ -733,42 +733,105 @@ end
 -- Identify Device ID, Android ID, and Platform
 local function getDeviceIdentifier()
     local hwid = nil
-    local executorName = "Roblox Executor"
+    local executorName = "Roblox Client"
     
+    -- 1. Exhaustive Executor Name Scan
     pcall(function()
         if identifyexecutor then
             local name, ver = identifyexecutor()
-            executorName = tostring(name) .. (ver and (" " .. tostring(ver)) or "")
+            if name and tostring(name) ~= "" then
+                executorName = tostring(name) .. (ver and (" " .. tostring(ver)) or "")
+            end
         elseif getexecutorname then
-            executorName = tostring(getexecutorname())
+            local name = getexecutorname()
+            if name and tostring(name) ~= "" then executorName = tostring(name) end
+        elseif identify_executor then
+            local name, ver = identify_executor()
+            if name and tostring(name) ~= "" then executorName = tostring(name) .. (ver and (" " .. tostring(ver)) or "") end
+        elseif get_executor_name then
+            local name = get_executor_name()
+            if name and tostring(name) ~= "" then executorName = tostring(name) end
         end
     end)
     
+    -- Heuristic Executor detection if standard API is blocked
+    if executorName == "Roblox Client" then
+        pcall(function()
+            local g = getgenv and getgenv() or _G
+            if _G.DELTA or (g and g.DELTA) or (env and env.DELTA) then
+                executorName = "Delta"
+            elseif _G.CODEX or (g and g.CODEX) or (env and env.CODEX) then
+                executorName = "Codex"
+            elseif _G.ARCEUS or (g and g.ARCEUS) or (env and env.ARCEUS) then
+                executorName = "Arceus X"
+            elseif _G.FLUXUS or fluxus or is_fluxus_closure then
+                executorName = "Fluxus"
+            elseif _G.HYDROGEN or (g and g.HYDROGEN) then
+                executorName = "Hydrogen"
+            elseif _G.SOLARA or (g and g.SOLARA) or is_solara then
+                executorName = "Solara"
+            elseif _G.WAVE or (g and g.WAVE) then
+                executorName = "Wave"
+            elseif _G.VEGA or (g and g.VEGA) then
+                executorName = "Vega X"
+            elseif _G.CELERY or (g and g.CELERY) then
+                executorName = "Celery"
+            elseif KRNL_LOADED then
+                executorName = "Krnl"
+            elseif syn then
+                executorName = "Synapse"
+            end
+        end)
+    end
+    
+    -- 2. Exhaustive HWID & SameHwid Detection
     pcall(function()
-        if _G.SameHwid and _G.SameHwid ~= "" then
+        local g = getgenv and getgenv() or _G
+        if _G.SameHwid and tostring(_G.SameHwid) ~= "" then
             hwid = tostring(_G.SameHwid)
-        elseif _G.CustomHWID and _G.CustomHWID ~= "" then
+        elseif _G.CustomHWID and tostring(_G.CustomHWID) ~= "" then
             hwid = tostring(_G.CustomHWID)
-        elseif _G.AndroidID and _G.AndroidID ~= "" then
+        elseif _G.HWID and tostring(_G.HWID) ~= "" then
+            hwid = tostring(_G.HWID)
+        elseif _G.AndroidID and tostring(_G.AndroidID) ~= "" then
             hwid = tostring(_G.AndroidID)
-        elseif env.SameHwid and env.SameHwid ~= "" then
+        elseif env.SameHwid and tostring(env.SameHwid) ~= "" then
             hwid = tostring(env.SameHwid)
+        elseif env.CustomHWID and tostring(env.CustomHWID) ~= "" then
+            hwid = tostring(env.CustomHWID)
+        elseif g and g.SameHwid and tostring(g.SameHwid) ~= "" then
+            hwid = tostring(g.SameHwid)
+        elseif g and g.CustomHWID and tostring(g.CustomHWID) ~= "" then
+            hwid = tostring(g.CustomHWID)
+        elseif g and g.HWID and tostring(g.HWID) ~= "" then
+            hwid = tostring(g.HWID)
         elseif gethwid then
             hwid = tostring(gethwid())
         elseif get_hwid then
             hwid = tostring(get_hwid())
         elseif env.gethwid then
             hwid = tostring(env.gethwid())
+        elseif g and g.gethwid then
+            hwid = tostring(g.gethwid())
+        elseif get_device_id then
+            hwid = tostring(get_device_id())
+        elseif getdeviceid then
+            hwid = tostring(getdeviceid())
         end
     end)
     
     if not hwid or hwid == "" then
         pcall(function()
-            local rbxAnalytics = cloneref(game:GetService("RbxAnalyticsService"))
+            local rbxAnalytics = (cloneref and cloneref(game:GetService("RbxAnalyticsService"))) or game:GetService("RbxAnalyticsService")
             if rbxAnalytics and rbxAnalytics.GetClientId then
                 hwid = tostring(rbxAnalytics:GetClientId())
             end
         end)
+    end
+    
+    -- Fallback Device ID based on UserId
+    if not hwid or hwid == "" then
+        hwid = "DEV_" .. string.sub(tostring(LocalPlayer.UserId * 2654435761), 1, 12)
     end
     
     local platformName = "Roblox Client"
@@ -785,15 +848,17 @@ local function getDeviceIdentifier()
         end
     end)
     
-    local finalDeviceId = hwid or ("DEV_" .. tostring(LocalPlayer.UserId))
-    local deviceDescription = platformName .. " (" .. executorName .. " | ID: " .. string.sub(finalDeviceId, 1, 16) .. ")"
+    local displayHwid = string.gsub(hwid, "[{}]", "")
+    local shortHwid = #displayHwid > 14 and (string.sub(displayHwid, 1, 6) .. ".." .. string.sub(displayHwid, -4)) or displayHwid
     
     return {
-        deviceId = finalDeviceId,
-        androidId = finalDeviceId,
-        hwid = finalDeviceId,
-        sameHwid = (_G.SameHwid or _G.CustomHWID or env.SameHwid) and true or false,
-        device = deviceDescription,
+        deviceId = hwid,
+        androidId = hwid,
+        hwid = hwid,
+        displayHwid = displayHwid,
+        shortHwid = shortHwid,
+        sameHwid = (_G.SameHwid or _G.CustomHWID or env.SameHwid or (getgenv and getgenv().SameHwid)) and true or false,
+        device = platformName .. " (" .. executorName .. " | " .. shortHwid .. ")",
         platform = platformName,
         executor = executorName
     }
@@ -1375,6 +1440,16 @@ local function sendStats()
     LevelLabel.Text = "⚔️ Level: " .. formatComma(level) .. " / 2800"
     BeliLabel.Text = "💰 Beli: $" .. formatComma(beli)
     FragLabel.Text = "💎 Fragments: " .. formatComma(fragments)
+
+    if deviceInfo then
+        local shortId = tostring(deviceInfo.shortHwid or deviceInfo.hwid or "Unknown")
+        HwidBadge.Text = "📱 " .. tostring(deviceInfo.executor or "Client") .. " | " .. shortId
+        if deviceInfo.sameHwid then
+            HwidBadge.TextColor3 = Color3.fromRGB(52, 211, 153)
+        else
+            HwidBadge.TextColor3 = Color3.fromRGB(129, 140, 248)
+        end
+    end
 
     -- Update Neovim Progress Bar & Buffer Badges
     local pct = math.clamp(level / 2800, 0, 1)

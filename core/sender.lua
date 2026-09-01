@@ -733,42 +733,105 @@ end
 -- Identify Device ID, Android ID, and Platform
 local function getDeviceIdentifier()
     local hwid = nil
-    local executorName = "Roblox Executor"
+    local executorName = "Roblox Client"
     
+    -- 1. Exhaustive Executor Name Scan
     pcall(function()
         if identifyexecutor then
             local name, ver = identifyexecutor()
-            executorName = tostring(name) .. (ver and (" " .. tostring(ver)) or "")
+            if name and tostring(name) ~= "" then
+                executorName = tostring(name) .. (ver and (" " .. tostring(ver)) or "")
+            end
         elseif getexecutorname then
-            executorName = tostring(getexecutorname())
+            local name = getexecutorname()
+            if name and tostring(name) ~= "" then executorName = tostring(name) end
+        elseif identify_executor then
+            local name, ver = identify_executor()
+            if name and tostring(name) ~= "" then executorName = tostring(name) .. (ver and (" " .. tostring(ver)) or "") end
+        elseif get_executor_name then
+            local name = get_executor_name()
+            if name and tostring(name) ~= "" then executorName = tostring(name) end
         end
     end)
     
+    -- Heuristic Executor detection if standard API is blocked
+    if executorName == "Roblox Client" then
+        pcall(function()
+            local g = getgenv and getgenv() or _G
+            if _G.DELTA or (g and g.DELTA) or (env and env.DELTA) then
+                executorName = "Delta"
+            elseif _G.CODEX or (g and g.CODEX) or (env and env.CODEX) then
+                executorName = "Codex"
+            elseif _G.ARCEUS or (g and g.ARCEUS) or (env and env.ARCEUS) then
+                executorName = "Arceus X"
+            elseif _G.FLUXUS or fluxus or is_fluxus_closure then
+                executorName = "Fluxus"
+            elseif _G.HYDROGEN or (g and g.HYDROGEN) then
+                executorName = "Hydrogen"
+            elseif _G.SOLARA or (g and g.SOLARA) or is_solara then
+                executorName = "Solara"
+            elseif _G.WAVE or (g and g.WAVE) then
+                executorName = "Wave"
+            elseif _G.VEGA or (g and g.VEGA) then
+                executorName = "Vega X"
+            elseif _G.CELERY or (g and g.CELERY) then
+                executorName = "Celery"
+            elseif KRNL_LOADED then
+                executorName = "Krnl"
+            elseif syn then
+                executorName = "Synapse"
+            end
+        end)
+    end
+    
+    -- 2. Exhaustive HWID & SameHwid Detection
     pcall(function()
-        if _G.SameHwid and _G.SameHwid ~= "" then
+        local g = getgenv and getgenv() or _G
+        if _G.SameHwid and tostring(_G.SameHwid) ~= "" then
             hwid = tostring(_G.SameHwid)
-        elseif _G.CustomHWID and _G.CustomHWID ~= "" then
+        elseif _G.CustomHWID and tostring(_G.CustomHWID) ~= "" then
             hwid = tostring(_G.CustomHWID)
-        elseif _G.AndroidID and _G.AndroidID ~= "" then
+        elseif _G.HWID and tostring(_G.HWID) ~= "" then
+            hwid = tostring(_G.HWID)
+        elseif _G.AndroidID and tostring(_G.AndroidID) ~= "" then
             hwid = tostring(_G.AndroidID)
-        elseif env.SameHwid and env.SameHwid ~= "" then
+        elseif env.SameHwid and tostring(env.SameHwid) ~= "" then
             hwid = tostring(env.SameHwid)
+        elseif env.CustomHWID and tostring(env.CustomHWID) ~= "" then
+            hwid = tostring(env.CustomHWID)
+        elseif g and g.SameHwid and tostring(g.SameHwid) ~= "" then
+            hwid = tostring(g.SameHwid)
+        elseif g and g.CustomHWID and tostring(g.CustomHWID) ~= "" then
+            hwid = tostring(g.CustomHWID)
+        elseif g and g.HWID and tostring(g.HWID) ~= "" then
+            hwid = tostring(g.HWID)
         elseif gethwid then
             hwid = tostring(gethwid())
         elseif get_hwid then
             hwid = tostring(get_hwid())
         elseif env.gethwid then
             hwid = tostring(env.gethwid())
+        elseif g and g.gethwid then
+            hwid = tostring(g.gethwid())
+        elseif get_device_id then
+            hwid = tostring(get_device_id())
+        elseif getdeviceid then
+            hwid = tostring(getdeviceid())
         end
     end)
     
     if not hwid or hwid == "" then
         pcall(function()
-            local rbxAnalytics = cloneref(game:GetService("RbxAnalyticsService"))
+            local rbxAnalytics = (cloneref and cloneref(game:GetService("RbxAnalyticsService"))) or game:GetService("RbxAnalyticsService")
             if rbxAnalytics and rbxAnalytics.GetClientId then
                 hwid = tostring(rbxAnalytics:GetClientId())
             end
         end)
+    end
+    
+    -- Fallback Device ID based on UserId
+    if not hwid or hwid == "" then
+        hwid = "DEV_" .. string.sub(tostring(LocalPlayer.UserId * 2654435761), 1, 12)
     end
     
     local platformName = "Roblox Client"
@@ -785,15 +848,17 @@ local function getDeviceIdentifier()
         end
     end)
     
-    local finalDeviceId = hwid or ("DEV_" .. tostring(LocalPlayer.UserId))
-    local deviceDescription = platformName .. " (" .. executorName .. " | ID: " .. string.sub(finalDeviceId, 1, 16) .. ")"
+    local displayHwid = string.gsub(hwid, "[{}]", "")
+    local shortHwid = #displayHwid > 14 and (string.sub(displayHwid, 1, 6) .. ".." .. string.sub(displayHwid, -4)) or displayHwid
     
     return {
-        deviceId = finalDeviceId,
-        androidId = finalDeviceId,
-        hwid = finalDeviceId,
-        sameHwid = (_G.SameHwid or _G.CustomHWID or env.SameHwid) and true or false,
-        device = deviceDescription,
+        deviceId = hwid,
+        androidId = hwid,
+        hwid = hwid,
+        displayHwid = displayHwid,
+        shortHwid = shortHwid,
+        sameHwid = (_G.SameHwid or _G.CustomHWID or env.SameHwid or (getgenv and getgenv().SameHwid)) and true or false,
+        device = platformName .. " (" .. executorName .. " | " .. shortHwid .. ")",
         platform = platformName,
         executor = executorName
     }
@@ -914,23 +979,14 @@ local function detectActiveHub()
 end
 
 -- ==========================================================
--- BLUE X HUB KAITUN BLOX FRUITS (FREE) - ANIME FURINA GUI
+-- NEOVIM LSP-INSPIRED CYBER TOKYO NIGHT GUI DESIGN (v2.6)
 -- ==========================================================
 
 local isMinimized = false
-local startTime = tick()
 local pulseTween = nil
 
-local function getFormattedUptime()
-    local elapsed = math.floor(tick() - startTime)
-    local hours = math.floor(elapsed / 3600)
-    local mins = math.floor((elapsed % 3600) / 60)
-    local secs = elapsed % 60
-    return string.format("%02d:%02d:%02d", hours, mins, secs)
-end
-
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "BlueXHubKaitun_" .. tostring(math.random(100000, 999999))
+ScreenGui.Name = "OceanForgeNeovimLsp_" .. tostring(math.random(100000, 999999))
 ScreenGui.ResetOnSpawn = false
 
 local gethui = gethui or (syn and syn.protect_gui and function(gui) syn.protect_gui(gui) return cloneref(game:GetService("CoreGui")) end) or nil
@@ -955,66 +1011,106 @@ if not parented then
     end
 end
 
--- Main Blue X Hub Canvas (Cyan / Aqua Gradient Window)
+-- Main Floating Buffer Frame (Tokyo Night Obsidian Glass)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 500, 0, 240)
-MainFrame.Position = UDim2.new(0.5, -250, 0.35, -120)
-MainFrame.BackgroundColor3 = Color3.fromRGB(0, 195, 245)
+MainFrame.Size = UDim2.new(0, 440, 0, 240)
+MainFrame.Position = UDim2.new(0.5, -220, 0.4, -120)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 20, 32) -- Tokyo Night Dark Navy
+MainFrame.BackgroundTransparency = 0.05
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
-MainFrame.ClipsDescendants = false
 MainFrame.Parent = ScreenGui
 
 local MainGradient = Instance.new("UIGradient")
 MainGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 175, 240)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 205, 250)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 230, 255))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(18, 24, 38)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 20, 32)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(24, 18, 36))
 }
 MainGradient.Rotation = 45
 MainGradient.Parent = MainFrame
 
 local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 16)
+MainCorner.CornerRadius = UDim.new(0, 12)
 MainCorner.Parent = MainFrame
 
--- Glowing Neon Yellow/Green Border Stroke
+-- Glowing Neon Cyan & Violet Dual-Tone Stroke Border
 local MainStroke = Instance.new("UIStroke")
-MainStroke.Thickness = 2.4
-MainStroke.Color = Color3.fromRGB(160, 250, 60) -- Lime Yellow Neon
+MainStroke.Thickness = 1.6
+MainStroke.Color = Color3.fromRGB(56, 189, 248)
 MainStroke.Parent = MainFrame
 
--- Left Character Image (Furina Anime Character Sticker)
-local CharacterImage = Instance.new("ImageLabel")
-CharacterImage.Name = "CharacterImage"
-CharacterImage.Size = UDim2.new(0, 175, 0, 245)
-CharacterImage.Position = UDim2.new(0, -5, 0, -5)
-CharacterImage.BackgroundTransparency = 1
-CharacterImage.Image = "rbxassetid://15291244018" -- Furina High-Quality Transparent Render
-CharacterImage.ScaleType = Enum.ScaleType.Fit
-CharacterImage.Parent = MainFrame
+local StrokeGradient = Instance.new("UIGradient")
+StrokeGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(56, 189, 248)),   -- Cyan Neon
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(129, 140, 248)), -- Indigo Neon
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(232, 121, 249))   -- Fuchsia Neon
+}
+StrokeGradient.Rotation = 135
+StrokeGradient.Parent = MainStroke
 
--- Fallback check for character render image
-pcall(function()
-    if not CharacterImage.IsLoaded then
-        CharacterImage.Image = "rbxassetid://15446077598"
-    end
-end)
+-- Topbar (Neovim Lualine / Tabline Header)
+local Topbar = Instance.new("Frame")
+Topbar.Name = "Topbar"
+Topbar.Size = UDim2.new(1, 0, 0, 38)
+Topbar.BackgroundTransparency = 1
+Topbar.Parent = MainFrame
 
--- Minimize Button (Top Right)
+-- Vim Mode Pill (NORMAL / LSP)
+local ModePill = Instance.new("TextLabel")
+ModePill.Size = UDim2.new(0, 68, 0, 20)
+ModePill.Position = UDim2.new(0.03, 0, 0.24, 0)
+ModePill.BackgroundColor3 = Color3.fromRGB(56, 189, 248)
+ModePill.Text = "NORMAL"
+ModePill.TextColor3 = Color3.fromRGB(15, 23, 42)
+ModePill.Font = Enum.Font.GothamBold
+ModePill.TextSize = 10
+ModePill.Parent = Topbar
+
+local ModeCorner = Instance.new("UICorner")
+ModeCorner.CornerRadius = UDim.new(0, 5)
+ModeCorner.Parent = ModePill
+
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(0.55, 0, 1, 0)
+Title.Position = UDim2.new(0.20, 0, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "⚡ OCEANFORGE // LSP TELEMETRY"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 12.5
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Topbar
+
+-- Version Tag
+local VersionBadge = Instance.new("TextLabel")
+VersionBadge.Size = UDim2.new(0, 48, 0, 18)
+VersionBadge.Position = UDim2.new(0.74, 0, 0.26, 0)
+VersionBadge.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
+VersionBadge.Text = "v2.6 LSP"
+VersionBadge.TextColor3 = Color3.fromRGB(148, 163, 184)
+VersionBadge.Font = Enum.Font.GothamBold
+VersionBadge.TextSize = 9
+VersionBadge.Parent = Topbar
+
+local VersionCorner = Instance.new("UICorner")
+VersionCorner.CornerRadius = UDim.new(0, 5)
+VersionCorner.Parent = VersionBadge
+
+-- Minimize Button
 local MinBtn = Instance.new("TextButton")
 MinBtn.Name = "MinBtn"
-MinBtn.Size = UDim2.new(0, 24, 0, 24)
-MinBtn.Position = UDim2.new(1, -30, 0, 8)
-MinBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 180)
-MinBtn.BackgroundTransparency = 0.3
+MinBtn.Size = UDim2.new(0, 26, 0, 26)
+MinBtn.Position = UDim2.new(0.92, -10, 0.5, -13)
+MinBtn.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
 MinBtn.Text = "−"
-MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.TextColor3 = Color3.fromRGB(56, 189, 248)
 MinBtn.Font = Enum.Font.GothamBold
-MinBtn.TextSize = 16
-MinBtn.Parent = MainFrame
+MinBtn.TextSize = 15
+MinBtn.Parent = Topbar
 
 local MinCorner = Instance.new("UICorner")
 MinCorner.CornerRadius = UDim.new(0, 6)
@@ -1022,202 +1118,260 @@ MinCorner.Parent = MinBtn
 
 local MinStroke = Instance.new("UIStroke")
 MinStroke.Thickness = 1
-MinStroke.Color = Color3.fromRGB(160, 250, 60)
+MinStroke.Color = Color3.fromRGB(56, 189, 248)
 MinStroke.Parent = MinBtn
+
+local TopDivider = Instance.new("Frame")
+TopDivider.Size = UDim2.new(0.94, 0, 0, 1)
+TopDivider.Position = UDim2.new(0.03, 0, 1, 0)
+TopDivider.BackgroundColor3 = Color3.fromRGB(51, 65, 85)
+TopDivider.BorderSizePixel = 0
+TopDivider.Parent = Topbar
 
 -- Floating Anchor Button when Minimized
 local AnchorBtn = Instance.new("TextButton")
 AnchorBtn.Name = "AnchorBtn"
-AnchorBtn.Size = UDim2.new(0, 48, 0, 48)
-AnchorBtn.Position = UDim2.new(0.95, -48, 0.85, -48)
-AnchorBtn.BackgroundColor3 = Color3.fromRGB(0, 195, 245)
-AnchorBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-AnchorBtn.Text = "🌊"
+AnchorBtn.Size = UDim2.new(0, 46, 0, 46)
+AnchorBtn.Position = UDim2.new(0.95, -46, 0.85, -46)
+AnchorBtn.BackgroundColor3 = Color3.fromRGB(15, 23, 42)
+AnchorBtn.TextColor3 = Color3.fromRGB(56, 189, 248)
+AnchorBtn.Text = "⚡"
 AnchorBtn.Font = Enum.Font.GothamBold
-AnchorBtn.TextSize = 22
+AnchorBtn.TextSize = 20
 AnchorBtn.Visible = false
 AnchorBtn.Parent = ScreenGui
 
 local AnchorCorner = Instance.new("UICorner")
-AnchorCorner.CornerRadius = UDim.new(0, 24)
+AnchorCorner.CornerRadius = UDim.new(0, 23)
 AnchorCorner.Parent = AnchorBtn
 
 local AnchorStroke = Instance.new("UIStroke")
-AnchorStroke.Thickness = 2
-AnchorStroke.Color = Color3.fromRGB(160, 250, 60)
+AnchorStroke.Thickness = 1.6
+AnchorStroke.Color = Color3.fromRGB(56, 189, 248)
 AnchorStroke.Parent = AnchorBtn
 
--- Right Content Container
-local ContentFrame = Instance.new("Frame")
-ContentFrame.Name = "ContentFrame"
-ContentFrame.Size = UDim2.new(1, -170, 1, 0)
-ContentFrame.Position = UDim2.new(0, 165, 0, 0)
-ContentFrame.BackgroundTransparency = 1
-ContentFrame.Parent = MainFrame
+-- Monitor Screen Body
+local MonitorScreen = Instance.new("Frame")
+MonitorScreen.Name = "MonitorScreen"
+MonitorScreen.Size = UDim2.new(1, 0, 0.82, 0)
+MonitorScreen.Position = UDim2.new(0, 0, 0.18, 0)
+MonitorScreen.BackgroundTransparency = 1
+MonitorScreen.Visible = true
+MonitorScreen.Parent = MainFrame
 
--- Header Title: Blue X Hub Kaitun Blox Fruits (Free)
-local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Name = "TitleLabel"
-TitleLabel.Size = UDim2.new(1, -35, 0, 32)
-TitleLabel.Position = UDim2.new(0, 0, 0, 10)
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "Blue X Hub Kaitun Blox Fruits (Free)"
-TitleLabel.TextColor3 = Color3.fromRGB(0, 235, 255)
-TitleLabel.Font = Enum.Font.FredokaOne
-TitleLabel.TextSize = 16
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Center
-TitleLabel.Parent = ContentFrame
+-- Status Bar Row (LSP Statusline / Diagnostics)
+local StatusRow = Instance.new("Frame")
+StatusRow.Size = UDim2.new(0.94, 0, 0, 20)
+StatusRow.Position = UDim2.new(0.03, 0, 0.04, 0)
+StatusRow.BackgroundTransparency = 1
+StatusRow.Parent = MonitorScreen
 
-local TitleStroke = Instance.new("UIStroke")
-TitleStroke.Thickness = 2
-TitleStroke.Color = Color3.fromRGB(0, 0, 0)
-TitleStroke.Parent = TitleLabel
+local LedIndicator = Instance.new("Frame")
+LedIndicator.Name = "LedIndicator"
+LedIndicator.Size = UDim2.new(0, 8, 0, 8)
+LedIndicator.Position = UDim2.new(0, 0, 0.5, -4)
+LedIndicator.BackgroundColor3 = Color3.fromRGB(74, 222, 128)
+LedIndicator.BorderSizePixel = 0
+LedIndicator.Parent = StatusRow
 
--- Glowing Green Gradient Divider Line
-local GreenLine = Instance.new("Frame")
-GreenLine.Name = "GreenLine"
-GreenLine.Size = UDim2.new(0.92, 0, 0, 2)
-GreenLine.Position = UDim2.new(0.04, 0, 0, 48)
-GreenLine.BackgroundColor3 = Color3.fromRGB(160, 250, 60)
-GreenLine.BorderSizePixel = 0
-GreenLine.Parent = ContentFrame
+local LedCorner = Instance.new("UICorner")
+LedCorner.CornerRadius = UDim.new(0, 4)
+LedCorner.Parent = LedIndicator
 
-local LineGradient = Instance.new("UIGradient")
-LineGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(34, 197, 94)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(163, 230, 53)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(34, 197, 94))
-}
-LineGradient.Parent = GreenLine
+local LedLabel = Instance.new("TextLabel")
+LedLabel.Size = UDim2.new(0.95, -12, 1, 0)
+LedLabel.Position = UDim2.new(0, 14, 0, 0)
+LedLabel.BackgroundTransparency = 1
+LedLabel.Text = "LSP: CONNECTED | C# ENGINE: 0.04ms | 🛡️ ANTI-BAN: ON"
+LedLabel.TextColor3 = Color3.fromRGB(148, 163, 184)
+LedLabel.Font = Enum.Font.GothamBold
+LedLabel.TextSize = 9.5
+LedLabel.TextXAlignment = Enum.TextXAlignment.Left
+LedLabel.Parent = StatusRow
 
--- Status Line 1: Status: Farm Level
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Name = "StatusLabel"
-StatusLabel.Size = UDim2.new(1, -10, 0, 26)
-StatusLabel.Position = UDim2.new(0, 0, 0, 58)
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "Status: Farm Level"
-StatusLabel.TextColor3 = Color3.fromRGB(0, 245, 255)
-StatusLabel.Font = Enum.Font.FredokaOne
-StatusLabel.TextSize = 18
-StatusLabel.TextXAlignment = Enum.TextXAlignment.Center
-StatusLabel.Parent = ContentFrame
+-- 2-Column Split Window Buffer (Neovim Vsplit Layout)
+local CardContainer = Instance.new("Frame")
+CardContainer.Size = UDim2.new(0.94, 0, 0.78, 0)
+CardContainer.Position = UDim2.new(0.03, 0, 0.18, 0)
+CardContainer.BackgroundTransparency = 1
+CardContainer.Parent = MonitorScreen
 
-local StatusStroke = Instance.new("UIStroke")
-StatusStroke.Thickness = 2
-StatusStroke.Color = Color3.fromRGB(0, 0, 0)
-StatusStroke.Parent = StatusLabel
+-- Buffer 1 (Left): Player Profile, Devil Fruit & Location
+local Card1 = Instance.new("Frame")
+Card1.Size = UDim2.new(0.485, 0, 1, 0)
+Card1.Position = UDim2.new(0, 0, 0, 0)
+Card1.BackgroundColor3 = Color3.fromRGB(20, 27, 44)
+Card1.BackgroundTransparency = 0.3
+Card1.BorderSizePixel = 0
+Card1.Parent = CardContainer
 
--- Status Line 2: Accept Quest Farm Level
-local QuestLabel = Instance.new("TextLabel")
-QuestLabel.Name = "QuestLabel"
-QuestLabel.Size = UDim2.new(1, -10, 0, 24)
-QuestLabel.Position = UDim2.new(0, 0, 0, 88)
-QuestLabel.BackgroundTransparency = 1
-QuestLabel.Text = "Accept Quest Farm Level"
-QuestLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-QuestLabel.Font = Enum.Font.FredokaOne
-QuestLabel.TextSize = 16
-QuestLabel.TextXAlignment = Enum.TextXAlignment.Center
-QuestLabel.Parent = ContentFrame
+local Card1Corner = Instance.new("UICorner")
+Card1Corner.CornerRadius = UDim.new(0, 8)
+Card1Corner.Parent = Card1
 
-local QuestStroke = Instance.new("UIStroke")
-QuestStroke.Thickness = 2
-QuestStroke.Color = Color3.fromRGB(0, 0, 0)
-QuestStroke.Parent = QuestLabel
+local Card1Stroke = Instance.new("UIStroke")
+Card1Stroke.Thickness = 1
+Card1Stroke.Color = Color3.fromRGB(51, 65, 85)
+Card1Stroke.Parent = Card1
 
--- Stats Row 1: Lv & Uptime
+local Card1Title = Instance.new("TextLabel")
+Card1Title.Size = UDim2.new(0.9, 0, 0, 18)
+Card1Title.Position = UDim2.new(0.06, 0, 0.06, 0)
+Card1Title.BackgroundTransparency = 1
+Card1Title.Text = "󰅂 BUFFER: CLIENT PROFILE"
+Card1Title.TextColor3 = Color3.fromRGB(56, 189, 248)
+Card1Title.Font = Enum.Font.GothamBold
+Card1Title.TextSize = 9.5
+Card1Title.TextXAlignment = Enum.TextXAlignment.Left
+Card1Title.Parent = Card1
+
+local UsernameLabel = Instance.new("TextLabel")
+UsernameLabel.Size = UDim2.new(0.9, 0, 0, 20)
+UsernameLabel.Position = UDim2.new(0.06, 0, 0.22, 0)
+UsernameLabel.BackgroundTransparency = 1
+UsernameLabel.Text = "👤 " .. LocalPlayer.Name
+UsernameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+UsernameLabel.Font = Enum.Font.GothamSemibold
+UsernameLabel.TextSize = 11
+UsernameLabel.TextXAlignment = Enum.TextXAlignment.Left
+UsernameLabel.Parent = Card1
+
+local IslandLabel = Instance.new("TextLabel")
+IslandLabel.Size = UDim2.new(0.9, 0, 0, 20)
+IslandLabel.Position = UDim2.new(0.06, 0, 0.42, 0)
+IslandLabel.BackgroundTransparency = 1
+IslandLabel.Text = "🗺️ Scanning Location..."
+IslandLabel.TextColor3 = Color3.fromRGB(203, 213, 225)
+IslandLabel.Font = Enum.Font.GothamMedium
+IslandLabel.TextSize = 10.5
+IslandLabel.TextXAlignment = Enum.TextXAlignment.Left
+IslandLabel.Parent = Card1
+
+local FruitLabel = Instance.new("TextLabel")
+FruitLabel.Size = UDim2.new(0.9, 0, 0, 20)
+FruitLabel.Position = UDim2.new(0.06, 0, 0.62, 0)
+FruitLabel.BackgroundTransparency = 1
+FruitLabel.Text = "🍇 Fruit: Scanning..."
+FruitLabel.TextColor3 = Color3.fromRGB(232, 121, 249) -- Fuchsia
+FruitLabel.Font = Enum.Font.GothamMedium
+FruitLabel.TextSize = 10.5
+FruitLabel.TextXAlignment = Enum.TextXAlignment.Left
+FruitLabel.Parent = Card1
+
+local HubBadge = Instance.new("TextLabel")
+HubBadge.Size = UDim2.new(0.9, 0, 0, 20)
+HubBadge.Position = UDim2.new(0.06, 0, 0.80, 0)
+HubBadge.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
+HubBadge.Text = "🤖 Hub: Detecting..."
+HubBadge.TextColor3 = Color3.fromRGB(250, 204, 21) -- Gold
+HubBadge.Font = Enum.Font.GothamBold
+HubBadge.TextSize = 9.5
+HubBadge.TextXAlignment = Enum.TextXAlignment.Left
+HubBadge.Parent = Card1
+
+local HubCorner = Instance.new("UICorner")
+HubCorner.CornerRadius = UDim.new(0, 4)
+HubCorner.Parent = HubBadge
+
+-- Buffer 2 (Right): Level Progress & Wealth Stats
+local Card2 = Instance.new("Frame")
+Card2.Size = UDim2.new(0.485, 0, 1, 0)
+Card2.Position = UDim2.new(0.515, 0, 0, 0)
+Card2.BackgroundColor3 = Color3.fromRGB(20, 27, 44)
+Card2.BackgroundTransparency = 0.3
+Card2.BorderSizePixel = 0
+Card2.Parent = CardContainer
+
+local Card2Corner = Instance.new("UICorner")
+Card2Corner.CornerRadius = UDim.new(0, 8)
+Card2Corner.Parent = Card2
+
+local Card2Stroke = Instance.new("UIStroke")
+Card2Stroke.Thickness = 1
+Card2Stroke.Color = Color3.fromRGB(51, 65, 85)
+Card2Stroke.Parent = Card2
+
+local Card2Title = Instance.new("TextLabel")
+Card2Title.Size = UDim2.new(0.9, 0, 0, 18)
+Card2Title.Position = UDim2.new(0.06, 0, 0.06, 0)
+Card2Title.BackgroundTransparency = 1
+Card2Title.Text = "󰅂 BUFFER: STATS & PROGRESS"
+Card2Title.TextColor3 = Color3.fromRGB(129, 140, 248)
+Card2Title.Font = Enum.Font.GothamBold
+Card2Title.TextSize = 9.5
+Card2Title.TextXAlignment = Enum.TextXAlignment.Left
+Card2Title.Parent = Card2
+
 local LevelLabel = Instance.new("TextLabel")
-LevelLabel.Name = "LevelLabel"
-LevelLabel.Size = UDim2.new(0.48, 0, 0, 26)
-LevelLabel.Position = UDim2.new(0, 0, 0, 126)
+LevelLabel.Size = UDim2.new(0.9, 0, 0, 20)
+LevelLabel.Position = UDim2.new(0.06, 0, 0.22, 0)
 LevelLabel.BackgroundTransparency = 1
-LevelLabel.Text = "Lv: 1"
-LevelLabel.TextColor3 = Color3.fromRGB(251, 191, 36) -- Golden Orange
-LevelLabel.Font = Enum.Font.FredokaOne
-LevelLabel.TextSize = 18
-LevelLabel.TextXAlignment = Enum.TextXAlignment.Center
-LevelLabel.Parent = ContentFrame
+LevelLabel.Text = "⚔️ Level: -- / 2800"
+LevelLabel.TextColor3 = Color3.fromRGB(56, 189, 248)
+LevelLabel.Font = Enum.Font.GothamSemibold
+LevelLabel.TextSize = 11
+LevelLabel.TextXAlignment = Enum.TextXAlignment.Left
+LevelLabel.Parent = Card2
 
-local LevelStroke = Instance.new("UIStroke")
-LevelStroke.Thickness = 2
-LevelStroke.Color = Color3.fromRGB(0, 0, 0)
-LevelStroke.Parent = LevelLabel
+-- Level Progress Bar Background
+local ProgressBarBg = Instance.new("Frame")
+ProgressBarBg.Size = UDim2.new(0.88, 0, 0, 4)
+ProgressBarBg.Position = UDim2.new(0.06, 0, 0.38, 0)
+ProgressBarBg.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
+ProgressBarBg.BorderSizePixel = 0
+ProgressBarBg.Parent = Card2
 
-local UptimeLabel = Instance.new("TextLabel")
-UptimeLabel.Name = "UptimeLabel"
-UptimeLabel.Size = UDim2.new(0.50, 0, 0, 26)
-UptimeLabel.Position = UDim2.new(0.50, 0, 0, 126)
-UptimeLabel.BackgroundTransparency = 1
-UptimeLabel.Text = "Uptime: 00:00:00"
-UptimeLabel.TextColor3 = Color3.fromRGB(0, 245, 255)
-UptimeLabel.Font = Enum.Font.FredokaOne
-UptimeLabel.TextSize = 17
-UptimeLabel.TextXAlignment = Enum.TextXAlignment.Center
-UptimeLabel.Parent = ContentFrame
+local ProgressCorner = Instance.new("UICorner")
+ProgressCorner.CornerRadius = UDim.new(0, 2)
+ProgressCorner.Parent = ProgressBarBg
 
-local UptimeStroke = Instance.new("UIStroke")
-UptimeStroke.Thickness = 2
-UptimeStroke.Color = Color3.fromRGB(0, 0, 0)
-UptimeStroke.Parent = UptimeLabel
+local ProgressBarFill = Instance.new("Frame")
+ProgressBarFill.Name = "ProgressBarFill"
+ProgressBarFill.Size = UDim2.new(0.5, 0, 1, 0)
+ProgressBarFill.BackgroundColor3 = Color3.fromRGB(56, 189, 248)
+ProgressBarFill.BorderSizePixel = 0
+ProgressBarFill.Parent = ProgressBarBg
 
--- Stats Row 2: Beli & Frags
+local FillCorner = Instance.new("UICorner")
+FillCorner.CornerRadius = UDim.new(0, 2)
+FillCorner.Parent = ProgressBarFill
+
 local BeliLabel = Instance.new("TextLabel")
-BeliLabel.Name = "BeliLabel"
-BeliLabel.Size = UDim2.new(0.48, 0, 0, 26)
-BeliLabel.Position = UDim2.new(0, 0, 0, 160)
+BeliLabel.Size = UDim2.new(0.9, 0, 0, 20)
+BeliLabel.Position = UDim2.new(0.06, 0, 0.48, 0)
 BeliLabel.BackgroundTransparency = 1
-BeliLabel.Text = "Beli: 0"
-BeliLabel.TextColor3 = Color3.fromRGB(134, 239, 172) -- Bright Lime Green
-BeliLabel.Font = Enum.Font.FredokaOne
-BeliLabel.TextSize = 18
-BeliLabel.TextXAlignment = Enum.TextXAlignment.Center
-BeliLabel.Parent = ContentFrame
-
-local BeliStroke = Instance.new("UIStroke")
-BeliStroke.Thickness = 2
-BeliStroke.Color = Color3.fromRGB(0, 0, 0)
-BeliStroke.Parent = BeliLabel
+BeliLabel.Text = "💰 Beli: $0"
+BeliLabel.TextColor3 = Color3.fromRGB(250, 204, 21)
+BeliLabel.Font = Enum.Font.GothamSemibold
+BeliLabel.TextSize = 11
+BeliLabel.TextXAlignment = Enum.TextXAlignment.Left
+BeliLabel.Parent = Card2
 
 local FragLabel = Instance.new("TextLabel")
-FragLabel.Name = "FragLabel"
-FragLabel.Size = UDim2.new(0.50, 0, 0, 26)
-FragLabel.Position = UDim2.new(0.50, 0, 0, 160)
+FragLabel.Size = UDim2.new(0.9, 0, 0, 20)
+FragLabel.Position = UDim2.new(0.06, 0, 0.66, 0)
 FragLabel.BackgroundTransparency = 1
-FragLabel.Text = "Frags: 0"
-FragLabel.TextColor3 = Color3.fromRGB(0, 245, 255)
-FragLabel.Font = Enum.Font.FredokaOne
-FragLabel.TextSize = 18
-FragLabel.TextXAlignment = Enum.TextXAlignment.Center
-FragLabel.Parent = ContentFrame
+FragLabel.Text = "💎 Fragments: 0"
+FragLabel.TextColor3 = Color3.fromRGB(192, 132, 252)
+FragLabel.Font = Enum.Font.GothamSemibold
+FragLabel.TextSize = 11
+FragLabel.TextXAlignment = Enum.TextXAlignment.Left
+FragLabel.Parent = Card2
 
-local FragStroke = Instance.new("UIStroke")
-FragStroke.Thickness = 2
-FragStroke.Color = Color3.fromRGB(0, 0, 0)
-FragStroke.Parent = FragLabel
+local HwidBadge = Instance.new("TextLabel")
+HwidBadge.Size = UDim2.new(0.9, 0, 0, 20)
+HwidBadge.Position = UDim2.new(0.06, 0, 0.80, 0)
+HwidBadge.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
+HwidBadge.Text = "📱 HWID: Scanning..."
+HwidBadge.TextColor3 = Color3.fromRGB(129, 140, 248)
+HwidBadge.Font = Enum.Font.GothamBold
+HwidBadge.TextSize = 9.5
+HwidBadge.TextXAlignment = Enum.TextXAlignment.Left
+HwidBadge.Parent = Card2
 
--- Bottom Sub-Row: Active Hub & Same HWID Pill Badge
-local BottomBadge = Instance.new("TextLabel")
-BottomBadge.Name = "BottomBadge"
-BottomBadge.Size = UDim2.new(0.92, 0, 0, 22)
-BottomBadge.Position = UDim2.new(0.04, 0, 0, 198)
-BottomBadge.BackgroundColor3 = Color3.fromRGB(0, 40, 80)
-BottomBadge.BackgroundTransparency = 0.4
-BottomBadge.Text = "🤖 Hub: Detecting... | 📱 HWID: DEV_..."
-BottomBadge.TextColor3 = Color3.fromRGB(255, 255, 255)
-BottomBadge.Font = Enum.Font.GothamBold
-BottomBadge.TextSize = 9.5
-BottomBadge.TextXAlignment = Enum.TextXAlignment.Center
-BottomBadge.Parent = ContentFrame
-
-local BottomCorner = Instance.new("UICorner")
-BottomCorner.CornerRadius = UDim.new(0, 6)
-BottomCorner.Parent = BottomBadge
-
-local BottomStroke = Instance.new("UIStroke")
-BottomStroke.Thickness = 1
-BottomStroke.Color = Color3.fromRGB(0, 160, 220)
-BottomStroke.Parent = BottomBadge
+local HwidCorner = Instance.new("UICorner")
+HwidCorner.CornerRadius = UDim.new(0, 4)
+HwidCorner.Parent = HwidBadge
 
 -- Minimize & Restore Interactions
 MinBtn.MouseButton1Click:Connect(function()
@@ -1281,34 +1435,50 @@ local function sendStats()
     local deviceInfo = getDeviceIdentifier()
     local activeHub = detectActiveHub()
 
-    -- Update Blue X Kaitun UI Labels
-    LevelLabel.Text = "Lv: " .. formatComma(level)
-    BeliLabel.Text = "Beli: " .. formatComma(beli)
-    FragLabel.Text = "Frags: " .. formatComma(fragments)
-    UptimeLabel.Text = "Uptime: " .. getFormattedUptime()
+    UsernameLabel.Text = "👤 " .. LocalPlayer.Name
+    IslandLabel.Text = "🗺️ " .. getIslandName() .. " (Sea " .. getSea() .. ")"
+    LevelLabel.Text = "⚔️ Level: " .. formatComma(level) .. " / 2800"
+    BeliLabel.Text = "💰 Beli: $" .. formatComma(beli)
+    FragLabel.Text = "💎 Fragments: " .. formatComma(fragments)
 
-    local currentIsland = getIslandName()
-    local currentSea = getSea()
-
-    local hubText = (activeHub and activeHub ~= "None / Custom Script") and activeHub or "Kaitun Script"
-    local hwidDisplay = deviceInfo.hwid or deviceInfo.deviceId or "Unknown"
-    if #hwidDisplay > 10 then
-        hwidDisplay = string.sub(hwidDisplay, 1, 8) .. "..."
+    if deviceInfo then
+        local shortId = tostring(deviceInfo.shortHwid or deviceInfo.hwid or "Unknown")
+        HwidBadge.Text = "📱 " .. tostring(deviceInfo.executor or "Client") .. " | " .. shortId
+        if deviceInfo.sameHwid then
+            HwidBadge.TextColor3 = Color3.fromRGB(52, 211, 153)
+        else
+            HwidBadge.TextColor3 = Color3.fromRGB(129, 140, 248)
+        end
     end
-    BottomBadge.Text = "🤖 " .. tostring(hubText) .. " | 🗺️ " .. tostring(currentIsland) .. " (Sea " .. tostring(currentSea) .. ") | 📱 " .. tostring(hwidDisplay)
+
+    -- Update Neovim Progress Bar & Buffer Badges
+    local pct = math.clamp(level / 2800, 0, 1)
+    ProgressBarFill.Size = UDim2.new(pct, 0, 1, 0)
+
+    local fruitName = (equipped and equipped.fruit and equipped.fruit.name) or "None"
+    FruitLabel.Text = "🍇 " .. tostring(fruitName)
+
+    if activeHub and activeHub ~= "None / Custom Script" then
+        HubBadge.Text = "🤖 " .. tostring(activeHub)
+        if string.find(activeHub:lower(), "banana", 1, true) then
+            HubBadge.TextColor3 = Color3.fromRGB(250, 204, 21)
+        elseif string.find(activeHub:lower(), "maru", 1, true) then
+            HubBadge.TextColor3 = Color3.fromRGB(56, 189, 248)
+        else
+            HubBadge.TextColor3 = Color3.fromRGB(74, 222, 128)
+        end
+    else
+        HubBadge.Text = "🤖 Custom Script"
+        HubBadge.TextColor3 = Color3.fromRGB(148, 163, 184)
+    end
 
     local status = "idle"
-    local statusDisplay = "Status: Farm Level"
-    local questDisplay = "Accept Quest Farm Level"
-
     local myChar = LocalPlayer.Character
     local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
     local myHumanoid = myChar and myChar:FindFirstChild("Humanoid")
 
     if myHumanoid and myHumanoid.MoveDirection.Magnitude > 0 then
         status = "grinding"
-        statusDisplay = "Status: Farm Level"
-        questDisplay = "Grinding Quest Monster"
     end
 
     local targetFolder = workspace:FindFirstChild("Enemies")
@@ -1321,21 +1491,14 @@ local function sendStats()
                 if dist < 150 then
                     if enemy:GetAttribute("IsBoss") or string.find(enemy.Name, "Boss", 1, true) or enemyHumanoid.MaxHealth > 500000 then
                         status = "bossing"
-                        statusDisplay = "Status: Boss Hunter"
-                        questDisplay = "Fighting Boss: " .. enemy.Name
                     else
                         status = "grinding"
-                        statusDisplay = "Status: Farm Level"
-                        questDisplay = "Attacking: " .. enemy.Name
                     end
                     break
                 end
             end
         end
     end
-
-    StatusLabel.Text = statusDisplay
-    QuestLabel.Text = questDisplay
 
     local apiKey = env.OceanForgeApiKey or _G.OceanForgeApiKey or ""
     if (apiKey == "" or apiKey == "YOUR_API_KEY_HERE") and loadSavedKey then
@@ -1407,7 +1570,10 @@ local function sendStats()
         local cleanServerUrl = string_gsub(tostring(rawServerUrl), "/+$", "")
 
         if apiKey == "" or apiKey == "YOUR_API_KEY_HERE" then
-            MainStroke.Color = Color3.fromRGB(245, 158, 11)
+            LedIndicator.BackgroundColor3 = Color3.fromRGB(245, 158, 11)
+            LedLabel.Text = "STATUS: THIẾU API KEY ⚠️ | ⚡ C# ENGINE"
+            LedLabel.TextColor3 = Color3.fromRGB(245, 158, 11)
+            
             if lastConnectionStatus ~= false then
                 lastConnectionStatus = false
                 sendNotification("⚠️ CHƯA NHẬP API KEY", "Vui lòng copy Roblox Loader Script từ Web Dashboard để tự động nhận Key!", 7)
@@ -1493,19 +1659,23 @@ local function sendStats()
         end
 
         if successReq then
-            MainStroke.Color = Color3.fromRGB(160, 250, 60)
+            LedIndicator.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
+            LedLabel.Text = "STATUS: C# SPEED ENGINE ACTIVE ⚡✅"
+            LedLabel.TextColor3 = Color3.fromRGB(74, 222, 128)
 
             if lastConnectionStatus ~= true then
                 lastConnectionStatus = true
-                sendNotification("⚡ BLUE X KAITUN CONNECTED", "Đã kết nối truyền dữ liệu tốc độ cao Dashboard!", 6)
+                sendNotification("⚡ C# ACCELERATION ACTIVE", "Đã kết nối truyền dữ liệu tốc độ cao C# Engine!", 6)
             end
             print("OceanForge C# Engine: Synchronized stats successfully (FNV Hash: " .. currentFnvHash .. ")")
         else
-            MainStroke.Color = Color3.fromRGB(244, 63, 94)
+            LedIndicator.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
+            LedLabel.Text = "STATUS: KẾT NỐI THẤT BẠI ❌"
+            LedLabel.TextColor3 = Color3.fromRGB(239, 68, 68)
 
             if lastConnectionStatus ~= false then
                 lastConnectionStatus = false
-                sendNotification("🔴 KẾT NỐI THẤT BẠI", "Không thể kết nối Backend (Mã lỗi: " .. lastErrorMsg .. ")", 8)
+                sendNotification("🔴 KẾT NỐI THẤT BẠI", "Không thể kết nối C# Backend (Mã lỗi: " .. lastErrorMsg .. ")", 8)
             end
             warn("OceanForge C# Engine: Synchronization failed. Status: " .. lastErrorMsg)
         end
@@ -1521,9 +1691,9 @@ local function startHeartbeatScheduler()
     
     task.spawn(function()
         while heartbeatLoopActive and isInstanceValid() do
-            local info = TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, 0, true)
-            local strokeTween = TweenService:Create(MainStroke, info, {Thickness = 3.2})
-            strokeTween:Play()
+            local info = TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, 0, true)
+            local ledTween = TweenService:Create(LedIndicator, info, {Size = UDim2.new(0, 11, 0, 11), Position = UDim2.new(0, -1, 0.5, -5)})
+            ledTween:Play()
             task.wait(2.5)
         end
     end)
@@ -1570,7 +1740,7 @@ end
 
 local function stopHeartbeatScheduler()
     heartbeatLoopActive = false
-    MainStroke.Color = Color3.fromRGB(244, 63, 94)
+    LedIndicator.BackgroundColor3 = Color3.fromRGB(127, 29, 29)
 end
 
 -- Global cleanup handle for re-runs & multi-script compatibility
@@ -1635,7 +1805,7 @@ local function saveKey(key)
 end
 
 -- Notification on script execute start
-sendNotification("🌊 BLUE X HUB KAITUN", "Đang khởi chạy script Kaitun & đồng bộ Dashboard...", 4)
+sendNotification("🔥 CRIMSONFORGE PRO", "Đang khởi chạy script & kiểm tra kết nối Dashboard...", 4)
 
 -- Start the engine automatically
 local savedKey = loadSavedKey()
