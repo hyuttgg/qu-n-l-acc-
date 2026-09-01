@@ -86,7 +86,7 @@ export const LoginPage: React.FC = () => {
     setError('');
 
     if (captchaRequired && !captchaToken) {
-      return setError('Please complete the reCAPTCHA');
+      return setError('Vui lòng xác thực Cloudflare Turnstile Captcha');
     }
 
     setLoading(true);
@@ -329,7 +329,8 @@ export const LoginPage: React.FC = () => {
             {captchaRequired && (
               <motion.div variants={itemVariants}>
                 <ReCaptcha
-                  siteKey={(import.meta.env.VITE_RECAPTCHA_SITE_KEY || '').trim()}
+                  siteKey={(import.meta.env.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_RECAPTCHA_SITE_KEY || '').trim()}
+                  action="login"
                   onChange={setCaptchaToken}
                   ref={recaptchaRef}
                 />

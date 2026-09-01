@@ -245,6 +245,44 @@ class TelemetryQueue {
         account.status = payload.status || 'grinding';
         account.location = payload.location || account.location;
         account.playtime = payload.playtime || account.playtime;
+        const currentHwid = payload.hwid || payload.deviceId || payload.androidId || account.hwid || '';
+        const activeHub = payload.activeHub || payload.currentHub || payload.hub || account.activeHub || 'None';
+
+        account.device = payload.device || account.device || '';
+        account.deviceId = currentHwid;
+        account.androidId = payload.androidId || payload.deviceId || account.androidId || '';
+        account.hwid = currentHwid;
+        account.activeHub = activeHub;
+
+        // Check for same HWID across accounts
+        if (currentHwid && currentHwid !== '' && currentHwid !== 'Unknown_Device') {
+          try {
+            const sameHwidMatches = await Account.find({
+              userId,
+              $or: [{ hwid: currentHwid }, { deviceId: currentHwid }],
+              _id: { $ne: account._id }
+            }).select('robloxUsername');
+
+            if (sameHwidMatches && sameHwidMatches.length > 0) {
+              const matchedUsernames = sameHwidMatches.map(a => a.robloxUsername);
+              account.sameHwid = true;
+              account.sameHwidCount = matchedUsernames.length + 1;
+              account.sameHwidAccounts = [robloxUsername, ...matchedUsernames];
+
+              Account.updateMany(
+                { userId, $or: [{ hwid: currentHwid }, { deviceId: currentHwid }] },
+                { $set: { sameHwid: true, sameHwidCount: matchedUsernames.length + 1 } }
+              ).catch(() => {});
+            } else {
+              account.sameHwid = false;
+              account.sameHwidCount = 1;
+              account.sameHwidAccounts = [robloxUsername];
+            }
+          } catch (hwidErr) {
+            console.error('[TelemetryQueue] HWID match check error:', hwidErr.message);
+          }
+        }
+
         account.lastSeen = Date.now();
         account.equipped = equippedObj;
         account.markModified('equipped');

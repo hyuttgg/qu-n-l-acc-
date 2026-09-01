@@ -39,6 +39,14 @@ interface Account {
   playtime: number;
   lastSeen: string;
   notes?: string;
+  device?: string;
+  deviceId?: string;
+  androidId?: string;
+  hwid?: string;
+  sameHwid?: boolean;
+  sameHwidCount?: number;
+  sameHwidAccounts?: string[];
+  activeHub?: string;
 }
 
 interface Inventory {

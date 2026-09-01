@@ -25,14 +25,15 @@ module.exports = function (passport) {
     facebookCallbackUrl
   });
 
-  // ───── Google OAuth 2.0 Strategy ─────
-  const googleStrat = new GoogleStrategy(
-    {
-      clientID: googleClientId,
-      clientSecret: googleClientSecret,
-      callbackURL: googleCallbackUrl,
-      passReqToCallback: true,
-    },
+  // ───── Google OAuth 2.0 Strategy (Optional / Safe) ─────
+  if (googleClientId && googleClientSecret) {
+    const googleStrat = new GoogleStrategy(
+      {
+        clientID: googleClientId,
+        clientSecret: googleClientSecret,
+        callbackURL: googleCallbackUrl,
+        passReqToCallback: true,
+      },
     async (req, accessToken, refreshToken, profile, done) => {
         const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
         if (!email) {
@@ -99,85 +100,88 @@ module.exports = function (passport) {
       }
     );
 
-  if (googleStrat._oauth2) {
-    googleStrat._oauth2._customHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 OceanForgeAuth/1.0'
-    };
-  }
-
-  passport.use(googleStrat);
-
-  // ───── Facebook OAuth 2.0 Strategy ─────
-  const facebookStrat = new FacebookStrategy(
-    {
-      clientID: facebookAppId,
-      clientSecret: facebookAppSecret,
-      callbackURL: facebookCallbackUrl,
-      profileFields: ['id', 'displayName', 'emails', 'photos'],
-      graphApiVersion: 'v20.0',
-      passReqToCallback: true,
-    },
-    async (req, accessToken, refreshToken, profile, done) => {
-      const email = profile.emails && profile.emails[0] ? profile.emails[0].value : `fb_${profile.id}@facebook.user`;
-      const username = profile.displayName || `FB_User_${profile.id}`;
-      const facebookId = profile.id;
-      const facebookAvatarUrl = profile.photos && profile.photos[0] ? profile.photos[0].value : `https://graph.facebook.com/${profile.id}/picture?type=large`;
-      const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
-      try {
-        if (!global.dbConnected) {
-          let user = mockStore.findUserByFacebookId(facebookId) || mockStore.findUserByEmail(email);
-          if (!user) {
-            user = mockStore.createUser(username, email, null, null, null, facebookAvatarUrl, '0', facebookId);
-          } else {
-            if (!user.facebookId) user.facebookId = facebookId;
-            if (facebookAvatarUrl) user.avatar = facebookAvatarUrl;
-          }
-          return done(null, user);
-        }
-
-        // 1. Find user by facebookId
-        let user = await User.findOne({ facebookId });
-        if (user) {
-          if (facebookAvatarUrl && user.avatar !== facebookAvatarUrl) {
-            user.avatar = facebookAvatarUrl;
-            await user.save();
-          }
-          return done(null, user);
-        }
-
-        // 2. Find user by email and link facebookId
-        user = await User.findOne({ email });
-        if (user) {
-          user.facebookId = facebookId;
-          if (facebookAvatarUrl) user.avatar = facebookAvatarUrl;
-          await user.save();
-          return done(null, user);
-        }
-
-        // 3. Create new user
-        user = await User.create({
-          username,
-          email,
-          facebookId,
-          avatar: facebookAvatarUrl,
-          creationIp: ip,
-        });
-
-        return done(null, user);
-      } catch (err) {
-        return done(err, null);
-      }
+    if (googleStrat._oauth2) {
+      googleStrat._oauth2._customHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 OceanForgeAuth/1.0'
+      };
     }
-  );
 
-  if (facebookStrat._oauth2) {
-    facebookStrat._oauth2._customHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 OceanForgeAuth/1.0'
-    };
+    passport.use(googleStrat);
   }
 
-  passport.use(facebookStrat);
+  // ───── Facebook OAuth 2.0 Strategy (Optional / Safe) ─────
+  if (facebookAppId && facebookAppSecret && facebookAppId !== '1234567890') {
+    const facebookStrat = new FacebookStrategy(
+      {
+        clientID: facebookAppId,
+        clientSecret: facebookAppSecret,
+        callbackURL: facebookCallbackUrl,
+        profileFields: ['id', 'displayName', 'emails', 'photos'],
+        graphApiVersion: 'v20.0',
+        passReqToCallback: true,
+      },
+      async (req, accessToken, refreshToken, profile, done) => {
+        const email = profile.emails && profile.emails[0] ? profile.emails[0].value : `fb_${profile.id}@facebook.user`;
+        const username = profile.displayName || `FB_User_${profile.id}`;
+        const facebookId = profile.id;
+        const facebookAvatarUrl = profile.photos && profile.photos[0] ? profile.photos[0].value : `https://graph.facebook.com/${profile.id}/picture?type=large`;
+        const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+        try {
+          if (!global.dbConnected) {
+            let user = mockStore.findUserByFacebookId(facebookId) || mockStore.findUserByEmail(email);
+            if (!user) {
+              user = mockStore.createUser(username, email, null, null, null, facebookAvatarUrl, '0', facebookId);
+            } else {
+              if (!user.facebookId) user.facebookId = facebookId;
+              if (facebookAvatarUrl) user.avatar = facebookAvatarUrl;
+            }
+            return done(null, user);
+          }
+
+          // 1. Find user by facebookId
+          let user = await User.findOne({ facebookId });
+          if (user) {
+            if (facebookAvatarUrl && user.avatar !== facebookAvatarUrl) {
+              user.avatar = facebookAvatarUrl;
+              await user.save();
+            }
+            return done(null, user);
+          }
+
+          // 2. Find user by email and link facebookId
+          user = await User.findOne({ email });
+          if (user) {
+            user.facebookId = facebookId;
+            if (facebookAvatarUrl) user.avatar = facebookAvatarUrl;
+            await user.save();
+            return done(null, user);
+          }
+
+          // 3. Create new user
+          user = await User.create({
+            username,
+            email,
+            facebookId,
+            avatar: facebookAvatarUrl,
+            creationIp: ip,
+          });
+
+          return done(null, user);
+        } catch (err) {
+          return done(err, null);
+        }
+      }
+    );
+
+    if (facebookStrat._oauth2) {
+      facebookStrat._oauth2._customHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 OceanForgeAuth/1.0'
+      };
+    }
+
+    passport.use(facebookStrat);
+  }
 
   passport.serializeUser((user, done) => {
     done(null, user.id || user._id);

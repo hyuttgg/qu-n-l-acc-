@@ -235,6 +235,10 @@ router.post(
       sea: payload.sea,
       race: payload.race,
       status: payload.status,
+      device: payload.device,
+      hwid: payload.hwid || payload.deviceId,
+      sameHwid: payload.sameHwid,
+      activeHub: payload.activeHub || payload.currentHub,
       location: payload.location,
       equipped: payload.equipped || {
         fruit: payload.fruit_equipped || payload.fruit,

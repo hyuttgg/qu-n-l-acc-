@@ -30,15 +30,19 @@ const connectDB = async () => {
   });
 
   try {
-    console.log('Connecting to MongoDB Atlas...');
-    const conn = await mongoose.connect(atlasUri, {
-      serverSelectionTimeoutMS: 5000
-    });
-    console.log(`MongoDB Connected (Atlas): ${conn.connection.host}`);
-    global.dbConnected = true;
+    if (atlasUri) {
+      console.log('Connecting to MongoDB Atlas...');
+      const conn = await mongoose.connect(atlasUri, {
+        serverSelectionTimeoutMS: 5000
+      });
+      console.log(`MongoDB Connected (Atlas): ${conn.connection.host}`);
+      global.dbConnected = true;
+      return;
+    }
   } catch (error) {
     console.error(`MongoDB Atlas Connection Failed: ${error.message}`);
     console.warn('TIP: If connection timed out, ensure your MongoDB Atlas project has "Network Access" configured to "Allow Access From Anywhere" (0.0.0.0/0) or whitelisted your current IP address.');
+  }
     console.log('Attempting local MongoDB fallback connection...');
     
     try {
@@ -53,7 +57,6 @@ const connectDB = async () => {
       console.log('>>> OceanForge is running in MOCK DATABASE mode (in-memory) for testing purposes.');
       global.dbConnected = false;
     }
-  }
 };
 
 module.exports = connectDB;

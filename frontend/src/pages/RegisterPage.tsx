@@ -22,6 +22,12 @@ export const RegisterPage: React.FC = () => {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = useRef<ReCaptchaRef>(null);
 
+  // Password criteria checkers
+  const isLongEnough = password.length >= 8;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasNum = /[0-9]/.test(password);
+  const isPasswordValid = isLongEnough && hasUpper && hasNum;
+
   // Mouse spotlight tracker
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -37,12 +43,24 @@ export const RegisterPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
+    if (!isLongEnough) {
+      return setError('Mật khẩu phải có ít nhất 8 ký tự');
+    }
+
+    if (!hasUpper) {
+      return setError('Mật khẩu phải chứa ít nhất 1 chữ cái in hoa (A-Z)');
+    }
+
+    if (!hasNum) {
+      return setError('Mật khẩu phải chứa ít nhất 1 chữ số (0-9)');
+    }
+
     if (password !== confirmPassword) {
-      return setError('Passwords do not match');
+      return setError('Mật khẩu xác nhận không khớp');
     }
 
     if (!captchaToken) {
-      return setError('Please complete the reCAPTCHA');
+      return setError('Vui lòng xác thực Cloudflare Turnstile Captcha');
     }
 
     setLoading(true);
@@ -52,7 +70,7 @@ export const RegisterPage: React.FC = () => {
     if (res.success) {
       navigate('/dashboard');
     } else {
-      setError(res.message || 'Registration failed');
+      setError(res.message || 'Đăng ký không thành công');
       recaptchaRef.current?.reset();
     }
   };
@@ -274,6 +292,31 @@ export const RegisterPage: React.FC = () => {
                   </motion.div>
                 </button>
               </div>
+
+              {password.length > 0 && (
+                <div className="mt-2 p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 flex flex-col gap-1.5 transition-all">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">Yêu cầu bảo mật:</span>
+                    <span className={`text-[9.5px] font-extrabold uppercase px-1.5 py-0.5 rounded ${isPasswordValid ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+                      {isPasswordValid ? '✓ ĐỦ TIÊU CHUẨN' : 'CHƯA ĐỦ ĐIỀU KIỆN'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 pt-0.5">
+                    <div className={`flex items-center gap-1 text-[10.5px] font-medium transition-colors ${isLongEnough ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      <span>{isLongEnough ? '✓' : '○'}</span>
+                      <span>8+ ký tự</span>
+                    </div>
+                    <div className={`flex items-center gap-1 text-[10.5px] font-medium transition-colors ${hasUpper ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      <span>{hasUpper ? '✓' : '○'}</span>
+                      <span>Chữ hoa (A-Z)</span>
+                    </div>
+                    <div className={`flex items-center gap-1 text-[10.5px] font-medium transition-colors ${hasNum ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      <span>{hasNum ? '✓' : '○'}</span>
+                      <span>Chữ số (0-9)</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </motion.div>
 
             <motion.div variants={itemVariants}>
@@ -295,7 +338,8 @@ export const RegisterPage: React.FC = () => {
 
             <motion.div variants={itemVariants}>
               <ReCaptcha
-                siteKey={(import.meta.env.VITE_RECAPTCHA_SITE_KEY || '').trim()}
+                siteKey={(import.meta.env.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_RECAPTCHA_SITE_KEY || '').trim()}
+                action="signup"
                 onChange={setCaptchaToken}
                 ref={recaptchaRef}
               />
@@ -306,9 +350,9 @@ export const RegisterPage: React.FC = () => {
               whileHover={{ scale: 1.015, boxShadow: '0 12px 35px rgba(212,175,55,0.4)' }}
               whileTap={{ scale: 0.985 }}
               type="submit"
-              disabled={loading || !captchaToken}
+              disabled={loading || !captchaToken || !isPasswordValid || password !== confirmPassword}
               className={`w-full py-3.5 liquid-btn-gold text-slate-950 font-black text-sm tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer ${
-                (!captchaToken || loading) ? 'opacity-50 cursor-not-allowed' : ''
+                (!captchaToken || loading || !isPasswordValid || password !== confirmPassword) ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
               {loading ? (

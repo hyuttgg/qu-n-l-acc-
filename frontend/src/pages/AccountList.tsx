@@ -209,15 +209,15 @@ export const AccountList: React.FC = () => {
 
               {/* Max Level Filter */}
               <button
-                onClick={() => setMinLevelFilter(minLevelFilter === 2600 ? 0 : 2600)}
+                onClick={() => setMinLevelFilter(minLevelFilter === 2550 ? 0 : 2550)}
                 className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
-                  minLevelFilter === 2600
+                  minLevelFilter === 2550
                     ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
                     : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-800'
                 }`}
               >
                 <Zap className="w-3.5 h-3.5 text-amber-400" />
-                <span>Max Lv 2600</span>
+                <span>Max Lv (2550+)</span>
               </button>
             </div>
 
@@ -261,6 +261,9 @@ export const AccountList: React.FC = () => {
             <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
               {[
                 { label: 'Tất cả Tag', val: 'all', icon: null },
+                { label: 'Banana Hub 🍌', val: 'Banana Hub', icon: null },
+                { label: 'Maru Hub ⚡', val: 'Maru Hub', icon: null },
+                { label: 'Same HWID 📱', val: 'Same HWID', icon: null },
                 { label: 'Boss Hunter', val: 'Boss Hunting', icon: Flame },
                 { label: 'AFK Alert', val: 'AFK', icon: AlertTriangle },
                 { label: 'Mythical Fruit', val: 'Mythical Fruit', icon: Sparkles },
@@ -367,16 +370,36 @@ export const AccountList: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Smart Tags Chips */}
-                      {smart.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-0.5">
-                          {smart.tags.slice(0, 3).map((tag: string) => (
-                            <span key={tag} className="text-[9px] font-semibold text-slate-400 bg-slate-950/60 border border-slate-800/80 px-1.5 py-0.2 rounded">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {/* Active Hub & Same HWID Badges */}
+                      <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                        {acc.activeHub && acc.activeHub !== 'None' && acc.activeHub !== 'None / Custom Script' && (
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                            acc.activeHub.includes('Banana')
+                              ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40'
+                              : acc.activeHub.includes('Maru')
+                              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          }`}>
+                            {acc.activeHub.includes('Banana') ? '🍌' : acc.activeHub.includes('Maru') ? '⚡' : '🚀'} {acc.activeHub}
+                          </span>
+                        )}
+
+                        {acc.sameHwid && (
+                          <span
+                            title={`Thiết bị HWID trùng với: ${(acc.sameHwidAccounts || []).join(', ')}`}
+                            className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 cursor-help"
+                          >
+                            📱 Same HWID {acc.sameHwidCount && acc.sameHwidCount > 1 ? `(${acc.sameHwidCount})` : ''}
+                          </span>
+                        )}
+
+                        {/* Smart Tags Chips */}
+                        {smart.tags.filter((t: string) => t !== 'Same HWID' && t !== acc.activeHub).slice(0, 2).map((tag: string) => (
+                          <span key={tag} className="text-[9px] font-semibold text-slate-400 bg-slate-950/60 border border-slate-800/80 px-1.5 py-0.2 rounded">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </td>
                   <td className="py-4 text-slate-300 font-semibold">{acc.level}</td>
@@ -505,6 +528,43 @@ export const AccountList: React.FC = () => {
                       <span className="text-sm font-bold text-slate-300 flex items-center gap-1 mt-1">
                         <Clock className="w-4 h-4" /> {formatPlaytime(selectedAccountDetails.account.playtime)}
                       </span>
+                    </div>
+                  </div>
+
+                  {/* Device, HWID & Script Hub Information Banner */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                    <div>
+                      <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider block">Auto-Farm Script Hub</span>
+                      <span className="text-sm font-bold text-yellow-400 flex items-center gap-1.5 mt-1">
+                        {selectedAccountDetails.account.activeHub?.includes('Banana') ? '🍌' : selectedAccountDetails.account.activeHub?.includes('Maru') ? '⚡' : '🚀'} {selectedAccountDetails.account.activeHub || 'None / Custom Script'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider block">Thiết Bị / HWID / Android ID</span>
+                      <span className="text-xs font-mono text-cyan-300 block truncate mt-1" title={selectedAccountDetails.account.hwid || selectedAccountDetails.account.deviceId || 'N/A'}>
+                        {selectedAccountDetails.account.hwid || selectedAccountDetails.account.deviceId || selectedAccountDetails.account.device || 'N/A'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider block">Trạng Thái Same HWID</span>
+                      {selectedAccountDetails.account.sameHwid ? (
+                        <div className="mt-1">
+                          <span className="text-xs font-bold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/40 inline-block">
+                            📱 Trùng HWID ({selectedAccountDetails.account.sameHwidCount} tài khoản)
+                          </span>
+                          {selectedAccountDetails.account.sameHwidAccounts && selectedAccountDetails.account.sameHwidAccounts.length > 0 && (
+                            <p className="text-[11px] text-slate-400 mt-1 truncate">
+                              Chung máy: {selectedAccountDetails.account.sameHwidAccounts.filter((u: string) => u !== selectedAccountDetails.account.robloxUsername).join(', ') || 'Chính nó'}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-500 block mt-1">
+                          Thiết bị độc lập (Unique Device)
+                        </span>
+                      )}
                     </div>
                   </div>
 

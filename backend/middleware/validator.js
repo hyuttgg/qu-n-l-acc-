@@ -34,8 +34,12 @@ const registerSchema = z.object({
     .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores')
     .trim(),
   email: z.string().email('Invalid email address').trim().toLowerCase(),
-  password: z.string().min(6, 'Password must be at least 6 characters').max(100, 'Password is too long'),
-  captcha: z.string().min(1, 'reCAPTCHA verification token is required')
+  password: z.string()
+    .min(8, 'Mật khẩu phải có ít nhất 8 ký tự')
+    .max(100, 'Mật khẩu không được quá 100 ký tự')
+    .regex(/[A-Z]/, 'Mật khẩu phải chứa ít nhất một chữ cái in hoa (A-Z)')
+    .regex(/[0-9]/, 'Mật khẩu phải chứa ít nhất một chữ số (0-9)'),
+  captcha: z.string().min(1, 'Captcha verification token is required')
 });
 
 const loginSchema = z.object({

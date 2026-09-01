@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useApp } from '../store';
-import { Compass, Gem, Coins, Clock, Sparkles, Copy, Check } from 'lucide-react';
+import { Compass, Gem, Coins, Clock, Sparkles, Copy, Check, Cpu, Zap, ShieldCheck, Layers } from 'lucide-react';
 import { api } from '../utils/api';
 import {
   AreaChart,
@@ -62,6 +63,24 @@ export const DashboardOverview: React.FC = () => {
 
   const fruitsData = analytics?.fruitsDistribution || [];
   const hourlyActivity = analytics?.hourlyActivity || [];
+
+  const hubStats = useMemo(() => {
+    let bananaCount = 0;
+    let maruCount = 0;
+    let otherHubCount = 0;
+    let sameHwidCount = 0;
+
+    accounts.forEach((acc) => {
+      const hub = (acc.activeHub || '').toLowerCase();
+      if (hub.includes('banana')) bananaCount++;
+      else if (hub.includes('maru')) maruCount++;
+      else if (hub && hub !== 'none' && hub !== 'none / custom script') otherHubCount++;
+
+      if (acc.sameHwid) sameHwidCount++;
+    });
+
+    return { bananaCount, maruCount, otherHubCount, sameHwidCount };
+  }, [accounts]);
 
   return (
     <div className="space-y-8">
@@ -131,6 +150,96 @@ export const DashboardOverview: React.FC = () => {
             <Clock className="w-5 h-5 text-sky-400" />
             <span className="text-2xl font-black text-sky-400">{formatPlaytime(summary.totalPlaytime)}</span>
           </div>
+        </div>
+      </div>
+
+      {/* 🚀 NEW LIVE MODULE: AUTO-FARM HUBS & HWID DEVICE MONITOR */}
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <h2 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+            <Zap className="w-4 h-4 text-cyan-400" />
+            <span>AUTO-FARM HUBS & SAME HWID MONITOR</span>
+          </h2>
+          <Link
+            to="/dashboard/accounts"
+            className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition"
+          >
+            <span>Xem quản lý tài khoản &rarr;</span>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Banana Hub Card */}
+          <Link
+            to="/dashboard/accounts"
+            className="glass-panel p-5 border-l-4 border-l-yellow-400 bg-gradient-to-br from-yellow-500/10 via-slate-900/60 to-slate-950/80 hover:scale-[1.02] transition-all group"
+          >
+            <div className="flex justify-between items-start">
+              <span className="text-yellow-400 text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-base">🍌</span> BANANA HUB
+              </span>
+              <span className="text-[10px] text-slate-500 font-bold group-hover:text-yellow-300 transition">Lọc acc &rarr;</span>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-yellow-300">{hubStats.bananaCount}</span>
+              <span className="text-slate-400 text-xs font-bold">tài khoản</span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Đang chạy auto-farm Banana Hub</p>
+          </Link>
+
+          {/* Maru Hub Card */}
+          <Link
+            to="/dashboard/accounts"
+            className="glass-panel p-5 border-l-4 border-l-cyan-400 bg-gradient-to-br from-cyan-500/10 via-slate-900/60 to-slate-950/80 hover:scale-[1.02] transition-all group"
+          >
+            <div className="flex justify-between items-start">
+              <span className="text-cyan-400 text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-base">⚡</span> MARU HUB
+              </span>
+              <span className="text-[10px] text-slate-500 font-bold group-hover:text-cyan-300 transition">Lọc acc &rarr;</span>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-cyan-300">{hubStats.maruCount}</span>
+              <span className="text-slate-400 text-xs font-bold">tài khoản</span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Đang chạy auto-farm Maru Hub</p>
+          </Link>
+
+          {/* Same HWID Devices Card */}
+          <Link
+            to="/dashboard/accounts"
+            className="glass-panel p-5 border-l-4 border-l-indigo-400 bg-gradient-to-br from-indigo-500/10 via-slate-900/60 to-slate-950/80 hover:scale-[1.02] transition-all group"
+          >
+            <div className="flex justify-between items-start">
+              <span className="text-indigo-400 text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-base">📱</span> SAME HWID MONITOR
+              </span>
+              <span className="text-[10px] text-slate-500 font-bold group-hover:text-indigo-300 transition">Lọc acc &rarr;</span>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-indigo-300">{hubStats.sameHwidCount}</span>
+              <span className="text-slate-400 text-xs font-bold">acc trùng máy</span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Các acc chạy chung 1 thiết bị/HWID</p>
+          </Link>
+
+          {/* Custom / Other Scripts Card */}
+          <Link
+            to="/dashboard/accounts"
+            className="glass-panel p-5 border-l-4 border-l-emerald-400 bg-gradient-to-br from-emerald-500/10 via-slate-900/60 to-slate-950/80 hover:scale-[1.02] transition-all group"
+          >
+            <div className="flex justify-between items-start">
+              <span className="text-emerald-400 text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-base">🚀</span> OTHER HUBS
+              </span>
+              <span className="text-[10px] text-slate-500 font-bold group-hover:text-emerald-300 transition">Lọc acc &rarr;</span>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-emerald-300">{hubStats.otherHubCount}</span>
+              <span className="text-slate-400 text-xs font-bold">script khác</span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Redz Hub, Hoho Hub, W-Azure, ...</p>
+          </Link>
         </div>
       </div>
 
@@ -220,6 +329,7 @@ export const DashboardOverview: React.FC = () => {
               <thead>
                 <tr className="border-b border-slate-800 text-slate-400 text-xs font-bold uppercase tracking-wider">
                   <th className="pb-3">Username</th>
+                  <th className="pb-3">Hub & HWID</th>
                   <th className="pb-3">Level</th>
                   <th className="pb-3 text-emerald-400">Beli</th>
                   <th className="pb-3 text-purple-400">Fragments</th>
@@ -251,6 +361,26 @@ export const DashboardOverview: React.FC = () => {
                         </button>
                       </div>
                     </td>
+                    <td className="py-3">
+                      <div className="flex flex-wrap items-center gap-1">
+                        {acc.activeHub && acc.activeHub !== 'None' && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                            acc.activeHub.includes('Banana')
+                              ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40'
+                              : acc.activeHub.includes('Maru')
+                              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          }`}>
+                            {acc.activeHub.includes('Banana') ? '🍌' : acc.activeHub.includes('Maru') ? '⚡' : '🚀'} {acc.activeHub}
+                          </span>
+                        )}
+                        {acc.sameHwid && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                            📱 Same HWID
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3 text-slate-300 font-semibold">{acc.level} / 2800</td>
                     <td className="py-3 text-emerald-400 font-mono">{formatBeli(acc.beli)}</td>
                     <td className="py-3 text-purple-400 font-mono">{formatBeli(acc.fragments)}</td>
@@ -268,7 +398,7 @@ export const DashboardOverview: React.FC = () => {
                 ))}
                 {accounts.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-500 text-sm">
+                    <td colSpan={7} className="py-8 text-center text-slate-500 text-sm">
                       No accounts registered. Deploy your Lua script to connect accounts!
                     </td>
                   </tr>

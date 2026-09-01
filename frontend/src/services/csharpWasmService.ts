@@ -262,7 +262,8 @@ class CSharpWasmService {
     const tags: string[] = [];
     let score = Math.min(level, 2600);
 
-    if (level >= 2600) {
+    if (level >= 2550) {
+      tags.push('Max Lv');
       tags.push('Max Lv 2600');
       score += 1000;
     }
@@ -297,10 +298,21 @@ class CSharpWasmService {
       score += 1000;
     }
 
-    // Activity tag
+    // Activity tag & Online state calculation
+    const lastSeenTime = account.lastSeen ? new Date(account.lastSeen).getTime() : 0;
+    const lastHeartbeatTime = account.lastHeartbeat ? new Date(account.lastHeartbeat).getTime() : 0;
+    const recentActivity = (Date.now() - Math.max(lastSeenTime, lastHeartbeatTime)) < 120000;
+
+    let isOnline = false;
+    if (account.isOnline !== undefined) {
+      isOnline = Boolean(account.isOnline);
+    } else if (status === 'offline') {
+      isOnline = false;
+    } else if (status === 'grinding' || status === 'bossing' || status === 'sea_event' || status === 'trading' || status === 'idle' || recentActivity) {
+      isOnline = true;
+    }
+
     let activityTag = 'Offline ⚪';
-    const isOnline = account.isOnline ?? (account.lastHeartbeat && (Date.now() - new Date(account.lastHeartbeat).getTime()) < 45000);
-    
     if (isOnline) {
       if (status.includes('boss') || status.includes('raid') || status.includes('trial') || status.includes('sea beast')) {
         activityTag = 'Boss Hunter 🐲';
@@ -320,12 +332,21 @@ class CSharpWasmService {
     }
 
     let tier: SmartClassification['tier'] = 'Tier C (Starter)';
-    if (score >= 5000 || (level >= 2600 && hasMythical && (isGodSword || isGodMelee))) {
+    if (score >= 4500 || (level >= 2550 && hasMythical && (isGodSword || isGodMelee))) {
       tier = 'Tier S+ (God Tier)';
-    } else if (score >= 3500 || (level >= 2200 && sea >= 3)) {
+    } else if (score >= 3200 || (level >= 2000 && sea >= 3)) {
       tier = 'Tier A (PvP Ready)';
-    } else if (score >= 1800 || sea >= 2) {
+    } else if (score >= 1600 || sea >= 2) {
       tier = 'Tier B (Mid-Game)';
+    }
+
+    if (account.activeHub && account.activeHub !== 'None' && account.activeHub !== 'None / Custom Script') {
+      tags.push(account.activeHub);
+      if (account.activeHub.toLowerCase().includes('banana')) tags.push('Banana Hub');
+      if (account.activeHub.toLowerCase().includes('maru')) tags.push('Maru Hub');
+    }
+    if (account.sameHwid) {
+      tags.push('Same HWID');
     }
 
     return {
@@ -348,17 +369,27 @@ class CSharpWasmService {
     const cleanStatus = status.trim().toLowerCase();
 
     return accounts.filter((acc) => {
-      if (minLevel > 0 && (acc.level || 0) < minLevel) return false;
-      if (sea > 0 && (acc.sea || 0) !== sea) return false;
+      const accLevel = Number(acc.level) || 0;
+      if (minLevel > 0 && accLevel < minLevel) return false;
+      if (sea > 0 && (Number(acc.sea) || 0) !== sea) return false;
 
       const classification = this.smartClassifyAccount(acc);
 
-      if (tier && tier !== 'all' && !classification.tier.toLowerCase().includes(tier.toLowerCase())) {
-        return false;
+      if (tier && tier !== 'all') {
+        const lowerTier = tier.toLowerCase();
+        if (!classification.tier.toLowerCase().includes(lowerTier)) {
+          return false;
+        }
       }
 
       if (tag && tag !== 'all') {
-        const hasMatchingTag = classification.tags.some(t => t.toLowerCase().includes(tag.toLowerCase()));
+        const lowerTag = tag.toLowerCase();
+        const hasMatchingTag = classification.tags.some(t => {
+          const lowerT = t.toLowerCase();
+          return lowerT.includes(lowerTag) || lowerTag.includes(lowerT);
+        }) || (acc.activeHub && String(acc.activeHub).toLowerCase().includes(lowerTag))
+           || (lowerTag.includes('same hwid') && Boolean(acc.sameHwid));
+
         if (!hasMatchingTag) return false;
       }
 
@@ -368,31 +399,37 @@ class CSharpWasmService {
       }
 
       if (cleanFruit && cleanFruit !== 'all') {
-        const equippedFruit = (acc.equipped?.fruit || acc.fruit || '').toLowerCase();
+        const equippedFruit = String(acc.equipped?.fruit || acc.fruit || '').toLowerCase();
         if (!equippedFruit.includes(cleanFruit)) return false;
       }
 
       if (cleanStatus && cleanStatus !== 'all') {
-        const currentStatus = (acc.status || '').toLowerCase();
+        const currentStatus = String(acc.status || '').toLowerCase();
+        const isOnline = classification.activityTag.includes('🟢') || classification.activityTag.includes('⚔️') || classification.activityTag.includes('🐲') || classification.activityTag.includes('⏳');
+
         if (cleanStatus === 'online') {
-          if (!acc.isOnline && (!acc.lastHeartbeat || (Date.now() - new Date(acc.lastHeartbeat).getTime()) >= 45000)) return false;
+          if (!isOnline) return false;
         } else if (cleanStatus === 'offline') {
-          if (acc.isOnline || (acc.lastHeartbeat && (Date.now() - new Date(acc.lastHeartbeat).getTime()) < 45000)) return false;
+          if (isOnline) return false;
+        } else if (cleanStatus === 'grinding') {
+          if (!currentStatus.includes('grind') && !classification.activityTag.includes('Grinding')) return false;
         } else if (!currentStatus.includes(cleanStatus)) {
           return false;
         }
       }
 
       if (queryTokens.length > 0) {
-        const uName = (acc.robloxUsername || acc.username || '').toLowerCase();
-        const f = (acc.equipped?.fruit || acc.fruit || '').toLowerCase();
-        const sw = (acc.equipped?.sword || acc.sword || '').toLowerCase();
-        const gun = (acc.equipped?.gun || acc.gun || '').toLowerCase();
-        const fs = (acc.equipped?.fightingStyle || acc.fightingStyle || '').toLowerCase();
-        const loc = (acc.location || '').toLowerCase();
-        const note = (acc.note || '').toLowerCase();
-        const race = (acc.race || '').toLowerCase();
-        const combined = `${uName} ${f} ${sw} ${gun} ${fs} ${loc} ${note} ${race} ${classification.tier} ${classification.tags.join(' ')}`.toLowerCase();
+        const uName = String(acc.robloxUsername || acc.username || '').toLowerCase();
+        const f = String(acc.equipped?.fruit || acc.fruit || '').toLowerCase();
+        const sw = String(acc.equipped?.sword || acc.sword || '').toLowerCase();
+        const gun = String(acc.equipped?.gun || acc.gun || '').toLowerCase();
+        const fs = String(acc.equipped?.fightingStyle || acc.fightingStyle || '').toLowerCase();
+        const loc = String(acc.location || '').toLowerCase();
+        const note = String(acc.note || acc.notes || '').toLowerCase();
+        const race = String(acc.race || '').toLowerCase();
+        const hub = String(acc.activeHub || '').toLowerCase();
+        const dev = String(acc.device || acc.deviceId || acc.androidId || acc.hwid || '').toLowerCase();
+        const combined = `${uName} ${f} ${sw} ${gun} ${fs} ${loc} ${note} ${race} ${hub} ${dev} ${classification.tier} ${classification.tags.join(' ')}`.toLowerCase();
 
         const matchesAll = queryTokens.every(token => combined.includes(token));
         if (!matchesAll) return false;

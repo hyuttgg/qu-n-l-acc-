@@ -59,6 +59,37 @@ const AccountSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  device: {
+    type: String,
+    default: '',
+  },
+  deviceId: {
+    type: String,
+    default: '',
+  },
+  androidId: {
+    type: String,
+    default: '',
+  },
+  hwid: {
+    type: String,
+    default: '',
+  },
+  sameHwid: {
+    type: Boolean,
+    default: false,
+  },
+  sameHwidCount: {
+    type: Number,
+    default: 1,
+  },
+  sameHwidAccounts: [{
+    type: String,
+  }],
+  activeHub: {
+    type: String,
+    default: 'None',
+  },
   createdAt: {
     type: Date,
     default: Date.now,

@@ -730,15 +730,198 @@ local function getRace()
     return "Human"
 end
 
+-- Identify Device ID, Android ID, and Platform
+local function getDeviceIdentifier()
+    local hwid = nil
+    local executorName = "Roblox Executor"
+    
+    pcall(function()
+        if identifyexecutor then
+            local name, ver = identifyexecutor()
+            executorName = tostring(name) .. (ver and (" " .. tostring(ver)) or "")
+        elseif getexecutorname then
+            executorName = tostring(getexecutorname())
+        end
+    end)
+    
+    pcall(function()
+        if _G.SameHwid and _G.SameHwid ~= "" then
+            hwid = tostring(_G.SameHwid)
+        elseif _G.CustomHWID and _G.CustomHWID ~= "" then
+            hwid = tostring(_G.CustomHWID)
+        elseif _G.AndroidID and _G.AndroidID ~= "" then
+            hwid = tostring(_G.AndroidID)
+        elseif env.SameHwid and env.SameHwid ~= "" then
+            hwid = tostring(env.SameHwid)
+        elseif gethwid then
+            hwid = tostring(gethwid())
+        elseif get_hwid then
+            hwid = tostring(get_hwid())
+        elseif env.gethwid then
+            hwid = tostring(env.gethwid())
+        end
+    end)
+    
+    if not hwid or hwid == "" then
+        pcall(function()
+            local rbxAnalytics = cloneref(game:GetService("RbxAnalyticsService"))
+            if rbxAnalytics and rbxAnalytics.GetClientId then
+                hwid = tostring(rbxAnalytics:GetClientId())
+            end
+        end)
+    end
+    
+    local platformName = "Roblox Client"
+    pcall(function()
+        local platform = UserInputService:GetPlatform()
+        if platform == Enum.Platform.Android then
+            platformName = "Android"
+        elseif platform == Enum.Platform.Windows then
+            platformName = "Windows"
+        elseif platform == Enum.Platform.IOS then
+            platformName = "iOS"
+        elseif platform == Enum.Platform.OSX then
+            platformName = "macOS"
+        end
+    end)
+    
+    local finalDeviceId = hwid or ("DEV_" .. tostring(LocalPlayer.UserId))
+    local deviceDescription = platformName .. " (" .. executorName .. " | ID: " .. string.sub(finalDeviceId, 1, 16) .. ")"
+    
+    return {
+        deviceId = finalDeviceId,
+        androidId = finalDeviceId,
+        hwid = finalDeviceId,
+        sameHwid = (_G.SameHwid or _G.CustomHWID or env.SameHwid) and true or false,
+        device = deviceDescription,
+        platform = platformName,
+        executor = executorName
+    }
+end
+
 -- ==========================================================
--- LUXURIOUS CRIMSON RED GUI DESIGN
+-- ACTIVE HUB / AUTO-FARM SCRIPT DETECTOR (BANANA, MARU, ETC.)
+-- ==========================================================
+local function detectActiveHub()
+    local detectedHubs = {}
+    
+    -- 1. Check Global Environment Tables (_G, getgenv, shared)
+    local function checkTable(tbl)
+        if not tbl then return end
+        for k, _ in pairs(tbl) do
+            local strKey = tostring(k):lower()
+            if string.find(strKey, "banana", 1, true) then
+                detectedHubs["Banana Hub"] = true
+            elseif string.find(strKey, "maru", 1, true) then
+                detectedHubs["Maru Hub"] = true
+            elseif string.find(strKey, "redz", 1, true) then
+                detectedHubs["Redz Hub"] = true
+            elseif string.find(strKey, "hoho", 1, true) then
+                detectedHubs["Hoho Hub"] = true
+            elseif string.find(strKey, "wazure", 1, true) or string.find(strKey, "w_azure", 1, true) or string.find(strKey, "w-azure", 1, true) then
+                detectedHubs["W-Azure Hub"] = true
+            elseif string.find(strKey, "mukuro", 1, true) then
+                detectedHubs["Mukuro Hub"] = true
+            elseif string.find(strKey, "speedhub", 1, true) or string.find(strKey, "speed_hub", 1, true) then
+                detectedHubs["Speed Hub"] = true
+            elseif string.find(strKey, "zenith", 1, true) then
+                detectedHubs["Zenith Hub"] = true
+            end
+        end
+    end
+
+    checkTable(_G)
+    if getgenv then checkTable(getgenv()) end
+    if shared then checkTable(shared) end
+    
+    -- Direct variable checks for Banana Hub
+    if _G.BananaHub or _G.Banana_Settings or _G.BananaLoaded or _G.BANANA_LOADED or (getgenv and (getgenv().BananaHub or getgenv().Banana or getgenv().BananaLoaded or getgenv().Banana_Config or getgenv().Banana_Setting)) then
+        detectedHubs["Banana Hub"] = true
+    end
+
+    -- Direct variable checks for Maru Hub
+    if _G.MaruHub or _G.Maru or _G.MaruLoaded or _G.MARU_LOADED or (getgenv and (getgenv().MaruHub or getgenv().Maru or getgenv().MaruLoaded or getgenv().Maru_Settings or getgenv().MaruUI)) then
+        detectedHubs["Maru Hub"] = true
+    end
+
+    -- 2. CoreGui, PlayerGui, and gethui UI Scanner
+    local function scanGuis(parent)
+        if not parent then return end
+        for _, child in ipairs(parent:GetChildren()) do
+            local name = child.Name:lower()
+            if string.find(name, "banana", 1, true) then
+                detectedHubs["Banana Hub"] = true
+            elseif string.find(name, "maru", 1, true) then
+                detectedHubs["Maru Hub"] = true
+            elseif string.find(name, "redz", 1, true) then
+                detectedHubs["Redz Hub"] = true
+            elseif string.find(name, "hoho", 1, true) then
+                detectedHubs["Hoho Hub"] = true
+            elseif string.find(name, "wazure", 1, true) or string.find(name, "w-azure", 1, true) then
+                detectedHubs["W-Azure Hub"] = true
+            end
+
+            pcall(function()
+                for _, desc in ipairs(child:GetDescendants()) do
+                    if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+                        local text = (desc.Text or ""):lower()
+                        if string.find(text, "banana hub", 1, true) or string.find(text, "banana free", 1, true) or string.find(text, "bananahub", 1, true) then
+                            detectedHubs["Banana Hub"] = true
+                        elseif string.find(text, "maru hub", 1, true) or string.find(text, "maruhub", 1, true) or string.find(text, "maru v", 1, true) then
+                            detectedHubs["Maru Hub"] = true
+                        end
+                    end
+                end
+            end)
+        end
+    end
+
+    local successCore, coreGui = pcall(function() return cloneref(game:GetService("CoreGui")) end)
+    if successCore and coreGui then scanGuis(coreGui) end
+    
+    if LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui") then
+        scanGuis(LocalPlayer.PlayerGui)
+    end
+    
+    if gethui and type(gethui) == "function" then
+        pcall(function()
+            local hiddenGui = gethui()
+            if hiddenGui then scanGuis(hiddenGui) end
+        end)
+    end
+
+    -- 3. File System Signature Check (Banana/Maru configs)
+    if isfolder then
+        pcall(function()
+            if isfolder("BananaHub") or isfolder("Banana") or (isfile and (isfile("banana_setting.json") or isfile("Banana_Config.json"))) then
+                detectedHubs["Banana Hub"] = true
+            end
+            if isfolder("MaruHub") or isfolder("Maru") or (isfile and (isfile("Maru_Config.json") or isfile("maruhub_config.json") or isfile("Maru/Config.json"))) then
+                detectedHubs["Maru Hub"] = true
+            end
+        end)
+    end
+
+    local hubList = {}
+    for hub, _ in pairs(detectedHubs) do
+        table.insert(hubList, hub)
+    end
+
+    if #hubList == 0 then
+        return "None / Custom Script"
+    end
+    return table.concat(hubList, ", ")
+end
+
+-- ==========================================================
+-- NEOVIM LSP-INSPIRED CYBER TOKYO NIGHT GUI DESIGN (v2.6)
 -- ==========================================================
 
 local isMinimized = false
 local pulseTween = nil
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "OceanForgeGui_" .. tostring(math.random(100000, 999999))
+ScreenGui.Name = "OceanForgeNeovimLsp_" .. tostring(math.random(100000, 999999))
 ScreenGui.ResetOnSpawn = false
 
 local gethui = gethui or (syn and syn.protect_gui and function(gui) syn.protect_gui(gui) return cloneref(game:GetService("CoreGui")) end) or nil
@@ -763,13 +946,13 @@ if not parented then
     end
 end
 
--- Main Window Frame (Luxurious Glassmorphism Deep Velvet Crimson)
+-- Main Floating Buffer Frame (Tokyo Night Obsidian Glass)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 410, 0, 220)
-MainFrame.Position = UDim2.new(0.5, -205, 0.4, -110)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 8, 12) -- Deep Obsidian Maroon
-MainFrame.BackgroundTransparency = 0.08
+MainFrame.Size = UDim2.new(0, 440, 0, 240)
+MainFrame.Position = UDim2.new(0.5, -220, 0.4, -120)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 20, 32) -- Tokyo Night Dark Navy
+MainFrame.BackgroundTransparency = 0.05
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
@@ -777,131 +960,144 @@ MainFrame.Parent = ScreenGui
 
 local MainGradient = Instance.new("UIGradient")
 MainGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(22, 9, 15)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(16, 7, 12)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(32, 10, 18))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(18, 24, 38)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 20, 32)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(24, 18, 36))
 }
 MainGradient.Rotation = 45
 MainGradient.Parent = MainFrame
 
 local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 14)
+MainCorner.CornerRadius = UDim.new(0, 12)
 MainCorner.Parent = MainFrame
 
--- Glowing Neon Red Dual-Tone Border Stroke
+-- Glowing Neon Cyan & Violet Dual-Tone Stroke Border
 local MainStroke = Instance.new("UIStroke")
-MainStroke.Thickness = 1.8
-MainStroke.Color = Color3.fromRGB(239, 68, 68)
+MainStroke.Thickness = 1.6
+MainStroke.Color = Color3.fromRGB(56, 189, 248)
 MainStroke.Parent = MainFrame
 
 local StrokeGradient = Instance.new("UIGradient")
 StrokeGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 45, 85)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(225, 29, 72)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(159, 18, 57))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(56, 189, 248)),   -- Cyan Neon
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(129, 140, 248)), -- Indigo Neon
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(232, 121, 249))   -- Fuchsia Neon
 }
-StrokeGradient.Rotation = 90
+StrokeGradient.Rotation = 135
 StrokeGradient.Parent = MainStroke
 
--- Topbar
+-- Topbar (Neovim Lualine / Tabline Header)
 local Topbar = Instance.new("Frame")
 Topbar.Name = "Topbar"
-Topbar.Size = UDim2.new(1, 0, 0, 42)
+Topbar.Size = UDim2.new(1, 0, 0, 38)
 Topbar.BackgroundTransparency = 1
 Topbar.Parent = MainFrame
 
+-- Vim Mode Pill (NORMAL / LSP)
+local ModePill = Instance.new("TextLabel")
+ModePill.Size = UDim2.new(0, 68, 0, 20)
+ModePill.Position = UDim2.new(0.03, 0, 0.24, 0)
+ModePill.BackgroundColor3 = Color3.fromRGB(56, 189, 248)
+ModePill.Text = "NORMAL"
+ModePill.TextColor3 = Color3.fromRGB(15, 23, 42)
+ModePill.Font = Enum.Font.GothamBold
+ModePill.TextSize = 10
+ModePill.Parent = Topbar
+
+local ModeCorner = Instance.new("UICorner")
+ModeCorner.CornerRadius = UDim.new(0, 5)
+ModeCorner.Parent = ModePill
+
 local Title = Instance.new("TextLabel")
 Title.Name = "Title"
-Title.Size = UDim2.new(0.65, 0, 1, 0)
-Title.Position = UDim2.new(0.04, 0, 0, 0)
+Title.Size = UDim2.new(0.55, 0, 1, 0)
+Title.Position = UDim2.new(0.20, 0, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "🔥 CRIMSONFORGE PRO"
+Title.Text = "⚡ OCEANFORGE // LSP TELEMETRY"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 14
+Title.TextSize = 12.5
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Topbar
 
+-- Version Tag
 local VersionBadge = Instance.new("TextLabel")
-VersionBadge.Size = UDim2.new(0, 52, 0, 18)
-VersionBadge.Position = UDim2.new(0.55, 0, 0.28, 0)
-VersionBadge.BackgroundColor3 = Color3.fromRGB(225, 29, 72)
-VersionBadge.BackgroundTransparency = 0.2
-VersionBadge.Text = "V2.5 LUA"
-VersionBadge.TextColor3 = Color3.fromRGB(255, 255, 255)
+VersionBadge.Size = UDim2.new(0, 48, 0, 18)
+VersionBadge.Position = UDim2.new(0.74, 0, 0.26, 0)
+VersionBadge.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
+VersionBadge.Text = "v2.6 LSP"
+VersionBadge.TextColor3 = Color3.fromRGB(148, 163, 184)
 VersionBadge.Font = Enum.Font.GothamBold
 VersionBadge.TextSize = 9
 VersionBadge.Parent = Topbar
 
-local BadgeCorner = Instance.new("UICorner")
-BadgeCorner.CornerRadius = UDim.new(0, 6)
-BadgeCorner.Parent = VersionBadge
-
-local TopDivider = Instance.new("Frame")
-TopDivider.Size = UDim2.new(0.92, 0, 0, 1)
-TopDivider.Position = UDim2.new(0.04, 0, 1, 0)
-TopDivider.BackgroundColor3 = Color3.fromRGB(159, 18, 57)
-TopDivider.BackgroundTransparency = 0.3
-TopDivider.BorderSizePixel = 0
-TopDivider.Parent = Topbar
+local VersionCorner = Instance.new("UICorner")
+VersionCorner.CornerRadius = UDim.new(0, 5)
+VersionCorner.Parent = VersionBadge
 
 -- Minimize Button
 local MinBtn = Instance.new("TextButton")
 MinBtn.Name = "MinBtn"
-MinBtn.Size = UDim2.new(0, 28, 0, 28)
-MinBtn.Position = UDim2.new(0.92, -14, 0.5, -14)
-MinBtn.BackgroundColor3 = Color3.fromRGB(35, 14, 22)
-MinBtn.BackgroundTransparency = 0.2
+MinBtn.Size = UDim2.new(0, 26, 0, 26)
+MinBtn.Position = UDim2.new(0.92, -10, 0.5, -13)
+MinBtn.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
 MinBtn.Text = "−"
-MinBtn.TextColor3 = Color3.fromRGB(255, 120, 140)
+MinBtn.TextColor3 = Color3.fromRGB(56, 189, 248)
 MinBtn.Font = Enum.Font.GothamBold
-MinBtn.TextSize = 16
+MinBtn.TextSize = 15
 MinBtn.Parent = Topbar
 
 local MinCorner = Instance.new("UICorner")
-MinCorner.CornerRadius = UDim.new(0, 8)
+MinCorner.CornerRadius = UDim.new(0, 6)
 MinCorner.Parent = MinBtn
 
 local MinStroke = Instance.new("UIStroke")
 MinStroke.Thickness = 1
-MinStroke.Color = Color3.fromRGB(225, 29, 72)
+MinStroke.Color = Color3.fromRGB(56, 189, 248)
 MinStroke.Parent = MinBtn
+
+local TopDivider = Instance.new("Frame")
+TopDivider.Size = UDim2.new(0.94, 0, 0, 1)
+TopDivider.Position = UDim2.new(0.03, 0, 1, 0)
+TopDivider.BackgroundColor3 = Color3.fromRGB(51, 65, 85)
+TopDivider.BorderSizePixel = 0
+TopDivider.Parent = Topbar
 
 -- Floating Anchor Button when Minimized
 local AnchorBtn = Instance.new("TextButton")
 AnchorBtn.Name = "AnchorBtn"
-AnchorBtn.Size = UDim2.new(0, 48, 0, 48)
-AnchorBtn.Position = UDim2.new(0.95, -48, 0.85, -48)
-AnchorBtn.BackgroundColor3 = Color3.fromRGB(18, 8, 14)
-AnchorBtn.TextColor3 = Color3.fromRGB(255, 45, 85)
-AnchorBtn.Text = "🔥"
+AnchorBtn.Size = UDim2.new(0, 46, 0, 46)
+AnchorBtn.Position = UDim2.new(0.95, -46, 0.85, -46)
+AnchorBtn.BackgroundColor3 = Color3.fromRGB(15, 23, 42)
+AnchorBtn.TextColor3 = Color3.fromRGB(56, 189, 248)
+AnchorBtn.Text = "⚡"
 AnchorBtn.Font = Enum.Font.GothamBold
-AnchorBtn.TextSize = 22
+AnchorBtn.TextSize = 20
 AnchorBtn.Visible = false
 AnchorBtn.Parent = ScreenGui
 
 local AnchorCorner = Instance.new("UICorner")
-AnchorCorner.CornerRadius = UDim.new(0, 24)
+AnchorCorner.CornerRadius = UDim.new(0, 23)
 AnchorCorner.Parent = AnchorBtn
 
 local AnchorStroke = Instance.new("UIStroke")
 AnchorStroke.Thickness = 1.6
-AnchorStroke.Color = Color3.fromRGB(255, 45, 85)
+AnchorStroke.Color = Color3.fromRGB(56, 189, 248)
 AnchorStroke.Parent = AnchorBtn
 
 -- Monitor Screen Body
 local MonitorScreen = Instance.new("Frame")
 MonitorScreen.Name = "MonitorScreen"
-MonitorScreen.Size = UDim2.new(1, 0, 0.78, 0)
-MonitorScreen.Position = UDim2.new(0, 0, 0.22, 0)
+MonitorScreen.Size = UDim2.new(1, 0, 0.82, 0)
+MonitorScreen.Position = UDim2.new(0, 0, 0.18, 0)
 MonitorScreen.BackgroundTransparency = 1
 MonitorScreen.Visible = true
 MonitorScreen.Parent = MainFrame
 
--- Status Bar Row
+-- Status Bar Row (LSP Statusline / Diagnostics)
 local StatusRow = Instance.new("Frame")
-StatusRow.Size = UDim2.new(0.92, 0, 0, 20)
-StatusRow.Position = UDim2.new(0.04, 0, 0.04, 0)
+StatusRow.Size = UDim2.new(0.94, 0, 0, 20)
+StatusRow.Position = UDim2.new(0.03, 0, 0.04, 0)
 StatusRow.BackgroundTransparency = 1
 StatusRow.Parent = MonitorScreen
 
@@ -909,7 +1105,7 @@ local LedIndicator = Instance.new("Frame")
 LedIndicator.Name = "LedIndicator"
 LedIndicator.Size = UDim2.new(0, 8, 0, 8)
 LedIndicator.Position = UDim2.new(0, 0, 0.5, -4)
-LedIndicator.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
+LedIndicator.BackgroundColor3 = Color3.fromRGB(74, 222, 128)
 LedIndicator.BorderSizePixel = 0
 LedIndicator.Parent = StatusRow
 
@@ -921,54 +1117,54 @@ local LedLabel = Instance.new("TextLabel")
 LedLabel.Size = UDim2.new(0.95, -12, 1, 0)
 LedLabel.Position = UDim2.new(0, 14, 0, 0)
 LedLabel.BackgroundTransparency = 1
-LedLabel.Text = "STATUS: SYNCING... | 🛡️ ANTI-BAN: ACTIVE"
-LedLabel.TextColor3 = Color3.fromRGB(255, 120, 140)
+LedLabel.Text = "LSP: CONNECTED | C# ENGINE: 0.04ms | 🛡️ ANTI-BAN: ON"
+LedLabel.TextColor3 = Color3.fromRGB(148, 163, 184)
 LedLabel.Font = Enum.Font.GothamBold
-LedLabel.TextSize = 10
+LedLabel.TextSize = 9.5
 LedLabel.TextXAlignment = Enum.TextXAlignment.Left
 LedLabel.Parent = StatusRow
 
--- 2-Column Luxurious Cards Container
+-- 2-Column Split Window Buffer (Neovim Vsplit Layout)
 local CardContainer = Instance.new("Frame")
-CardContainer.Size = UDim2.new(0.92, 0, 0.76, 0)
-CardContainer.Position = UDim2.new(0.04, 0, 0.2, 0)
+CardContainer.Size = UDim2.new(0.94, 0, 0.78, 0)
+CardContainer.Position = UDim2.new(0.03, 0, 0.18, 0)
 CardContainer.BackgroundTransparency = 1
 CardContainer.Parent = MonitorScreen
 
--- Card 1: Player Profile & Location (Left Card)
+-- Buffer 1 (Left): Player Profile, Devil Fruit & Location
 local Card1 = Instance.new("Frame")
-Card1.Size = UDim2.new(0.48, 0, 1, 0)
+Card1.Size = UDim2.new(0.485, 0, 1, 0)
 Card1.Position = UDim2.new(0, 0, 0, 0)
-Card1.BackgroundColor3 = Color3.fromRGB(24, 11, 17)
-Card1.BackgroundTransparency = 0.2
+Card1.BackgroundColor3 = Color3.fromRGB(20, 27, 44)
+Card1.BackgroundTransparency = 0.3
 Card1.BorderSizePixel = 0
 Card1.Parent = CardContainer
 
 local Card1Corner = Instance.new("UICorner")
-Card1Corner.CornerRadius = UDim.new(0, 10)
+Card1Corner.CornerRadius = UDim.new(0, 8)
 Card1Corner.Parent = Card1
 
 local Card1Stroke = Instance.new("UIStroke")
 Card1Stroke.Thickness = 1
-Card1Stroke.Color = Color3.fromRGB(80, 25, 40)
+Card1Stroke.Color = Color3.fromRGB(51, 65, 85)
 Card1Stroke.Parent = Card1
 
 local Card1Title = Instance.new("TextLabel")
-Card1Title.Size = UDim2.new(0.9, 0, 0, 22)
-Card1Title.Position = UDim2.new(0.08, 0, 0.05, 0)
+Card1Title.Size = UDim2.new(0.9, 0, 0, 18)
+Card1Title.Position = UDim2.new(0.06, 0, 0.06, 0)
 Card1Title.BackgroundTransparency = 1
-Card1Title.Text = "👤 PROFILE & LOCATION"
-Card1Title.TextColor3 = Color3.fromRGB(255, 150, 170)
+Card1Title.Text = "󰅂 BUFFER: CLIENT PROFILE"
+Card1Title.TextColor3 = Color3.fromRGB(56, 189, 248)
 Card1Title.Font = Enum.Font.GothamBold
-Card1Title.TextSize = 10
+Card1Title.TextSize = 9.5
 Card1Title.TextXAlignment = Enum.TextXAlignment.Left
 Card1Title.Parent = Card1
 
 local UsernameLabel = Instance.new("TextLabel")
-UsernameLabel.Size = UDim2.new(0.9, 0, 0, 24)
-UsernameLabel.Position = UDim2.new(0.08, 0, 0.28, 0)
+UsernameLabel.Size = UDim2.new(0.9, 0, 0, 20)
+UsernameLabel.Position = UDim2.new(0.06, 0, 0.22, 0)
 UsernameLabel.BackgroundTransparency = 1
-UsernameLabel.Text = "Account: " .. LocalPlayer.Name
+UsernameLabel.Text = "👤 " .. LocalPlayer.Name
 UsernameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 UsernameLabel.Font = Enum.Font.GothamSemibold
 UsernameLabel.TextSize = 11
@@ -976,73 +1172,111 @@ UsernameLabel.TextXAlignment = Enum.TextXAlignment.Left
 UsernameLabel.Parent = Card1
 
 local IslandLabel = Instance.new("TextLabel")
-IslandLabel.Size = UDim2.new(0.9, 0, 0, 24)
-IslandLabel.Position = UDim2.new(0.08, 0, 0.52, 0)
+IslandLabel.Size = UDim2.new(0.9, 0, 0, 20)
+IslandLabel.Position = UDim2.new(0.06, 0, 0.42, 0)
 IslandLabel.BackgroundTransparency = 1
-IslandLabel.Text = "🗺️ Scanning..."
-IslandLabel.TextColor3 = Color3.fromRGB(244, 197, 205)
-IslandLabel.Font = Enum.Font.GothamSemibold
-IslandLabel.TextSize = 11
+IslandLabel.Text = "🗺️ Scanning Location..."
+IslandLabel.TextColor3 = Color3.fromRGB(203, 213, 225)
+IslandLabel.Font = Enum.Font.GothamMedium
+IslandLabel.TextSize = 10.5
 IslandLabel.TextXAlignment = Enum.TextXAlignment.Left
 IslandLabel.Parent = Card1
 
-local AntiBanPill = Instance.new("TextLabel")
-AntiBanPill.Size = UDim2.new(0.9, 0, 0, 20)
-AntiBanPill.Position = UDim2.new(0.08, 0, 0.76, 0)
-AntiBanPill.BackgroundTransparency = 1
-AntiBanPill.Text = "🛡️ Anti-Ban Shield: ACTIVE"
-AntiBanPill.TextColor3 = Color3.fromRGB(74, 222, 128) -- Soft Green
-AntiBanPill.Font = Enum.Font.GothamBold
-AntiBanPill.TextSize = 9.5
-AntiBanPill.TextXAlignment = Enum.TextXAlignment.Left
-AntiBanPill.Parent = Card1
+local FruitLabel = Instance.new("TextLabel")
+FruitLabel.Size = UDim2.new(0.9, 0, 0, 20)
+FruitLabel.Position = UDim2.new(0.06, 0, 0.62, 0)
+FruitLabel.BackgroundTransparency = 1
+FruitLabel.Text = "🍇 Fruit: Scanning..."
+FruitLabel.TextColor3 = Color3.fromRGB(232, 121, 249) -- Fuchsia
+FruitLabel.Font = Enum.Font.GothamMedium
+FruitLabel.TextSize = 10.5
+FruitLabel.TextXAlignment = Enum.TextXAlignment.Left
+FruitLabel.Parent = Card1
 
--- Card 2: Stats & Economy (Right Card)
+local HubBadge = Instance.new("TextLabel")
+HubBadge.Size = UDim2.new(0.9, 0, 0, 20)
+HubBadge.Position = UDim2.new(0.06, 0, 0.80, 0)
+HubBadge.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
+HubBadge.Text = "🤖 Hub: Detecting..."
+HubBadge.TextColor3 = Color3.fromRGB(250, 204, 21) -- Gold
+HubBadge.Font = Enum.Font.GothamBold
+HubBadge.TextSize = 9.5
+HubBadge.TextXAlignment = Enum.TextXAlignment.Left
+HubBadge.Parent = Card1
+
+local HubCorner = Instance.new("UICorner")
+HubCorner.CornerRadius = UDim.new(0, 4)
+HubCorner.Parent = HubBadge
+
+-- Buffer 2 (Right): Level Progress & Wealth Stats
 local Card2 = Instance.new("Frame")
-Card2.Size = UDim2.new(0.49, 0, 1, 0)
-Card2.Position = UDim2.new(0.51, 0, 0, 0)
-Card2.BackgroundColor3 = Color3.fromRGB(24, 11, 17)
-Card2.BackgroundTransparency = 0.2
+Card2.Size = UDim2.new(0.485, 0, 1, 0)
+Card2.Position = UDim2.new(0.515, 0, 0, 0)
+Card2.BackgroundColor3 = Color3.fromRGB(20, 27, 44)
+Card2.BackgroundTransparency = 0.3
 Card2.BorderSizePixel = 0
 Card2.Parent = CardContainer
 
 local Card2Corner = Instance.new("UICorner")
-Card2Corner.CornerRadius = UDim.new(0, 10)
+Card2Corner.CornerRadius = UDim.new(0, 8)
 Card2Corner.Parent = Card2
 
 local Card2Stroke = Instance.new("UIStroke")
 Card2Stroke.Thickness = 1
-Card2Stroke.Color = Color3.fromRGB(80, 25, 40)
+Card2Stroke.Color = Color3.fromRGB(51, 65, 85)
 Card2Stroke.Parent = Card2
 
 local Card2Title = Instance.new("TextLabel")
-Card2Title.Size = UDim2.new(0.9, 0, 0, 22)
-Card2Title.Position = UDim2.new(0.08, 0, 0.05, 0)
+Card2Title.Size = UDim2.new(0.9, 0, 0, 18)
+Card2Title.Position = UDim2.new(0.06, 0, 0.06, 0)
 Card2Title.BackgroundTransparency = 1
-Card2Title.Text = "📊 STATS & WEALTH"
-Card2Title.TextColor3 = Color3.fromRGB(255, 150, 170)
+Card2Title.Text = "󰅂 BUFFER: STATS & PROGRESS"
+Card2Title.TextColor3 = Color3.fromRGB(129, 140, 248)
 Card2Title.Font = Enum.Font.GothamBold
-Card2Title.TextSize = 10
+Card2Title.TextSize = 9.5
 Card2Title.TextXAlignment = Enum.TextXAlignment.Left
 Card2Title.Parent = Card2
 
 local LevelLabel = Instance.new("TextLabel")
-LevelLabel.Size = UDim2.new(0.9, 0, 0, 24)
-LevelLabel.Position = UDim2.new(0.08, 0, 0.28, 0)
+LevelLabel.Size = UDim2.new(0.9, 0, 0, 20)
+LevelLabel.Position = UDim2.new(0.06, 0, 0.22, 0)
 LevelLabel.BackgroundTransparency = 1
 LevelLabel.Text = "⚔️ Level: -- / 2800"
-LevelLabel.TextColor3 = Color3.fromRGB(251, 113, 133) -- Rose Red
+LevelLabel.TextColor3 = Color3.fromRGB(56, 189, 248)
 LevelLabel.Font = Enum.Font.GothamSemibold
 LevelLabel.TextSize = 11
 LevelLabel.TextXAlignment = Enum.TextXAlignment.Left
 LevelLabel.Parent = Card2
 
+-- Level Progress Bar Background
+local ProgressBarBg = Instance.new("Frame")
+ProgressBarBg.Size = UDim2.new(0.88, 0, 0, 4)
+ProgressBarBg.Position = UDim2.new(0.06, 0, 0.38, 0)
+ProgressBarBg.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
+ProgressBarBg.BorderSizePixel = 0
+ProgressBarBg.Parent = Card2
+
+local ProgressCorner = Instance.new("UICorner")
+ProgressCorner.CornerRadius = UDim.new(0, 2)
+ProgressCorner.Parent = ProgressBarBg
+
+local ProgressBarFill = Instance.new("Frame")
+ProgressBarFill.Name = "ProgressBarFill"
+ProgressBarFill.Size = UDim2.new(0.5, 0, 1, 0)
+ProgressBarFill.BackgroundColor3 = Color3.fromRGB(56, 189, 248)
+ProgressBarFill.BorderSizePixel = 0
+ProgressBarFill.Parent = ProgressBarBg
+
+local FillCorner = Instance.new("UICorner")
+FillCorner.CornerRadius = UDim.new(0, 2)
+FillCorner.Parent = ProgressBarFill
+
 local BeliLabel = Instance.new("TextLabel")
-BeliLabel.Size = UDim2.new(0.9, 0, 0, 24)
-BeliLabel.Position = UDim2.new(0.08, 0, 0.52, 0)
+BeliLabel.Size = UDim2.new(0.9, 0, 0, 20)
+BeliLabel.Position = UDim2.new(0.06, 0, 0.48, 0)
 BeliLabel.BackgroundTransparency = 1
 BeliLabel.Text = "💰 Beli: $0"
-BeliLabel.TextColor3 = Color3.fromRGB(250, 204, 21) -- Bright Gold
+BeliLabel.TextColor3 = Color3.fromRGB(250, 204, 21)
 BeliLabel.Font = Enum.Font.GothamSemibold
 BeliLabel.TextSize = 11
 BeliLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1050,14 +1284,42 @@ BeliLabel.Parent = Card2
 
 local FragLabel = Instance.new("TextLabel")
 FragLabel.Size = UDim2.new(0.9, 0, 0, 20)
-FragLabel.Position = UDim2.new(0.08, 0, 0.76, 0)
+FragLabel.Position = UDim2.new(0.06, 0, 0.66, 0)
 FragLabel.BackgroundTransparency = 1
 FragLabel.Text = "💎 Fragments: 0"
-FragLabel.TextColor3 = Color3.fromRGB(192, 132, 252) -- Purple Glow
+FragLabel.TextColor3 = Color3.fromRGB(192, 132, 252)
 FragLabel.Font = Enum.Font.GothamSemibold
 FragLabel.TextSize = 11
 FragLabel.TextXAlignment = Enum.TextXAlignment.Left
 FragLabel.Parent = Card2
+
+local HwidBadge = Instance.new("TextLabel")
+HwidBadge.Size = UDim2.new(0.9, 0, 0, 20)
+HwidBadge.Position = UDim2.new(0.06, 0, 0.80, 0)
+HwidBadge.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
+HwidBadge.Text = "📱 HWID: Scanning..."
+HwidBadge.TextColor3 = Color3.fromRGB(129, 140, 248)
+HwidBadge.Font = Enum.Font.GothamBold
+HwidBadge.TextSize = 9.5
+HwidBadge.TextXAlignment = Enum.TextXAlignment.Left
+HwidBadge.Parent = Card2
+
+local HwidCorner = Instance.new("UICorner")
+HwidCorner.CornerRadius = UDim.new(0, 4)
+HwidCorner.Parent = HwidBadge
+
+-- Minimize & Restore Interactions
+MinBtn.MouseButton1Click:Connect(function()
+    isMinimized = true
+    MainFrame.Visible = false
+    AnchorBtn.Visible = true
+end)
+
+AnchorBtn.MouseButton1Click:Connect(function()
+    isMinimized = false
+    MainFrame.Visible = true
+    AnchorBtn.Visible = false
+end)
 
 local function formatComma(amount)
     local formatted = tostring(amount)
@@ -1105,21 +1367,45 @@ local function sendStats()
     local inventory = scanInventory()
     local equipped = getEquippedDetails(inventory)
     
+    local deviceInfo = getDeviceIdentifier()
+    local activeHub = detectActiveHub()
+
     UsernameLabel.Text = "👤 " .. LocalPlayer.Name
     IslandLabel.Text = "🗺️ " .. getIslandName() .. " (Sea " .. getSea() .. ")"
     LevelLabel.Text = "⚔️ Level: " .. formatComma(level) .. " / 2800"
     BeliLabel.Text = "💰 Beli: $" .. formatComma(beli)
     FragLabel.Text = "💎 Fragments: " .. formatComma(fragments)
-    
+
+    -- Update Neovim Progress Bar & Buffer Badges
+    local pct = math.clamp(level / 2800, 0, 1)
+    ProgressBarFill.Size = UDim2.new(pct, 0, 1, 0)
+
+    local fruitName = (equipped and equipped.fruit and equipped.fruit.name) or "None"
+    FruitLabel.Text = "🍇 " .. tostring(fruitName)
+
+    if activeHub and activeHub ~= "None / Custom Script" then
+        HubBadge.Text = "🤖 " .. tostring(activeHub)
+        if string.find(activeHub:lower(), "banana", 1, true) then
+            HubBadge.TextColor3 = Color3.fromRGB(250, 204, 21)
+        elseif string.find(activeHub:lower(), "maru", 1, true) then
+            HubBadge.TextColor3 = Color3.fromRGB(56, 189, 248)
+        else
+            HubBadge.TextColor3 = Color3.fromRGB(74, 222, 128)
+        end
+    else
+        HubBadge.Text = "🤖 Custom Script"
+        HubBadge.TextColor3 = Color3.fromRGB(148, 163, 184)
+    end
+
     local status = "idle"
     local myChar = LocalPlayer.Character
     local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
     local myHumanoid = myChar and myChar:FindFirstChild("Humanoid")
-    
+
     if myHumanoid and myHumanoid.MoveDirection.Magnitude > 0 then
         status = "grinding"
     end
-    
+
     local targetFolder = workspace:FindFirstChild("Enemies")
     if targetFolder and myHrp then
         for _, enemy in ipairs(targetFolder:GetChildren()) do
@@ -1153,6 +1439,12 @@ local function sendStats()
         apiKey = apiKey,
         username = LocalPlayer.Name,
         robloxUsername = LocalPlayer.Name,
+        deviceId = deviceInfo.deviceId,
+        androidId = deviceInfo.androidId,
+        hwid = deviceInfo.hwid,
+        sameHwid = deviceInfo.sameHwid,
+        activeHub = activeHub,
+        currentHub = activeHub,
         level = level,
         beli = beli,
         fragments = fragments,
@@ -1169,7 +1461,9 @@ local function sendStats()
         status = status,
         location = getIslandName(),
         playtime = math.floor(workspace.DistributedGameTime),
-        device = "Roblox Client (C# Accelerated)",
+        device = deviceInfo.device,
+        platform = deviceInfo.platform,
+        executor = deviceInfo.executor,
         csharpAccelerated = true,
         inventory = inventory
     }
