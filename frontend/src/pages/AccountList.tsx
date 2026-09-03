@@ -24,22 +24,44 @@ export const AccountList: React.FC = () => {
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
 
+  // Modal fast-render state
+  const [modalTargetAccount, setModalTargetAccount] = useState<Account | null>(null);
+  const [modalLoading, setModalLoading] = useState<boolean>(false);
+
   useEffect(() => {
     fetchAccounts();
   }, []);
 
+  const modalAccount = (selectedAccountDetails?.account &&
+    (selectedAccountDetails.account._id === (modalTargetAccount?._id || (modalTargetAccount as any)?.id) ||
+     selectedAccountDetails.account.robloxUsername === modalTargetAccount?.robloxUsername))
+    ? selectedAccountDetails.account
+    : modalTargetAccount;
+
+  const modalInventory = selectedAccountDetails?.inventory || {
+    fruits: [],
+    weapons: [],
+    guns: [],
+    styles: [],
+    materials: [],
+    accessories: []
+  };
+
+  const modalLogs = selectedAccountDetails?.logs || [];
+
   // Sync notes input only when opening details for a different account
   useEffect(() => {
-    if (selectedAccountDetails) {
-      if (selectedAccountDetails.account._id !== activeAccountId) {
-        setNotesInput(selectedAccountDetails.account.notes || '');
-        setActiveAccountId(selectedAccountDetails.account._id);
+    if (modalAccount) {
+      const accId = modalAccount._id || (modalAccount as any).id;
+      if (accId !== activeAccountId) {
+        setNotesInput(modalAccount.notes || '');
+        setActiveAccountId(accId);
       }
     } else {
       setNotesInput('');
       setActiveAccountId(null);
     }
-  }, [selectedAccountDetails, activeAccountId]);
+  }, [modalAccount, activeAccountId]);
 
   // Toast & Modal States for UI Feedback
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -50,23 +72,47 @@ export const AccountList: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleOpenDetails = (accountId: string) => {
-    fetchAccountDetails(accountId);
+  const handleOpenDetails = (accOrId: Account | string) => {
+    let target: Account | undefined;
+    let accountId: string;
+    if (typeof accOrId === 'string') {
+      accountId = accOrId;
+      target = accounts.find((a) => (a._id || (a as any).id) === accountId);
+    } else {
+      target = accOrId;
+      accountId = accOrId._id || (accOrId as any).id;
+    }
+
+    if (target) {
+      setModalTargetAccount(target);
+    }
     setActiveTab('equipped');
     setShowModal(true);
+
+    if (accountId) {
+      setModalLoading(true);
+      fetchAccountDetails(accountId)
+        .catch((err) => console.error('fetchAccountDetails error:', err))
+        .finally(() => setModalLoading(false));
+    }
   };
 
   const handleCloseModal = () => {
     setShowModal(false);
+    setModalTargetAccount(null);
     setActiveAccountId(null);
   };
 
   const handleSaveNotes = async () => {
-    if (!selectedAccountDetails) return;
+    if (!modalAccount) return;
     setSavingNotes(true);
-    const success = await updateAccountNotes(selectedAccountDetails.account._id, notesInput);
+    const accountId = modalAccount._id || (modalAccount as any).id;
+    const success = await updateAccountNotes(accountId, notesInput);
     if (success) {
       showToast('Đã lưu ghi chú thành công!', 'success');
+      if (modalTargetAccount) {
+        setModalTargetAccount({ ...modalTargetAccount, notes: notesInput });
+      }
     } else {
       showToast('Không thể lưu ghi chú. Vui lòng thử lại!', 'error');
     }
@@ -327,8 +373,8 @@ export const AccountList: React.FC = () => {
 
                 return (
                 <tr
-                  key={acc._id}
-                  onClick={() => handleOpenDetails(acc._id)}
+                  key={acc._id || (acc as any).id}
+                  onClick={() => handleOpenDetails(acc)}
                   className="hover:bg-slate-900/30 transition-colors cursor-pointer group"
                 >
                   <td className="py-4 font-bold text-white group-hover:text-gold transition-colors">
@@ -431,9 +477,9 @@ export const AccountList: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleOpenDetails(acc._id);
+                          handleOpenDetails(acc);
                         }}
-                        className="p-2 rounded-lg bg-ocean-cyan/10 hover:bg-ocean-cyan/20 border border-ocean-cyan/30 text-ocean-cyan hover:text-white transition"
+                        className="p-2 rounded-lg bg-ocean-cyan/10 hover:bg-ocean-cyan/20 border border-ocean-cyan/30 text-ocean-cyan hover:text-white transition cursor-pointer"
                         title="View Details"
                       >
                         <Eye className="w-4 h-4" />
@@ -463,17 +509,29 @@ export const AccountList: React.FC = () => {
       </div>
 
       {/* Account Details Modal */}
-      {showModal && selectedAccountDetails && (
+      {showModal && modalAccount && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="glass-panel border-ocean-cyan/20 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col relative animate-scale-in">
             {/* Modal Header */}
             <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">
-              <div>
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Compass className="w-6 h-6 text-gold animate-pulse" />
-                  {selectedAccountDetails.account.robloxUsername}
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">Level {selectedAccountDetails.account.level} &bull; {selectedAccountDetails.account.race}</p>
+              <div className="flex items-center gap-3">
+                <Compass className="w-6 h-6 text-gold animate-pulse flex-shrink-0" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-bold text-white">
+                      {modalAccount.robloxUsername}
+                    </h3>
+                    {modalLoading && (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                        Đang đồng bộ...
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Level {modalAccount.level} &bull; {modalAccount.race} &bull; Sea {modalAccount.sea}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={handleCloseModal}
@@ -495,7 +553,7 @@ export const AccountList: React.FC = () => {
                       : 'border-transparent text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  {tab === 'equipped' ? 'Equipped Gear' : tab}
+                  {tab === 'equipped' ? 'Equipped Gear' : tab === 'inventory' ? `Inventory (${(modalInventory.fruits?.length || 0) + (modalInventory.weapons?.length || 0) + (modalInventory.guns?.length || 0)})` : tab}
                 </button>
               ))}
             </div>
@@ -510,23 +568,23 @@ export const AccountList: React.FC = () => {
                     <div className="bg-ocean-abyss p-4 rounded-xl border border-slate-900">
                       <span className="text-slate-500 text-xs block font-semibold">Beli</span>
                       <span className="text-lg font-bold text-emerald-400 flex items-center gap-1 mt-1">
-                        <Coins className="w-4 h-4" /> {formatBeli(selectedAccountDetails.account.beli)}
+                        <Coins className="w-4 h-4" /> {formatBeli(modalAccount.beli || 0)}
                       </span>
                     </div>
                     <div className="bg-ocean-abyss p-4 rounded-xl border border-slate-900">
                       <span className="text-slate-500 text-xs block font-semibold">Fragments</span>
                       <span className="text-lg font-bold text-purple-400 flex items-center gap-1 mt-1">
-                        <Gem className="w-4 h-4" /> {formatBeli(selectedAccountDetails.account.fragments)}
+                        <Gem className="w-4 h-4" /> {formatBeli(modalAccount.fragments || 0)}
                       </span>
                     </div>
                     <div className="bg-ocean-abyss p-4 rounded-xl border border-slate-900">
                       <span className="text-slate-500 text-xs block font-semibold">Farming Map</span>
-                      <span className="text-sm font-bold text-sky-400 truncate block mt-1">{selectedAccountDetails.account.location}</span>
+                      <span className="text-sm font-bold text-sky-400 truncate block mt-1">{modalAccount.location || 'Unknown'}</span>
                     </div>
                     <div className="bg-ocean-abyss p-4 rounded-xl border border-slate-900">
                       <span className="text-slate-500 text-xs block font-semibold">Farming Time</span>
                       <span className="text-sm font-bold text-slate-300 flex items-center gap-1 mt-1">
-                        <Clock className="w-4 h-4" /> {formatPlaytime(selectedAccountDetails.account.playtime)}
+                        <Clock className="w-4 h-4" /> {formatPlaytime(modalAccount.playtime || 0)}
                       </span>
                     </div>
                   </div>
@@ -536,27 +594,27 @@ export const AccountList: React.FC = () => {
                     <div>
                       <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider block">Auto-Farm Script Hub</span>
                       <span className="text-sm font-bold text-yellow-400 flex items-center gap-1.5 mt-1">
-                        {selectedAccountDetails.account.activeHub?.includes('Banana') ? '🍌' : selectedAccountDetails.account.activeHub?.includes('Maru') ? '⚡' : '🚀'} {selectedAccountDetails.account.activeHub || 'None / Custom Script'}
+                        {modalAccount.activeHub?.includes('Banana') ? '🍌' : modalAccount.activeHub?.includes('Maru') ? '⚡' : '🚀'} {modalAccount.activeHub || 'None / Custom Script'}
                       </span>
                     </div>
 
                     <div>
                       <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider block">Thiết Bị / HWID / Android ID</span>
-                      <span className="text-xs font-mono text-cyan-300 block truncate mt-1" title={selectedAccountDetails.account.hwid || selectedAccountDetails.account.deviceId || 'N/A'}>
-                        {selectedAccountDetails.account.hwid || selectedAccountDetails.account.deviceId || selectedAccountDetails.account.device || 'N/A'}
+                      <span className="text-xs font-mono text-cyan-300 block truncate mt-1" title={modalAccount.hwid || modalAccount.deviceId || modalAccount.device || 'N/A'}>
+                        {modalAccount.hwid || modalAccount.deviceId || modalAccount.device || 'N/A'}
                       </span>
                     </div>
 
                     <div>
                       <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider block">Trạng Thái Same HWID</span>
-                      {selectedAccountDetails.account.sameHwid ? (
+                      {modalAccount.sameHwid ? (
                         <div className="mt-1">
                           <span className="text-xs font-bold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/40 inline-block">
-                            📱 Trùng HWID ({selectedAccountDetails.account.sameHwidCount} tài khoản)
+                            📱 Trùng HWID ({modalAccount.sameHwidCount || 1} tài khoản)
                           </span>
-                          {selectedAccountDetails.account.sameHwidAccounts && selectedAccountDetails.account.sameHwidAccounts.length > 0 && (
+                          {modalAccount.sameHwidAccounts && modalAccount.sameHwidAccounts.length > 0 && (
                             <p className="text-[11px] text-slate-400 mt-1 truncate">
-                              Chung máy: {selectedAccountDetails.account.sameHwidAccounts.filter((u: string) => u !== selectedAccountDetails.account.robloxUsername).join(', ') || 'Chính nó'}
+                              Chung máy: {modalAccount.sameHwidAccounts.filter((u: string) => u !== modalAccount.robloxUsername).join(', ') || 'Chính nó'}
                             </p>
                           )}
                         </div>
@@ -583,7 +641,7 @@ export const AccountList: React.FC = () => {
                       <button
                         onClick={handleSaveNotes}
                         disabled={savingNotes}
-                        className="px-4 py-2 bg-ocean-cyan/25 border border-ocean-cyan/40 hover:bg-ocean-cyan/40 text-ocean-cyan hover:text-white rounded-lg text-xs font-bold transition flex items-center justify-center self-end disabled:opacity-50 h-10"
+                        className="px-4 py-2 bg-ocean-cyan/25 border border-ocean-cyan/40 hover:bg-ocean-cyan/40 text-ocean-cyan hover:text-white rounded-lg text-xs font-bold transition flex items-center justify-center self-end disabled:opacity-50 h-10 cursor-pointer"
                       >
                         {savingNotes ? 'Saving...' : 'Lưu / Save'}
                       </button>
@@ -598,16 +656,16 @@ export const AccountList: React.FC = () => {
                       <div className="w-20 h-20 bg-ocean-abyss rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden font-bold text-2xl text-gold relative">
                         <ItemImage
                           category="fruits"
-                          name={selectedAccountDetails.account.equipped.fruit}
+                          name={modalAccount.equipped?.fruit || 'None'}
                           fallbackEmoji="🍇"
                           emojiClass="text-2xl"
                           imgClass="w-16 h-16 object-contain"
                         />
                       </div>
                       <span className="text-sm font-bold text-white mt-3 block truncate max-w-full">
-                        {selectedAccountDetails.account.equipped.fruit}
+                        {modalAccount.equipped?.fruit || 'None'}
                       </span>
-                      <span className="text-slate-500 text-xs mt-1 block">Mastery: {selectedAccountDetails.account.equipped.fruitMastery}</span>
+                      <span className="text-slate-500 text-xs mt-1 block">Mastery: {modalAccount.equipped?.fruitMastery ?? 0}</span>
                     </div>
 
                     {/* Equipped Sword */}
@@ -616,14 +674,14 @@ export const AccountList: React.FC = () => {
                       <div className="w-20 h-20 bg-ocean-abyss rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden">
                         <ItemImage
                           category="swords"
-                          name={selectedAccountDetails.account.equipped.sword}
+                          name={modalAccount.equipped?.sword || 'None'}
                           fallbackEmoji="⚔️"
                           emojiClass="text-2xl text-slate-600"
                           imgClass="w-16 h-16 object-contain"
                         />
                       </div>
                       <span className="text-sm font-bold text-white mt-3 block truncate max-w-full">
-                        {selectedAccountDetails.account.equipped.sword}
+                        {modalAccount.equipped?.sword || 'None'}
                       </span>
                     </div>
 
@@ -633,14 +691,14 @@ export const AccountList: React.FC = () => {
                       <div className="w-20 h-20 bg-ocean-abyss rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden">
                         <ItemImage
                           category="guns"
-                          name={selectedAccountDetails.account.equipped.gun}
+                          name={modalAccount.equipped?.gun || 'None'}
                           fallbackEmoji="🔫"
                           emojiClass="text-2xl text-slate-600"
                           imgClass="w-16 h-16 object-contain"
                         />
                       </div>
                       <span className="text-sm font-bold text-white mt-3 block truncate max-w-full">
-                        {selectedAccountDetails.account.equipped.gun}
+                        {modalAccount.equipped?.gun || 'None'}
                       </span>
                     </div>
 
@@ -650,14 +708,14 @@ export const AccountList: React.FC = () => {
                       <div className="w-20 h-20 bg-ocean-abyss rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden">
                         <ItemImage
                           category="styles"
-                          name={selectedAccountDetails.account.equipped.fightingStyle}
+                          name={modalAccount.equipped?.fightingStyle || 'Combat'}
                           fallbackEmoji="👊"
                           emojiClass="text-2xl text-slate-600"
                           imgClass="w-16 h-16 object-contain"
                         />
                       </div>
                       <span className="text-sm font-bold text-white mt-3 block truncate max-w-full">
-                        {selectedAccountDetails.account.equipped.fightingStyle}
+                        {modalAccount.equipped?.fightingStyle || 'Combat'}
                       </span>
                     </div>
 
@@ -667,21 +725,21 @@ export const AccountList: React.FC = () => {
                       <div className="w-20 h-20 bg-ocean-abyss rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden">
                         <ItemImage
                           category="accessories"
-                          name={selectedAccountDetails.account.equipped.accessory || 'None'}
+                          name={modalAccount.equipped?.accessory || 'None'}
                           fallbackEmoji="👑"
                           emojiClass="text-2xl text-slate-600"
                           imgClass="w-16 h-16 object-contain"
                         />
                       </div>
                       <span className="text-sm font-bold text-white mt-3 block truncate max-w-full">
-                        {selectedAccountDetails.account.equipped.accessory || 'None'}
+                        {modalAccount.equipped?.accessory || 'None'}
                       </span>
                     </div>
                   </div>
 
                   {/* Farming Map Section (For Sea 3) */}
-                  {(selectedAccountDetails.account.sea === 3 || 
-                    (selectedAccountDetails.account.location && selectedAccountDetails.account.location.toLowerCase().includes('sea 3'))) && (
+                  {(modalAccount.sea === 3 || 
+                    (modalAccount.location && modalAccount.location.toLowerCase().includes('sea 3'))) && (
                     <div className="bg-ocean-deep/60 p-4 rounded-xl border border-slate-800 mt-6">
                       <span className="text-slate-400 text-xs uppercase font-extrabold tracking-wider block mb-3">Sea 3 Farming Map</span>
                       <div className="relative rounded-lg overflow-hidden border border-slate-700/50">
@@ -691,7 +749,7 @@ export const AccountList: React.FC = () => {
                           className="w-full h-auto max-h-[320px] object-cover"
                         />
                         <div className="absolute bottom-2 left-2 bg-slate-950/80 px-2.5 py-1 rounded border border-slate-800 text-[10px] text-white font-bold">
-                          Current Location: {selectedAccountDetails.account.location}
+                          Current Location: {modalAccount.location || 'Unknown'}
                         </div>
                       </div>
                     </div>
@@ -702,15 +760,22 @@ export const AccountList: React.FC = () => {
               {/* TAB 2: INVENTORY */}
               {activeTab === 'inventory' && (
                 <div className="space-y-6">
+                  {modalLoading && (modalInventory.fruits || []).length === 0 && (
+                    <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400">
+                      <div className="w-6 h-6 border-2 border-ocean-cyan border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs">Đang đồng bộ chi tiết kho đồ từ máy chủ...</span>
+                    </div>
+                  )}
+
                   {/* Category lists inside inventory */}
                   <div className="space-y-4">
                     {/* 1. Stored Fruits */}
                     <div>
                       <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
-                        Devil Fruits ({selectedAccountDetails.inventory.fruits?.length || 0})
+                        Devil Fruits ({modalInventory.fruits?.length || 0})
                       </h4>
                       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                        {(selectedAccountDetails.inventory.fruits || []).map((fruit, idx) => (
+                        {(modalInventory.fruits || []).map((fruit, idx) => (
                           <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center relative overflow-hidden">
                             <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
                               <ItemImage
@@ -724,7 +789,7 @@ export const AccountList: React.FC = () => {
                             <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{fruit}</span>
                           </div>
                         ))}
-                        {(selectedAccountDetails.inventory.fruits || []).length === 0 && (
+                        {(modalInventory.fruits || []).length === 0 && !modalLoading && (
                           <span className="text-xs text-slate-600 italic">No fruits stored in inventory.</span>
                         )}
                       </div>
@@ -733,10 +798,10 @@ export const AccountList: React.FC = () => {
                     {/* 2. Swords */}
                     <div className="pt-2">
                       <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
-                        Swords ({selectedAccountDetails.inventory.weapons?.length || 0})
+                        Swords ({modalInventory.weapons?.length || 0})
                       </h4>
                       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                        {(selectedAccountDetails.inventory.weapons || []).map((sword, idx) => (
+                        {(modalInventory.weapons || []).map((sword, idx) => (
                           <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center">
                             <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
                               <ItemImage
@@ -750,7 +815,7 @@ export const AccountList: React.FC = () => {
                             <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{sword}</span>
                           </div>
                         ))}
-                        {(selectedAccountDetails.inventory.weapons || []).length === 0 && (
+                        {(modalInventory.weapons || []).length === 0 && !modalLoading && (
                           <span className="text-xs text-slate-600 italic">No swords stored.</span>
                         )}
                       </div>
@@ -759,10 +824,10 @@ export const AccountList: React.FC = () => {
                     {/* 3. Guns */}
                     <div className="pt-2">
                       <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
-                        Guns ({selectedAccountDetails.inventory.guns?.length || 0})
+                        Guns ({modalInventory.guns?.length || 0})
                       </h4>
                       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                        {(selectedAccountDetails.inventory.guns || []).map((gun, idx) => (
+                        {(modalInventory.guns || []).map((gun, idx) => (
                           <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center">
                             <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
                               <ItemImage
@@ -776,7 +841,7 @@ export const AccountList: React.FC = () => {
                             <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{gun}</span>
                           </div>
                         ))}
-                        {(selectedAccountDetails.inventory.guns || []).length === 0 && (
+                        {(modalInventory.guns || []).length === 0 && !modalLoading && (
                           <span className="text-xs text-slate-600 italic">No guns stored.</span>
                         )}
                       </div>
@@ -785,10 +850,10 @@ export const AccountList: React.FC = () => {
                     {/* 4. Fighting Styles */}
                     <div className="pt-2">
                       <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
-                        Fighting Styles ({selectedAccountDetails.inventory.styles?.length || 0})
+                        Fighting Styles ({modalInventory.styles?.length || 0})
                       </h4>
                       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                        {(selectedAccountDetails.inventory.styles || []).map((style, idx) => (
+                        {(modalInventory.styles || []).map((style, idx) => (
                           <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center">
                             <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
                               <ItemImage
@@ -802,7 +867,7 @@ export const AccountList: React.FC = () => {
                             <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{style}</span>
                           </div>
                         ))}
-                        {(selectedAccountDetails.inventory.styles || []).length === 0 && (
+                        {(modalInventory.styles || []).length === 0 && !modalLoading && (
                           <span className="text-xs text-slate-600 italic">No fighting styles stored.</span>
                         )}
                       </div>
@@ -811,24 +876,24 @@ export const AccountList: React.FC = () => {
                     {/* 5. Accessories */}
                     <div className="pt-2">
                       <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
-                        Accessories ({selectedAccountDetails.inventory.accessories?.length || 0})
+                        Accessories ({modalInventory.accessories?.length || 0})
                       </h4>
                       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                        {(selectedAccountDetails.inventory.accessories || []).map((acc, idx) => (
+                        {(modalInventory.accessories || []).map((accItem, idx) => (
                           <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center">
                             <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
                               <ItemImage
                                 category="accessories"
-                                name={acc}
+                                name={accItem}
                                 fallbackEmoji="👑"
                                 emojiClass="text-base text-slate-500"
                                 imgClass="w-8 h-8 object-contain"
                               />
                             </div>
-                            <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{acc}</span>
+                            <span className="text-xs font-bold text-white mt-2 block truncate max-w-full">{accItem}</span>
                           </div>
                         ))}
-                        {(selectedAccountDetails.inventory.accessories || []).length === 0 && (
+                        {(modalInventory.accessories || []).length === 0 && !modalLoading && (
                           <span className="text-xs text-slate-600 italic">No accessories.</span>
                         )}
                       </div>
@@ -837,10 +902,10 @@ export const AccountList: React.FC = () => {
                     {/* 6. Materials */}
                     <div className="pt-2">
                       <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2 mb-3">
-                        Materials ({selectedAccountDetails.inventory.materials?.length || 0})
+                        Materials ({modalInventory.materials?.length || 0})
                       </h4>
                       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                        {(selectedAccountDetails.inventory.materials || []).map((mat, idx) => (
+                        {(modalInventory.materials || []).map((mat, idx) => (
                           <div key={idx} className="bg-ocean-deep p-3 rounded-lg border border-slate-800 flex flex-col items-center justify-center text-center relative overflow-hidden">
                             <div className="w-10 h-10 bg-ocean-abyss rounded flex items-center justify-center overflow-hidden">
                               <ItemImage
@@ -857,7 +922,7 @@ export const AccountList: React.FC = () => {
                             </span>
                           </div>
                         ))}
-                        {(selectedAccountDetails.inventory.materials || []).length === 0 && (
+                        {(modalInventory.materials || []).length === 0 && !modalLoading && (
                           <span className="text-xs text-slate-600 italic">No materials stored.</span>
                         )}
                       </div>
@@ -873,18 +938,18 @@ export const AccountList: React.FC = () => {
                     Farming Logs
                   </h4>
                   <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                    {selectedAccountDetails.logs.map((log) => (
-                      <div key={log._id} className="p-3 bg-slate-900 border border-slate-850 rounded-xl flex items-start gap-3">
+                    {(modalLogs || []).map((log) => (
+                      <div key={log._id || Math.random()} className="p-3 bg-slate-900 border border-slate-850 rounded-xl flex items-start gap-3">
                         <Activity className="w-5 h-5 text-gold flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
                           <p className="text-sm text-slate-200">{log.description}</p>
                           <span className="text-[10px] text-slate-500 font-semibold uppercase mt-1 block">
-                            {log.type} &bull; {new Date(log.timestamp).toLocaleString()}
+                            {log.type} &bull; {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Recent'}
                           </span>
                         </div>
                       </div>
                     ))}
-                    {selectedAccountDetails.logs.length === 0 && (
+                    {(modalLogs || []).length === 0 && !modalLoading && (
                       <div className="py-12 text-center text-slate-500 text-sm">
                         No activity logs registered yet. Keep bot farming.
                       </div>
@@ -897,11 +962,11 @@ export const AccountList: React.FC = () => {
             {/* Modal Footer */}
             <div className="p-6 border-t border-slate-850 bg-slate-950/40 flex justify-between items-center">
               <span className="text-xs text-slate-500">
-                Last Ingestion: {new Date(selectedAccountDetails.account.lastSeen).toLocaleString()}
+                Last Ingestion: {modalAccount.lastSeen ? new Date(modalAccount.lastSeen).toLocaleString() : 'Just now'}
               </span>
               <button
                 onClick={handleCloseModal}
-                className="px-6 py-2 rounded-xl text-xs font-extrabold uppercase bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 hover:text-white transition"
+                className="px-6 py-2 rounded-xl text-xs font-extrabold uppercase bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 hover:text-white transition cursor-pointer"
               >
                 Close View
               </button>
