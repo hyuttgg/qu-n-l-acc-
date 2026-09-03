@@ -29,9 +29,45 @@ export const AccountList: React.FC = () => {
   const [modalTargetAccount, setModalTargetAccount] = useState<Account | null>(null);
   const [modalLoading, setModalLoading] = useState<boolean>(false);
 
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
+  // Toast & Modal States for UI Feedback
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+
+  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setModalTargetAccount(null);
+    setActiveAccountId(null);
+  };
+
+  const handleOpenDetails = (accOrId: Account | string) => {
+    let target: Account | undefined;
+    let accountId: string;
+    if (typeof accOrId === 'string') {
+      accountId = accOrId;
+      target = accounts.find((a) => (a._id || (a as any).id) === accountId);
+    } else {
+      target = accOrId;
+      accountId = accOrId._id || (accOrId as any).id;
+    }
+
+    if (target) {
+      setModalTargetAccount(target);
+    }
+    setActiveTab('equipped');
+    setShowModal(true);
+
+    if (accountId) {
+      setModalLoading(true);
+      fetchAccountDetails(accountId)
+        .catch((err) => console.error('fetchAccountDetails error:', err))
+        .finally(() => setModalLoading(false));
+    }
+  };
 
   const modalAccount = (selectedAccountDetails?.account &&
     (selectedAccountDetails.account._id === (modalTargetAccount?._id || (modalTargetAccount as any)?.id) ||
@@ -49,6 +85,31 @@ export const AccountList: React.FC = () => {
   };
 
   const modalLogs = selectedAccountDetails?.logs || [];
+
+  const handleSaveNotes = async () => {
+    if (!modalAccount) return;
+    setSavingNotes(true);
+    const accountId = modalAccount._id || (modalAccount as any).id;
+    const success = await updateAccountNotes(accountId, notesInput);
+    if (success) {
+      showToast('Đã lưu ghi chú thành công!', 'success');
+      if (modalTargetAccount) {
+        setModalTargetAccount({ ...modalTargetAccount, notes: notesInput });
+      }
+    } else {
+      showToast('Không thể lưu ghi chú. Vui lòng thử lại!', 'error');
+    }
+    setSavingNotes(false);
+  };
+
+  const promptDeleteAccount = (accountId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeletingAccountId(accountId);
+  };
+
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
 
   // Sync notes input only when opening details for a different account
   useEffect(() => {
@@ -82,67 +143,6 @@ export const AccountList: React.FC = () => {
       };
     }
   }, [showModal, deletingAccountId]);
-
-  // Toast & Modal States for UI Feedback
-  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
-
-  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
-    setToastMessage({ text, type });
-    setTimeout(() => setToastMessage(null), 3000);
-  };
-
-  const handleOpenDetails = (accOrId: Account | string) => {
-    let target: Account | undefined;
-    let accountId: string;
-    if (typeof accOrId === 'string') {
-      accountId = accOrId;
-      target = accounts.find((a) => (a._id || (a as any).id) === accountId);
-    } else {
-      target = accOrId;
-      accountId = accOrId._id || (accOrId as any).id;
-    }
-
-    if (target) {
-      setModalTargetAccount(target);
-    }
-    setActiveTab('equipped');
-    setShowModal(true);
-
-    if (accountId) {
-      setModalLoading(true);
-      fetchAccountDetails(accountId)
-        .catch((err) => console.error('fetchAccountDetails error:', err))
-        .finally(() => setModalLoading(false));
-    }
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setModalTargetAccount(null);
-    setActiveAccountId(null);
-  };
-
-  const handleSaveNotes = async () => {
-    if (!modalAccount) return;
-    setSavingNotes(true);
-    const accountId = modalAccount._id || (modalAccount as any).id;
-    const success = await updateAccountNotes(accountId, notesInput);
-    if (success) {
-      showToast('Đã lưu ghi chú thành công!', 'success');
-      if (modalTargetAccount) {
-        setModalTargetAccount({ ...modalTargetAccount, notes: notesInput });
-      }
-    } else {
-      showToast('Không thể lưu ghi chú. Vui lòng thử lại!', 'error');
-    }
-    setSavingNotes(false);
-  };
-
-  const promptDeleteAccount = (accountId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setDeletingAccountId(accountId);
-  };
 
   const confirmDeleteAccount = async () => {
     if (deletingAccountId) {
