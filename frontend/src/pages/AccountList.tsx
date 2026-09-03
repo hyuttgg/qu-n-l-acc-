@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useApp } from '../store';
 import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity, FileText, Copy, Check, Cpu, Zap, Filter, Sparkles, Trophy, Flame, AlertTriangle, Scissors } from 'lucide-react';
@@ -62,6 +63,25 @@ export const AccountList: React.FC = () => {
       setActiveAccountId(null);
     }
   }, [modalAccount, activeAccountId]);
+
+  // Prevent background scroll and allow Escape key to close modals
+  useEffect(() => {
+    if (showModal || deletingAccountId) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          handleCloseModal();
+          setDeletingAccountId(null);
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [showModal, deletingAccountId]);
 
   // Toast & Modal States for UI Feedback
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -509,11 +529,17 @@ export const AccountList: React.FC = () => {
       </div>
 
       {/* Account Details Modal */}
-      {showModal && modalAccount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="glass-panel border-ocean-cyan/20 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col relative animate-scale-in">
+      {showModal && modalAccount && createPortal(
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto"
+          onClick={handleCloseModal}
+        >
+          <div
+            className="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col relative rounded-2xl border border-cyan-500/30 bg-[#0b1329] shadow-2xl shadow-black/80 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Modal Header */}
-            <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/80">
               <div className="flex items-center gap-3">
                 <Compass className="w-6 h-6 text-gold animate-pulse flex-shrink-0" />
                 <div>
@@ -535,14 +561,14 @@ export const AccountList: React.FC = () => {
               </div>
               <button
                 onClick={handleCloseModal}
-                className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
+                className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-slate-850 bg-slate-950/30 px-6">
+            <div className="flex border-b border-slate-850 bg-slate-950/40 px-6">
               {(['equipped', 'inventory', 'logs'] as const).map((tab) => (
                 <button
                   key={tab}
@@ -612,7 +638,7 @@ export const AccountList: React.FC = () => {
                           <span className="text-xs font-bold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/40 inline-block">
                             📱 Trùng HWID ({modalAccount.sameHwidCount || 1} tài khoản)
                           </span>
-                          {modalAccount.sameHwidAccounts && modalAccount.sameHwidAccounts.length > 0 && (
+                          {Array.isArray(modalAccount.sameHwidAccounts) && modalAccount.sameHwidAccounts.length > 0 && (
                             <p className="text-[11px] text-slate-400 mt-1 truncate">
                               Chung máy: {modalAccount.sameHwidAccounts.filter((u: string) => u !== modalAccount.robloxUsername).join(', ') || 'Chính nó'}
                             </p>
@@ -972,13 +998,20 @@ export const AccountList: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Delete Confirmation Glassmorphic Modal */}
-      {deletingAccountId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-ocean-deep border border-red-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      {deletingAccountId && createPortal(
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in overflow-y-auto"
+          onClick={() => setDeletingAccountId(null)}
+        >
+          <div
+            className="bg-ocean-deep border border-red-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center gap-3 text-red-400">
               <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
                 <Trash2 className="w-5 h-5" />
@@ -1006,7 +1039,8 @@ export const AccountList: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Glassmorphic Toast Notification */}

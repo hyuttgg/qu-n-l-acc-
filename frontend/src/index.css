@@ -27,7 +27,6 @@
     radial-gradient(at 50% 100%, rgba(212, 175, 55, 0.06) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.08) 0px, transparent 50%);
   background-attachment: fixed;
-  transform: translateZ(0);
 }
 
 /* Liquid Glass Cards & Panels - Tuned to 12px blur for ultra-fast GPU rasterization */
