@@ -201,76 +201,110 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         newSocket.emit('join_room', user.id);
       });
 
+      // ── Batched State Buffer for High-Frequency Socket Telemetry ──
+      const pendingHeartbeats = new Map<string, {
+        status: any;
+        location?: string;
+        lastSeen: string;
+      }>();
+
+      const pendingAccountUpdates = new Map<string, {
+        account: Account;
+        inventory?: Inventory;
+        activeSession?: Session | null;
+        logs?: Log[];
+      }>();
+
+      let flushTimeout: ReturnType<typeof setTimeout> | null = null;
+
+      const scheduleFlush = () => {
+        if (flushTimeout !== null) return;
+        flushTimeout = setTimeout(() => {
+          flushTimeout = null;
+
+          const hasHeartbeats = pendingHeartbeats.size > 0;
+          const hasUpdates = pendingAccountUpdates.size > 0;
+
+          if (!hasHeartbeats && !hasUpdates) return;
+
+          setAccounts((prev) => {
+            let updated = [...prev];
+            let changed = false;
+
+            // Apply heartbeats
+            if (hasHeartbeats) {
+              pendingHeartbeats.forEach((hbData, robloxUsername) => {
+                const index = updated.findIndex((acc) => acc.robloxUsername === robloxUsername);
+                if (index !== -1) {
+                  updated[index] = {
+                    ...updated[index],
+                    lastSeen: hbData.lastSeen,
+                    status: hbData.status,
+                    location: hbData.location || updated[index].location,
+                  };
+                  changed = true;
+                }
+              });
+              pendingHeartbeats.clear();
+            }
+
+            // Apply full updates
+            if (hasUpdates) {
+              pendingAccountUpdates.forEach((upData) => {
+                const index = updated.findIndex((acc) =>
+                  (acc._id && upData.account._id && acc._id === upData.account._id) ||
+                  (acc.robloxUsername && upData.account.robloxUsername && acc.robloxUsername === upData.account.robloxUsername)
+                );
+                if (index !== -1) {
+                  updated[index] = { ...updated[index], ...upData.account };
+                } else {
+                  updated.unshift(upData.account);
+                }
+                changed = true;
+
+                // Also update selectedAccountDetails if active
+                setSelectedAccountDetails((prevDetails) => {
+                  if (prevDetails && prevDetails.account._id === upData.account._id) {
+                    return {
+                      account: upData.account,
+                      inventory: upData.inventory || prevDetails.inventory,
+                      activeSession: upData.activeSession !== undefined ? upData.activeSession : prevDetails.activeSession,
+                      logs: upData.logs ? [...upData.logs, ...prevDetails.logs].slice(0, 30) : prevDetails.logs,
+                    };
+                  }
+                  return prevDetails;
+                });
+              });
+              pendingAccountUpdates.clear();
+            }
+
+            return changed ? updated : prev;
+          });
+        }, 300); // 300ms batch window (smooth 60fps, no micro-stutter)
+      };
+
       // ⚡ Fast Microsecond Deduplicated Heartbeat Socket Event
       newSocket.on('account_heartbeat', (data: { key: string; userId: string; robloxUsername: string; status: any; location?: string; lastSeen: string | Date; isDeduplicated?: boolean }) => {
-        setAccounts((prev) => {
-          const index = prev.findIndex((acc) => acc.robloxUsername === data.robloxUsername);
-          if (index !== -1) {
-            const updated = [...prev];
-            const lastSeenStr = data.lastSeen instanceof Date ? data.lastSeen.toISOString() : String(data.lastSeen);
-            updated[index] = {
-              ...updated[index],
-              lastSeen: lastSeenStr,
-              status: data.status,
-              location: data.location || updated[index].location,
-            };
-            return updated;
-          }
-          return prev;
+        const lastSeenStr = data.lastSeen instanceof Date ? data.lastSeen.toISOString() : String(data.lastSeen);
+        pendingHeartbeats.set(data.robloxUsername, {
+          status: data.status,
+          location: data.location,
+          lastSeen: lastSeenStr,
         });
+        scheduleFlush();
       });
 
       newSocket.on('account_update', (data: { account: Account; inventory: Inventory; activeSession: Session | null; logs?: Log[] }) => {
-        console.log('Realtime Account Update:', data);
-        
-        // 1. Update accounts list dynamically
-        setAccounts((prev) => {
-          const index = prev.findIndex((acc) => 
-            (acc._id && data.account._id && acc._id === data.account._id) || 
-            (acc.robloxUsername && data.account.robloxUsername && acc.robloxUsername === data.account.robloxUsername)
-          );
-          if (index !== -1) {
-            const updated = [...prev];
-            updated[index] = { ...updated[index], ...data.account };
-            return updated.sort((a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime());
-          }
-          return [data.account, ...prev];
-        });
-
-        // 2. Update active detail view if open
-        setSelectedAccountDetails((prev) => {
-          if (prev && prev.account._id === data.account._id) {
-            return {
-              account: data.account,
-              inventory: data.inventory,
-              activeSession: data.activeSession,
-              logs: data.logs ? [...data.logs, ...prev.logs].slice(0, 30) : prev.logs,
-            };
-          }
-          return prev;
-        });
-
-        // 3. Increment analytics dashboard metrics dynamically in React state
-        setAnalytics((prev) => {
-          if (!prev) return null;
-          const currentAccounts = accountsRef.current;
-          const wasOnline = currentAccounts.find((a) => a._id === data.account._id)?.status !== 'offline';
-          const isOnline = data.account.status !== 'offline';
-          const onlineDiff = isOnline && !wasOnline ? 1 : !isOnline && wasOnline ? -1 : 0;
-
-          return {
-            ...prev,
-            summary: {
-              ...prev.summary,
-              onlineAccounts: Math.max(0, prev.summary.onlineAccounts + onlineDiff),
-              totalBeli: prev.summary.totalBeli + (data.account.beli - (currentAccounts.find((a) => a._id === data.account._id)?.beli || 0)),
-              totalFragments: prev.summary.totalFragments + (data.account.fragments - (currentAccounts.find((a) => a._id === data.account._id)?.fragments || 0)),
-            }
-          };
-        });
+        const username = data.account.robloxUsername;
+        pendingAccountUpdates.set(username, data);
+        scheduleFlush();
       });
 
       return () => {
+        if (flushTimeout !== null) {
+          clearTimeout(flushTimeout);
+          flushTimeout = null;
+        }
         newSocket.disconnect();
         setSocket(null);
       };

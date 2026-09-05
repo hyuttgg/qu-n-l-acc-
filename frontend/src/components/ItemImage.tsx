@@ -9,6 +9,9 @@ export interface ItemImageProps {
   emojiClass?: string;
 }
 
+// Global set of known failed image URLs to prevent repeated 404 network storms
+const failedImageUrls = new Set<string>();
+
 export const ItemImage: React.FC<ItemImageProps> = memo(({
   category,
   name,
@@ -16,12 +19,17 @@ export const ItemImage: React.FC<ItemImageProps> = memo(({
   imgClass = 'w-16 h-16 object-contain',
   emojiClass = 'text-2xl',
 }) => {
-  const [error, setError] = useState(false);
   const src = resolveItemImage(category, name);
+  const isKnownFailed = src ? failedImageUrls.has(src) : true;
+  const [error, setError] = useState<boolean>(isKnownFailed);
 
   useEffect(() => {
-    setError(false);
-  }, [category, name]);
+    if (src && failedImageUrls.has(src)) {
+      setError(true);
+    } else {
+      setError(!src);
+    }
+  }, [src]);
 
   if (!src || error) {
     return <span className={emojiClass}>{fallbackEmoji}</span>;
@@ -34,7 +42,10 @@ export const ItemImage: React.FC<ItemImageProps> = memo(({
       loading="lazy"
       decoding="async"
       className={imgClass}
-      onError={() => setError(true)}
+      onError={() => {
+        if (src) failedImageUrls.add(src);
+        setError(true);
+      }}
     />
   );
 });

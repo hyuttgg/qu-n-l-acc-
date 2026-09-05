@@ -18,26 +18,36 @@
    LIQUID GLASS & VISION OS DESIGN SYSTEM - GPU OPTIMIZED (60FPS TARGET)
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/* Fluid Ambient Background Orbs */
+/* Fluid Ambient Background Orbs - GPU Optimized Fixed Layer (Zero Scroll Repaint) */
 .liquid-ambient-bg {
+  position: relative;
   background-color: #050814;
+}
+
+.liquid-ambient-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
   background-image: 
     radial-gradient(at 0% 0%, rgba(0, 242, 254, 0.08) 0px, transparent 50%),
     radial-gradient(at 100% 0%, rgba(138, 43, 226, 0.1) 0px, transparent 50%),
     radial-gradient(at 50% 100%, rgba(212, 175, 55, 0.06) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.08) 0px, transparent 50%);
-  background-attachment: fixed;
+  pointer-events: none;
+  z-index: 0;
+  transform: translateZ(0);
 }
 
-/* Liquid Glass Cards & Panels - Tuned to 12px blur for ultra-fast GPU rasterization */
+/* Liquid Glass Cards & Panels - Tuned to 8px blur for ultra-fast 60+ FPS GPU rasterization */
 .liquid-glass {
-  background: rgba(13, 18, 36, 0.72);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(13, 18, 36, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 
     0 12px 32px rgba(0, 0, 0, 0.35),
     inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateZ(0);
   @apply rounded-3xl transition-all duration-200;
 }
 
@@ -57,14 +67,15 @@
 
 /* Liquid Gold Accent Panel */
 .liquid-glass-gold {
-  background: rgba(28, 22, 8, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(28, 22, 8, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(212, 175, 55, 0.25);
   box-shadow: 
     0 12px 32px rgba(0, 0, 0, 0.35),
     0 0 15px rgba(212, 175, 55, 0.08),
     inset 0 1px 1px 0 rgba(255, 235, 170, 0.25);
+  transform: translateZ(0);
   @apply rounded-3xl transition-all duration-200;
 }
 
@@ -200,3 +211,16 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* High-Performance Rendering & Virtualization Helpers */
+.virtual-table-row {
+  contain: layout paint;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 48px;
+}
+
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+

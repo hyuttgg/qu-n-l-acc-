@@ -1,6 +1,6 @@
 export const getBackendUrl = (): string => {
   const isLocalHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const rawEnv = (import.meta.env.VITE_API_URL || '').trim();
+  const rawEnv = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '').trim();
 
   if (!isLocalHost) {
     if (rawEnv && !rawEnv.includes('localhost') && !rawEnv.includes('127.0.0.1')) {
@@ -47,20 +47,69 @@ const handleResponse = async (res: Response) => {
   return data;
 };
 
-export const api = {
-  get: async (endpoint: string, customHeaders?: any) => {
-    try {
-      const res = await fetch(`${getBaseUrl()}${endpoint}`, {
-        method: 'GET',
-        headers: { ...getHeaders(endpoint), ...customHeaders },
-      });
-      return await handleResponse(res);
-    } catch (err: any) {
-      return { success: false, message: 'Không thể kết nối máy chủ. Vui lòng kiểm tra mạng.' };
+// In-memory SWR Cache & In-flight Request Deduplication
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+}
+
+const apiCache = new Map<string, CacheEntry>();
+const inFlightRequests = new Map<string, Promise<any>>();
+const CACHE_TTL_MS = 6000; // 6 seconds fast-cache for smooth tab switching
+
+export const clearApiCache = (pattern?: string) => {
+  if (!pattern) {
+    apiCache.clear();
+    return;
+  }
+  for (const key of apiCache.keys()) {
+    if (key.includes(pattern)) {
+      apiCache.delete(key);
     }
+  }
+};
+
+export const api = {
+  get: async (endpoint: string, customHeaders?: any, bypassCache = false) => {
+    const cacheKey = `${endpoint}:${Boolean(customHeaders)}`;
+    const now = Date.now();
+
+    if (!bypassCache && apiCache.has(cacheKey)) {
+      const entry = apiCache.get(cacheKey)!;
+      if (now - entry.timestamp < CACHE_TTL_MS) {
+        return entry.data;
+      }
+      apiCache.delete(cacheKey);
+    }
+
+    if (!bypassCache && inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey)!;
+    }
+
+    const requestPromise = (async () => {
+      try {
+        const res = await fetch(`${getBaseUrl()}${endpoint}`, {
+          method: 'GET',
+          headers: { ...getHeaders(endpoint), ...customHeaders },
+        });
+        const data = await handleResponse(res);
+        if (data && data.success !== false) {
+          apiCache.set(cacheKey, { data, timestamp: Date.now() });
+        }
+        return data;
+      } catch (err: any) {
+        return { success: false, message: 'Không thể kết nối máy chủ. Vui lòng kiểm tra mạng.' };
+      } finally {
+        inFlightRequests.delete(cacheKey);
+      }
+    })();
+
+    inFlightRequests.set(cacheKey, requestPromise);
+    return requestPromise;
   },
 
   post: async (endpoint: string, body: any, customHeaders?: any) => {
+    clearApiCache();
     try {
       const res = await fetch(`${getBaseUrl()}${endpoint}`, {
         method: 'POST',
@@ -74,6 +123,7 @@ export const api = {
   },
 
   delete: async (endpoint: string, customHeaders?: any) => {
+    clearApiCache();
     try {
       const res = await fetch(`${getBaseUrl()}${endpoint}`, {
         method: 'DELETE',
@@ -86,6 +136,7 @@ export const api = {
   },
 
   put: async (endpoint: string, body: any, customHeaders?: any) => {
+    clearApiCache();
     try {
       const res = await fetch(`${getBaseUrl()}${endpoint}`, {
         method: 'PUT',
@@ -98,4 +149,3 @@ export const api = {
     }
   },
 };
-

@@ -246,18 +246,26 @@ class CSharpWasmService {
     return ((b << 16) | a) >>> 0;
   }
 
+  private classificationCache = new Map<string, SmartClassification>();
+
   /**
-   * 🤖 Smart AI-Classify Account (< 0.001ms)
+   * 🤖 Smart AI-Classify Account (< 0.0001ms with memoization)
    */
   public smartClassifyAccount(account: Record<string, any>): SmartClassification {
-    const level = Number(account.level) || 1;
-    const beli = Number(account.beli) || 0;
-    const fragments = Number(account.fragments) || 0;
-    const sea = Number(account.sea) || 1;
     const fruit = String(account.equipped?.fruit || account.fruit || '').toLowerCase();
     const sword = String(account.equipped?.sword || account.sword || '').toLowerCase();
     const melee = String(account.equipped?.fightingStyle || account.fightingStyle || '').toLowerCase();
     const status = String(account.status || '').toLowerCase();
+    const level = Number(account.level) || 1;
+    const beli = Number(account.beli) || 0;
+    const fragments = Number(account.fragments) || 0;
+    const sea = Number(account.sea) || 1;
+
+    const cacheKey = `${account._id || account.robloxUsername || ''}:${level}:${beli}:${fragments}:${sea}:${fruit}:${sword}:${melee}:${status}:${account.lastSeen || ''}:${account.activeHub || ''}:${account.sameHwid || false}`;
+
+    if (this.classificationCache.has(cacheKey)) {
+      return this.classificationCache.get(cacheKey)!;
+    }
 
     const tags: string[] = [];
     let score = Math.min(level, 2600);
@@ -349,12 +357,19 @@ class CSharpWasmService {
       tags.push('Same HWID');
     }
 
-    return {
+    const result: SmartClassification = {
       tier,
       score,
       activityTag,
       tags: Array.from(new Set(tags))
     };
+
+    if (this.classificationCache.size > 2000) {
+      this.classificationCache.clear();
+    }
+    this.classificationCache.set(cacheKey, result);
+
+    return result;
   }
 
   /**

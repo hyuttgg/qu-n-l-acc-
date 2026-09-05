@@ -30,10 +30,11 @@ import {
   CheckCircle2,
   RefreshCw,
   Zap,
-  ArrowRight,
   Database,
   Terminal,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { WasmStatusBadge } from '../components/WasmStatusBadge';
 
@@ -51,6 +52,10 @@ export const CookieSplitterPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'VALID' | 'WARNING' | 'INVALID'>('ALL');
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+
+  // Pagination States
+  const [cookiePage, setCookiePage] = useState<number>(1);
+  const [cookiePageSize, setCookiePageSize] = useState<number>(30);
 
   // Feedback & Copy States
   const [copiedAll, setCopiedAll] = useState<boolean>(false);
@@ -100,6 +105,19 @@ export const CookieSplitterPage: React.FC = () => {
       return true;
     });
   }, [items, statusFilter, searchTerm]);
+
+  // Reset pagination on filter or input change
+  useEffect(() => {
+    setCookiePage(1);
+  }, [searchTerm, statusFilter, rawInput, cookiePageSize]);
+
+  const totalCookiePages = Math.max(1, Math.ceil(displayedItems.length / cookiePageSize));
+  const safeCookiePage = Math.min(cookiePage, totalCookiePages);
+
+  const paginatedCookieItems = useMemo(() => {
+    const start = (safeCookiePage - 1) * cookiePageSize;
+    return displayedItems.slice(start, start + cookiePageSize);
+  }, [displayedItems, safeCookiePage, cookiePageSize]);
 
   // Formatted output text
   const formattedOutput = useMemo(() => {
@@ -657,7 +675,8 @@ export const CookieSplitterPage: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-white/10 text-slate-400 font-bold uppercase tracking-wider bg-slate-900/40">
@@ -671,7 +690,8 @@ export const CookieSplitterPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {displayedItems.map((item, idx) => {
+                {paginatedCookieItems.map((item, indexInPage) => {
+                  const idx = (safeCookiePage - 1) * cookiePageSize + indexInPage;
                   const isPassVisible = showPasswords[item.id] || false;
                   const isCopied = copiedItemIndex === item.id;
 
@@ -773,6 +793,100 @@ export const CookieSplitterPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-white/10 text-xs text-slate-400">
+            <div className="flex items-center gap-3">
+              <span>
+                Hiển thị{' '}
+                <strong className="text-white">
+                  {displayedItems.length === 0 ? 0 : (safeCookiePage - 1) * cookiePageSize + 1}
+                </strong>{' '}
+                -{' '}
+                <strong className="text-white">
+                  {Math.min(safeCookiePage * cookiePageSize, displayedItems.length)}
+                </strong>{' '}
+                trên <strong className="text-cyan-300">{displayedItems.length}</strong> kết quả
+              </span>
+
+              <div className="flex items-center gap-1.5 ml-2">
+                <span className="text-slate-500">Mỗi trang:</span>
+                <select
+                  value={cookiePageSize}
+                  onChange={(e) => {
+                    setCookiePageSize(Number(e.target.value));
+                    setCookiePage(1);
+                  }}
+                  className="bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-cyan-400 cursor-pointer"
+                >
+                  <option value={15}>15</option>
+                  <option value={30}>30</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Page Buttons */}
+            {totalCookiePages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCookiePage((p) => Math.max(1, p - 1))}
+                  disabled={safeCookiePage <= 1}
+                  className="p-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  title="Trang trước"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {Array.from({ length: totalCookiePages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalCookiePages || Math.abs(p - safeCookiePage) <= 1)
+                  .reduce((acc: (number | string)[], p, idx, arr) => {
+                    if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) {
+                      acc.push('...');
+                    }
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, idx) => {
+                    if (p === '...') {
+                      return (
+                        <span key={`dots-${idx}`} className="px-1.5 text-xs text-slate-600 select-none">
+                          ...
+                        </span>
+                      );
+                    }
+                    const isCurrent = p === safeCookiePage;
+                    return (
+                      <button
+                        type="button"
+                        key={p}
+                        onClick={() => setCookiePage(Number(p))}
+                        className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          isCurrent
+                            ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
+                            : 'bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+
+                <button
+                  type="button"
+                  onClick={() => setCookiePage((p) => Math.min(totalCookiePages, p + 1))}
+                  disabled={safeCookiePage >= totalCookiePages}
+                  className="p-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  title="Trang sau"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+          </>
         )}
       </div>
     </div>

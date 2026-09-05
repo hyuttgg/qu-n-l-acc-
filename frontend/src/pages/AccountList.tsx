@@ -1,11 +1,154 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useApp } from '../store';
-import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity, FileText, Copy, Check, Cpu, Zap, Filter, Sparkles, Trophy, Flame, AlertTriangle, Scissors } from 'lucide-react';
+import { Layers, Search, Trash2, Eye, X, Coins, Gem, Clock, Compass, Activity, FileText, Copy, Check, Cpu, Zap, Filter, Sparkles, Trophy, Flame, AlertTriangle, Scissors, ChevronLeft, ChevronRight } from 'lucide-react';
 import { csharpWasm } from '../services/csharpWasmService';
 
 import { ItemImage } from '../components/ItemImage';
+
+interface AccountRowProps {
+  acc: any;
+  copiedAccountId: string | null;
+  onOpenDetails: (acc: any) => void;
+  onCopyUsername: (e: React.MouseEvent, username: string, id: string) => void;
+  onPromptDelete: (id: string, e: React.MouseEvent) => void;
+}
+
+const AccountRow: React.FC<AccountRowProps> = React.memo(({
+  acc,
+  copiedAccountId,
+  onOpenDetails,
+  onCopyUsername,
+  onPromptDelete,
+}) => {
+  const smart = csharpWasm.smartClassifyAccount(acc);
+  const isGodTier = smart.tier.includes('God Tier');
+  const isPvpReady = smart.tier.includes('PvP Ready');
+
+  const formatBeli = (num: number) => {
+    if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
+    if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+    return num.toString();
+  };
+
+  return (
+    <tr
+      onClick={() => onOpenDetails(acc)}
+      className="hover:bg-slate-900/30 transition-colors cursor-pointer group virtual-table-row"
+    >
+      <td className="py-3.5 font-bold text-white group-hover:text-gold transition-colors">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span>{acc.robloxUsername}</span>
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+              isGodTier
+                ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                : isPvpReady
+                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                : 'bg-slate-800 text-slate-400 border border-slate-700/60'
+            }`}>
+              {isGodTier && <Trophy className="w-2.5 h-2.5 text-amber-400" />}
+              {smart.tier.split(' ')[0]} {smart.tier.split(' ')[1]}
+            </span>
+            <button
+              onClick={(e) => onCopyUsername(e, acc.robloxUsername, acc._id)}
+              className="opacity-0 group-hover:opacity-100 p-1 rounded bg-slate-900/60 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+              title="Copy Username"
+            >
+              {copiedAccountId === acc._id ? (
+                <Check className="w-3 h-3 text-emerald-400" />
+              ) : (
+                <Copy className="w-3 h-3" />
+              )}
+            </button>
+            {acc.notes && (
+              <span title={acc.notes} className="inline-flex items-center text-ocean-cyan hover:text-white cursor-help" onClick={(e) => e.stopPropagation()}>
+                <FileText className="w-3.5 h-3.5" />
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1 mt-0.5">
+            {acc.activeHub && acc.activeHub !== 'None' && acc.activeHub !== 'None / Custom Script' && (
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                acc.activeHub.includes('Banana')
+                  ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40'
+                  : acc.activeHub.includes('Maru')
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                  : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+              }`}>
+                {acc.activeHub.includes('Banana') ? '🍌' : acc.activeHub.includes('Maru') ? '⚡' : '🚀'} {acc.activeHub}
+              </span>
+            )}
+
+            {acc.sameHwid && (
+              <span
+                title={`Thiết bị HWID trùng với: ${(acc.sameHwidAccounts || []).join(', ')}`}
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 cursor-help"
+              >
+                📱 Same HWID {acc.sameHwidCount && acc.sameHwidCount > 1 ? `(${acc.sameHwidCount})` : ''}
+              </span>
+            )}
+
+            {smart.tags.filter((t: string) => t !== 'Same HWID' && t !== acc.activeHub).slice(0, 2).map((tag: string) => (
+              <span key={tag} className="text-[9px] font-semibold text-slate-400 bg-slate-950/60 border border-slate-800/80 px-1.5 py-0.2 rounded">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      </td>
+      <td className="py-3.5 text-slate-300 font-semibold">{acc.level}</td>
+      <td className="py-3.5 text-emerald-400 font-mono">{formatBeli(acc.beli)}</td>
+      <td className="py-3.5 text-purple-400 font-mono">{formatBeli(acc.fragments)}</td>
+      <td className="py-3.5 text-slate-400">{acc.race}</td>
+      <td className="py-3.5 text-cyan-300">Sea {acc.sea}</td>
+      <td className="py-3.5 text-slate-300">
+        <span className="font-semibold text-sky-400">{acc.equipped?.fruit || 'None'}</span>
+      </td>
+      <td className="py-3.5">
+        <div className="flex flex-col gap-1">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-extrabold capitalize ${
+            acc.status === 'offline'
+              ? 'bg-slate-800 text-slate-500'
+              : acc.status === 'grinding'
+              ? 'bg-emerald-500/10 text-emerald-400'
+              : 'bg-gold/10 text-gold shadow-gold-border'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${
+              acc.status === 'offline' ? 'bg-slate-500' : 'bg-emerald-500 animate-pulse'
+            }`} />
+            {acc.status}
+          </span>
+        </div>
+      </td>
+      <td className="py-3.5 text-right">
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDetails(acc);
+            }}
+            className="p-2 rounded-lg bg-ocean-cyan/10 hover:bg-ocean-cyan/20 border border-ocean-cyan/30 text-ocean-cyan hover:text-white transition cursor-pointer"
+            title="View Details"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => onPromptDelete(acc._id, e)}
+            className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-white transition cursor-pointer"
+            title="Delete Record"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+AccountRow.displayName = 'AccountRow';
 
 export const AccountList: React.FC = () => {
   const { accounts, fetchAccounts, selectedAccountDetails, fetchAccountDetails, deleteAccount, updateAccountNotes } = useApp();
@@ -169,6 +312,30 @@ export const AccountList: React.FC = () => {
     setFilterDuration((t1 - t0).toFixed(2));
     return result;
   }, [accounts, searchTerm, selectedSea, selectedStatus, minLevelFilter, selectedTier, selectedSmartTag, godItemOnly]);
+
+  // ── High-Performance Client Pagination ──
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedSea, selectedStatus, minLevelFilter, selectedTier, selectedSmartTag, godItemOnly]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAccounts.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const paginatedAccounts = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filteredAccounts.slice(start, start + pageSize);
+  }, [filteredAccounts, safeCurrentPage, pageSize]);
+
+  const handleCopyUsername = useCallback(async (e: React.MouseEvent, username: string, id: string) => {
+    e.stopPropagation();
+    await navigator.clipboard.writeText(username);
+    setCopiedAccountId(id);
+    showToast('Đã copy tên tài khoản!');
+    setTimeout(() => setCopiedAccountId(null), 1500);
+  }, []);
 
   const formatBeli = (num: number) => {
     if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
@@ -386,146 +553,113 @@ export const AccountList: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-900">
-              {filteredAccounts.map((acc) => {
-                const smart = csharpWasm.smartClassifyAccount(acc);
-                const isGodTier = smart.tier.includes('God Tier');
-                const isPvpReady = smart.tier.includes('PvP Ready');
-
-                return (
-                <tr
+              {paginatedAccounts.map((acc) => (
+                <AccountRow
                   key={acc._id || (acc as any).id}
-                  onClick={() => handleOpenDetails(acc)}
-                  className="hover:bg-slate-900/30 transition-colors cursor-pointer group"
-                >
-                  <td className="py-4 font-bold text-white group-hover:text-gold transition-colors">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <span>{acc.robloxUsername}</span>
-                        {/* Smart AI Tier Badge */}
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                          isGodTier
-                            ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-                            : isPvpReady
-                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                            : 'bg-slate-800 text-slate-400 border border-slate-700/60'
-                        }`}>
-                          {isGodTier && <Trophy className="w-2.5 h-2.5 text-amber-400" />}
-                          {smart.tier.split(' ')[0]} {smart.tier.split(' ')[1]}
-                        </span>
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            await navigator.clipboard.writeText(acc.robloxUsername);
-                            setCopiedAccountId(acc._id);
-                            showToast('Đã copy tên tài khoản!');
-                            setTimeout(() => setCopiedAccountId(null), 1500);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded bg-slate-900/60 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
-                          title="Copy Username"
-                        >
-                          {copiedAccountId === acc._id ? (
-                            <Check className="w-3 h-3 text-emerald-400" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
-                        </button>
-                        {acc.notes && (
-                          <span title={acc.notes} className="inline-flex items-center text-ocean-cyan hover:text-white cursor-help" onClick={(e) => e.stopPropagation()}>
-                            <FileText className="w-3.5 h-3.5" />
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Active Hub & Same HWID Badges */}
-                      <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                        {acc.activeHub && acc.activeHub !== 'None' && acc.activeHub !== 'None / Custom Script' && (
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                            acc.activeHub.includes('Banana')
-                              ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40'
-                              : acc.activeHub.includes('Maru')
-                              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                          }`}>
-                            {acc.activeHub.includes('Banana') ? '🍌' : acc.activeHub.includes('Maru') ? '⚡' : '🚀'} {acc.activeHub}
-                          </span>
-                        )}
-
-                        {acc.sameHwid && (
-                          <span
-                            title={`Thiết bị HWID trùng với: ${(acc.sameHwidAccounts || []).join(', ')}`}
-                            className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 cursor-help"
-                          >
-                            📱 Same HWID {acc.sameHwidCount && acc.sameHwidCount > 1 ? `(${acc.sameHwidCount})` : ''}
-                          </span>
-                        )}
-
-                        {/* Smart Tags Chips */}
-                        {smart.tags.filter((t: string) => t !== 'Same HWID' && t !== acc.activeHub).slice(0, 2).map((tag: string) => (
-                          <span key={tag} className="text-[9px] font-semibold text-slate-400 bg-slate-950/60 border border-slate-800/80 px-1.5 py-0.2 rounded">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-4 text-slate-300 font-semibold">{acc.level}</td>
-                  <td className="py-4 text-emerald-400 font-mono">{formatBeli(acc.beli)}</td>
-                  <td className="py-4 text-purple-400 font-mono">{formatBeli(acc.fragments)}</td>
-                  <td className="py-4 text-slate-400">{acc.race}</td>
-                  <td className="py-4 text-cyan-300">Sea {acc.sea}</td>
-                  <td className="py-4 text-slate-300">
-                    <span className="font-semibold text-sky-400">{acc.equipped.fruit}</span>
-                  </td>
-                  <td className="py-4">
-                    <div className="flex flex-col gap-1">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-extrabold capitalize ${
-                        acc.status === 'offline'
-                          ? 'bg-slate-800 text-slate-500'
-                          : acc.status === 'grinding'
-                          ? 'bg-emerald-500/10 text-emerald-400'
-                          : 'bg-gold/10 text-gold shadow-gold-border'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          acc.status === 'offline' ? 'bg-slate-500' : 'bg-emerald-500 animate-pulse'
-                        }`} />
-                        {acc.status}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenDetails(acc);
-                        }}
-                        className="p-2 rounded-lg bg-ocean-cyan/10 hover:bg-ocean-cyan/20 border border-ocean-cyan/30 text-ocean-cyan hover:text-white transition cursor-pointer"
-                        title="View Details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => promptDeleteAccount(acc._id, e)}
-                        className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-white transition"
-                        title="Delete Record"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                );
-              })}
+                  acc={acc}
+                  copiedAccountId={copiedAccountId}
+                  onOpenDetails={handleOpenDetails}
+                  onCopyUsername={handleCopyUsername}
+                  onPromptDelete={promptDeleteAccount}
+                />
+              ))}
               {filteredAccounts.length === 0 && (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-500 text-sm">
-                    No accounts found matching search filters.
+                    Không tìm thấy tài khoản nào khớp với bộ lọc.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* High-Performance Pagination Toolbar */}
+        {filteredAccounts.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-2 border-t border-slate-800/80">
+            <div className="flex items-center gap-3 text-xs text-slate-400">
+              <span>
+                Hiển thị <b className="text-white">{(safeCurrentPage - 1) * pageSize + 1}</b> -{' '}
+                <b className="text-white">{Math.min(safeCurrentPage * pageSize, filteredAccounts.length)}</b> trên{' '}
+                <b className="text-cyan-400">{filteredAccounts.length}</b> tài khoản
+              </span>
+              <span className="text-slate-700">|</span>
+              <div className="flex items-center gap-1.5">
+                <span>Mỗi trang:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-cyan-400 cursor-pointer"
+                >
+                  <option value={15}>15</option>
+                  <option value={20}>20</option>
+                  <option value={30}>30</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Page Buttons */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safeCurrentPage <= 1}
+                  className="p-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  title="Trang trước"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - safeCurrentPage) <= 1)
+                  .reduce((acc: (number | string)[], p, idx, arr) => {
+                    if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) {
+                      acc.push('...');
+                    }
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, idx) => {
+                    if (p === '...') {
+                      return (
+                        <span key={`dots-${idx}`} className="px-1.5 text-xs text-slate-600 select-none">
+                          ...
+                        </span>
+                      );
+                    }
+                    const isCurrent = p === safeCurrentPage;
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setCurrentPage(Number(p))}
+                        className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          isCurrent
+                            ? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20'
+                            : 'bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safeCurrentPage >= totalPages}
+                  className="p-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  title="Trang sau"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Account Details Modal */}

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useApp } from '../store';
 import { Compass, Zap, Target, ShieldAlert, Swords, Shield, Sparkles, Activity, CheckCircle2, History, ChevronRight } from 'lucide-react';
 
-import { resolveItemImage } from '../utils/itemImageResolver';
+import { ItemImage } from '../components/ItemImage';
 
 interface EquipmentCardProps {
   title: string;
@@ -25,6 +25,7 @@ const EquipmentCard: React.FC<EquipmentCardProps> = ({
 }) => {
   const items = Array.isArray(value) ? value : [value];
   const primaryItem = items[0] || 'None';
+  const fallbackEmoji = category === 'melee' ? '👊' : category === 'swords' ? '⚔️' : category === 'guns' ? '🔫' : '👑';
 
   return (
     <div
@@ -54,18 +55,13 @@ const EquipmentCard: React.FC<EquipmentCardProps> = ({
       <div className="flex items-start gap-4">
         {/* Item Image Thumbnail */}
         <div className="w-14 h-14 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-center p-1.5 shrink-0">
-          {primaryItem !== 'None' && resolveItemImage(category, primaryItem) ? (
-            <img
-              src={resolveItemImage(category, primaryItem)}
-              alt={primaryItem}
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                (e.target as HTMLElement).style.display = 'none';
-              }}
-            />
-          ) : (
-            <span className="text-slate-600 text-xs font-semibold">N/A</span>
-          )}
+          <ItemImage
+            category={category}
+            name={primaryItem}
+            fallbackEmoji={fallbackEmoji}
+            emojiClass="text-xl"
+            imgClass="w-full h-full object-contain"
+          />
         </div>
 
         {/* Item Names List */}
